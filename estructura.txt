@@ -1,0 +1,63 @@
+frontEnd/
+├── node_modules/
+├── public/
+├── src/
+│   ├── api/           # Configuración base para llamadas HTTP (ej: base de Axios, headers, URL del backend)
+│   │   └── axiosInstance.ts # O similar, para configurar un cliente HTTP
+│   ├── assets/        # Archivos estáticos como imágenes, íconos, fuentes (ya existe)
+│   ├── components/    # Componentes de UI reutilizables en toda la aplicación
+│   │   ├── Layout/    # Componentes para la estructura general (ej: Navbar, Sidebar, Footer)
+│   │   │   ├── Navbar.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   └── Layout.tsx # Un componente que envuelve las páginas
+│   │   ├── Common/    # Componentes genéricos (ej: Button, Input, Modal, Table)
+│   │   │   ├── Button.tsx
+│   │   │   ├── Select.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── Card.tsx
+│   │   │   ├── Input.tsx
+│   │   │   ├── Modal.tsx
+│   │   │   ├── Table.tsx
+│   │   │   ├── ClienteAutocomplete.tsx
+│   │   │   └── LoadingSpinner.tsx
+│   │   ├── Specific/  # Componentes más específicos, quizás usados en varias páginas pero no completamente genéricos
+│   │   │   └── UserAvatar.tsx
+│   ├── hooks/         # Custom React Hooks para lógica reutilizable (ej: useFetch, useAuth)
+│   │   ├── useFetch.ts
+│   │   └── useAuth.ts
+│   ├── pages/         # Componentes que representan páginas completas (generalmente mapeados a rutas)
+│   │   ├── Auth/      # Páginas relacionadas con autenticación (Login, Register)
+│   │   │   ├── LoginPage.tsx
+│   │   │   └── RegisterPage.tsx
+│   │   ├── Dashboard/ # Página principal después del login
+│   │   │   └── DashboardPage.tsx
+│   │   ├── Usuarios/  # Páginas relacionadas con la gestión de Usuarios
+│   │   │   ├── UsuariosListPage.tsx    # Listado de usuarios
+│   │   │   ├── UsuarioDetailPage.tsx   # Detalle de un usuario
+│   │   │   └── UsuarioFormPage.tsx     # Formulario para crear o editar usuario
+│   │   └── Settings/  # Páginas de configuración general
+│   │       └── SettingsPage.tsx
+│   ├── services/      # Lógica para interactuar con las APIs específicas del backend
+│   │   ├── authService.ts      # Servicios para autenticación (login, logout)
+│   │   ├── userService.ts      # Servicios para endpoints de usuarios (/usuarios)
+│   │   ├── purchasesService.ts # Servicios para endpoints de compras (/compras)
+│   │   └── ... (un archivo de servicio por cada grupo de rutas principal en tu backend)
+│   ├── types/         # Definiciones de tipos de TypeScript (interfaces) que reflejan las estructuras de datos del backend (schemas)
+│   │   ├── auth.ts         # Tipos para respuestas de auth (ej: token, usuario)
+│   │   ├── usuario.ts      # Interfaz para un usuario
+│   │   ├── enums.ts        # Interfaz para los enums
+│   │   ├── compra.ts       # Interfaz para una compra
+│   │   └── ... (un archivo de tipos por cada schema Pydantic relevante en tu backend)
+│   ├── utils/         # Funciones de utilidad generales (ej: formateo de fechas, validación de formularios)
+│   │   ├── formatters.ts
+│   │   └── validators.ts
+│   ├── App.tsx        # Componente principal, a menudo usado para configurar el enrutamiento (React Router)
+│   ├── main.tsx       # Punto de entrada de la aplicación (renderiza App)
+│   ├── index.css      # CSS global (donde están las directivas de Tailwind)
+│   └── vite-env.d.ts  # Tipos de entorno para Vite (ya existe)
+├── .gitignore
+├── index.html
+├── package.json
+├── postcss.config.js
+├── tailwind.config.js
+└── tsconfig.json

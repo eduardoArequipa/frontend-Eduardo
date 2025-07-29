@@ -1,0 +1,699 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+    createVenta,
+    getProductoByCodigo,
+    getMetodosPago,
+    getClientes,
+    getProductosParaVenta
+} from '../../services/ventasService';
+import { VentaCreate, DetalleVentaCreate } from '../../types/venta';
+import { MetodoPagoNested } from '../../types/metodoPago';
+import { ClienteNested } from '../../types/cliente';
+import { ProductoSchemaBase } from '../../types/producto';
+import { EstadoVentaEnum } from '../../types/enums';
+import { EstadoEnum } from '../../types/enums';
+
+import Button from '../../components/Common/Button';
+import Input from '../../components/Common/Input';
+import Modal from '../../components/Common/Modal';
+import Table from '../../components/Common/Table';
+import LoadingSpinner from '../../components/Common/LoadingSpinner';
+
+export interface CarritoItem {
+    producto_id: number;
+    codigo: string;
+    nombre: string;
+    cantidad_ui: number; // Cantidad como se muestra/edita en la UI (rollos o metros)
+    precio_unitario: number; // Precio por unidad base (Bs/metro o Bs/unidad) desde DB
+    stock_disponible_base_unit: number; // Stock total en la unidad de venta final (metros o unidades) desde DB
+    metros_por_rollo: number | null; // El factor de conversión si aplica
+    sale_unit_type: 'roll' | 'meter' | 'unit'; // Cómo se vende este ítem: 'roll' (para metros), 'meter' (para metros), 'unit' (normal)
+}
+
+const VentasFormPage: React.FC = () => { // Renombrado a VentasFormPage
+    // --- Estados de la Aplicación ---
+    const [codigoProducto, setCodigoProducto] = useState<string>('');
+    const [productosDisponibles, setProductosDisponibles] = useState<ProductoSchemaBase[]>([]);
+    const [productoSeleccionadoId, setProductoSeleccionadoId] = useState<number | null>(null);
+
+    const [carrito, setCarrito] = useState<CarritoItem[]>([]);
+    const [metodosPago, setMetodosPago] = useState<MetodoPagoNested[]>([]);
+    const [clientes, setClientes] = useState<ClienteNested[]>([]);
+    const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] = useState<number | null>(null);
+    const [clienteSeleccionado, setClienteSeleccionado] = useState<number | null>(null);
+
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+    const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+    const [ventaExitosaId, setVentaExitosaId] = useState<number | null>(null);
+
+    // --- Estado para el WebSocket ---
+    const [websocketStatus, setWebsocketStatus] = useState<string>('Conectando...');
+
+    // --- FUNCIÓN PARA AÑADIR PRODUCTO AL CARRITO (REUTILIZABLE) ---
+    const addOrUpdateProductInCart = (producto: ProductoSchemaBase) => {
+        setCarrito(prevCarrito => {
+            const isMeterProduct = producto.metros_por_rollo !== undefined && producto.metros_por_rollo !== null && producto.metros_por_rollo > 0;
+            const existingItem = prevCarrito.find(item => item.producto_id === producto.producto_id);
+
+            // Determinar la unidad de venta inicial y la cantidad a añadir por defecto (1 unidad de esa unidad)
+            const defaultSaleUnitType: 'roll' | 'meter' | 'unit' = isMeterProduct ? 'roll' : 'unit';
+            const quantityToAdd = 1; // Siempre añadimos 1 rollo o 1 unidad por defecto
+
+            // Calcular el stock disponible en la unidad de visualización (rollos o unidades)
+            let stockDisplayUnit = producto.stock; // Stock en metros o unidades
+            if (isMeterProduct && defaultSaleUnitType === 'roll') {
+                stockDisplayUnit = producto.stock / producto.metros_por_rollo!; // Convertir metros a rollos para la validación inicial
+            }
+
+            if (existingItem) {
+                // Si el producto ya está en el carrito, incrementamos su cantidad en su `sale_unit_type` actual
+                const newQuantityUi = existingItem.cantidad_ui + quantityToAdd;
+                
+                // Convertir la nueva cantidad de la UI a la unidad base para validar contra el stock total
+                const newQuantityInBaseUnit = isMeterProduct
+                    ? (existingItem.sale_unit_type === 'roll' ? newQuantityUi * existingItem.metros_por_rollo! : newQuantityUi)
+                    : newQuantityUi;
+
+                if (newQuantityInBaseUnit > producto.stock) {
+                    setError(`¡Stock insuficiente para "${producto.nombre}"! Disponible: ${producto.stock.toFixed(2)} ${isMeterProduct ? 'metros' : 'unidades'}.`);
+                    return prevCarrito;
+                }
+                return prevCarrito.map(item =>
+                    item.producto_id === producto.producto_id
+                        ? { ...item, cantidad_ui: newQuantityUi }
+                        : item
+                );
+            } else {
+                // Si es un nuevo ítem, validar si hay al menos 1 unidad de la unidad de visualización inicial
+                if (quantityToAdd > stockDisplayUnit) {
+                    setError(`¡Stock insuficiente para "${producto.nombre}"! Disponible: ${stockDisplayUnit.toFixed(2)} ${isMeterProduct ? 'rollos' : 'unidades'}.`);
+                    return prevCarrito;
+                }
+                return [
+                    ...prevCarrito,
+                    {
+                        producto_id: producto.producto_id,
+                        codigo: producto.codigo,
+                        nombre: producto.nombre,
+                        cantidad_ui: quantityToAdd, // Cantidad inicial en la unidad de visualización (1 rollo o 1 unidad)
+                        precio_unitario: producto.precio_venta, // Precio por metro o por unidad
+                        stock_disponible_base_unit: producto.stock, // Stock total en metros o unidades
+                        metros_por_rollo: producto.metros_por_rollo ?? null,
+                        sale_unit_type: defaultSaleUnitType // Establecer la unidad de venta inicial
+                    }
+                ];
+            }
+        });
+    };
+
+    // --- Lógica para el WebSocket ---
+    useEffect(() => {
+        const WS_URL = 'ws://localhost:8000/ws/queue'; // ¡IMPORTANTE: AJUSTA ESTA URL!
+
+        const websocket = new WebSocket(WS_URL);
+
+        websocket.onopen = () => {
+            setWebsocketStatus('Conectado');
+            console.log('WebSocket: Conexión establecida.');
+            setError(null);
+        };
+
+        websocket.onmessage = (event) => {
+            console.log('WebSocket: Mensaje recibido:', event.data);
+            try {
+                const data = JSON.parse(event.data);
+                if (data.event === 'product_scanned' && data.product) {
+                    const scannedProduct = data.product as ProductoSchemaBase;
+                    console.log('WebSocket: Producto escaneado recibido:', scannedProduct);
+                    setError(null);
+
+                    addOrUpdateProductInCart(scannedProduct);
+                }
+            } catch (e) {
+                console.error('WebSocket: Error al parsear mensaje JSON:', e);
+                setError('Error al procesar mensaje del escáner: ' + (e as Error).message);
+            }
+        };
+
+        websocket.onclose = (event) => {
+            setWebsocketStatus(`Desconectado (código: ${event.code})`);
+            console.warn('WebSocket: Conexión cerrada.', event);
+            setError('Conexión con el escáner perdida. Intentando reconectar...');
+            setTimeout(() => {
+                console.log('WebSocket: Intentando reconectar...');
+            }, 3000);
+        };
+
+        websocket.onerror = (errorEvent) => {
+            setWebsocketStatus('Error');
+            console.error('WebSocket: Error en la conexión:', errorEvent);
+            setError('Error en la conexión WebSocket. Revisa el servidor.');
+        };
+
+        return () => {
+            if (websocket.readyState === WebSocket.OPEN) {
+                websocket.close();
+                console.log('WebSocket: Conexión cerrada al desmontar el componente.');
+            }
+        };
+    }, []);
+
+    // --- Carga Inicial de Datos ---
+    useEffect(() => {
+        const loadInitialData = async () => {
+            setIsLoading(true);
+            try {
+                const [metodos, clientesData, productosData] = await Promise.all([
+                    getMetodosPago(),
+                    getClientes(),
+                    getProductosParaVenta(),
+                ]);
+                setMetodosPago(metodos);
+                setClientes(clientesData);
+                // Filtra productos activos y con stock > 0 en su unidad base
+                setProductosDisponibles(productosData.filter(p => p.estado === EstadoEnum.Activo && p.stock > 0));
+
+                if (metodos.length > 0) {
+                    setMetodoPagoSeleccionado(metodos[0].metodo_pago_id);
+                }
+            } catch (err) {
+                setError('Error al cargar datos iniciales (métodos de pago/clientes/productos).');
+                console.error(err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadInitialData();
+    }, []);
+
+    // --- Lógica para Añadir Producto por Código/Escáner (Manual) ---
+    const handleScanOrEnterProduct = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!codigoProducto.trim()) return;
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const producto: ProductoSchemaBase = await getProductoByCodigo(codigoProducto.trim());
+            addOrUpdateProductInCart(producto);
+            setCodigoProducto('');
+        } catch (err: any) {
+            setError(err.response?.data?.detail || 'Producto no encontrado o error en la búsqueda.');
+            console.error('Error al buscar producto:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // --- Lógica para Añadir Producto desde el Dropdown/Selector ---
+    const handleAddSelectedProduct = async () => {
+        if (!productoSeleccionadoId) {
+            setError('Por favor, selecciona un producto de la lista.');
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const productoToAdd = productosDisponibles.find(p => p.producto_id === productoSeleccionadoId);
+
+            if (!productoToAdd) {
+                setError('Producto seleccionado no encontrado.');
+                setIsLoading(false);
+                return;
+            }
+            addOrUpdateProductInCart(productoToAdd);
+            setProductoSeleccionadoId(null);
+        } catch (err: any) {
+            setError('Error al añadir producto seleccionado.');
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // --- Lógica para Cambiar Cantidad de Ítem en el Carrito (Input Editable) ---
+    const handleQuantityChange = (producto_id: number, newQuantityString: string) => {
+        setCarrito(prevCarrito => {
+            setError(null);
+            return prevCarrito.map(item => {
+                if (item.producto_id === producto_id) {
+                    const parsedQuantity = parseFloat(newQuantityString);
+
+                    if (isNaN(parsedQuantity) || parsedQuantity < 0) {
+                        setError('La cantidad debe ser un número positivo.');
+                        return item;
+                    }
+
+                    if (parsedQuantity === 0) {
+                        return null; // Eliminar el ítem si la cantidad llega a 0
+                    }
+
+                    const isMeterProduct = item.metros_por_rollo !== null && item.metros_por_rollo > 0;
+
+                    // Calcular la nueva cantidad en la unidad base para la validación de stock
+                    let newQuantityInBaseUnit: number;
+                    if (isMeterProduct) {
+                        newQuantityInBaseUnit = (item.sale_unit_type === 'roll')
+                            ? parsedQuantity * item.metros_por_rollo!
+                            : parsedQuantity; // Si es 'meter', parsedQuantity ya está en metros
+                    } else {
+                        newQuantityInBaseUnit = parsedQuantity; // Para unidades, parsedQuantity es la cantidad base
+                    }
+
+                    // Validar contra el stock total en la unidad base
+                    if (newQuantityInBaseUnit > item.stock_disponible_base_unit) {
+                        setError(`No puedes añadir más de ${item.stock_disponible_base_unit} ${isMeterProduct ? 'metros' : 'unidades'} de "${item.nombre}".`);
+                        return item;
+                    }
+
+                    return { ...item, cantidad_ui: parsedQuantity };
+                }
+                return item;
+            }).filter(Boolean) as CarritoItem[];
+        });
+    };
+
+    // --- NUEVA Lógica para Cambiar Tipo de Venta (Rollo/Metro) ---
+    const handleSaleUnitTypeChange = (producto_id: number, newType: 'roll' | 'meter') => {
+        setCarrito(prevCarrito => {
+            return prevCarrito.map(item => {
+                if (item.producto_id === producto_id && item.metros_por_rollo !== null && item.metros_por_rollo > 0) {
+                    // Convertir la cantidad actual de la UI al nuevo tipo de unidad de visualización
+                    let convertedQuantity = item.cantidad_ui;
+
+                    if (item.sale_unit_type === 'roll' && newType === 'meter') {
+                        // Convirtiendo de rollos a metros: cantidad_ui * metros_por_rollo
+                        convertedQuantity = item.cantidad_ui * item.metros_por_rollo;
+                    } else if (item.sale_unit_type === 'meter' && newType === 'roll') {
+                        // Convirtiendo de metros a rollos: cantidad_ui / metros_por_rollo
+                        convertedQuantity = item.cantidad_ui / item.metros_por_rollo;
+                    }
+                    
+                    // Asegurar que la cantidad convertida no sea negativa o cero
+                    if (convertedQuantity <= 0 || isNaN(convertedQuantity)) {
+                        convertedQuantity = 1; // Por defecto a 1 de la nueva unidad si la conversión da un valor inválido
+                        setError(`La cantidad de "${item.nombre}" se ha restablecido a 1 debido al cambio de unidad de venta. Por favor, ajusta la cantidad si es necesario.`);
+                    }
+
+                    // Validar la cantidad convertida contra el stock disponible en la unidad base
+                    let newQuantityInBaseUnit: number;
+                    if (newType === 'roll') {
+                        newQuantityInBaseUnit = convertedQuantity * item.metros_por_rollo!;
+                    } else { // newType === 'meter'
+                        newQuantityInBaseUnit = convertedQuantity;
+                    }
+
+                    if (newQuantityInBaseUnit > item.stock_disponible_base_unit) {
+                        setError(`La cantidad convertida excede el stock disponible (${item.stock_disponible_base_unit.toFixed(2)} ${item.metros_por_rollo ? 'metros' : 'unidades'}). Por favor, ajusta la cantidad.`);
+                        convertedQuantity = item.cantidad_ui; // Revertir si la conversión excede el stock
+                    }
+
+
+                    return { ...item, sale_unit_type: newType, cantidad_ui: convertedQuantity };
+                }
+                return item;
+            });
+        });
+    };
+
+
+    // --- Lógica para Remover Ítem del Carrito ---
+    const handleRemoveItem = (producto_id: number) => {
+        setCarrito(prevCarrito => prevCarrito.filter(item => item.producto_id !== producto_id));
+        setError(null);
+    };
+
+    // --- Cálculo del Total de la Venta (Memorizado para eficiencia) ---
+    const totalVenta = useMemo(() => {
+        return carrito.reduce((acc, item) => {
+            const isMeterProduct = item.metros_por_rollo !== null && item.metros_por_rollo > 0;
+            let itemQuantityInBaseUnit: number;
+
+            if (isMeterProduct) {
+                // Convertir cantidad_ui (rollos o metros) a la unidad base (metros)
+                itemQuantityInBaseUnit = (item.sale_unit_type === 'roll')
+                    ? item.cantidad_ui * item.metros_por_rollo!
+                    : item.cantidad_ui; // Si es 'meter', cantidad_ui ya está en metros
+            } else {
+                // Para productos por unidad, cantidad_ui ya está en la unidad base
+                itemQuantityInBaseUnit = item.cantidad_ui;
+            }
+            return acc + (itemQuantityInBaseUnit * item.precio_unitario);
+        }, 0);
+    }, [carrito]);
+
+    // --- Lógica para Finalizar la Venta ---
+    const handleFinalizarVenta = async () => {
+        if (carrito.length === 0) {
+            setError('El carrito está vacío. Añade productos para finalizar la venta.');
+            return;
+        }
+        if (!metodoPagoSeleccionado) {
+            setError('Por favor, selecciona un método de pago.');
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        const detallesVenta: DetalleVentaCreate[] = carrito.map(item => {
+            const isMeterProduct = item.metros_por_rollo !== null && item.metros_por_rollo > 0;
+            let cantidadToSend: number;
+
+            if (isMeterProduct) {
+                // Si es producto por metro, la cantidad a enviar al backend debe ser en METROS (unidad base).
+                cantidadToSend = (item.sale_unit_type === 'roll')
+                    ? item.cantidad_ui * item.metros_por_rollo! // Cantidad (rollos) * Metros/Rollo
+                    : item.cantidad_ui; // Cantidad (metros) ya está en metros
+            } else {
+                // Si no, la cantidad a enviar es la cantidad en unidades.
+                cantidadToSend = item.cantidad_ui;
+            }
+
+            return {
+                producto_id: item.producto_id,
+                cantidad: cantidadToSend, // Cantidad en la unidad BASE de la DB (metros o unidades)
+                precio_unitario: item.precio_unitario, // Precio por metro o por unidad (desde DB)
+            };
+        });
+
+        const ventaData: VentaCreate = {
+            cliente_id: clienteSeleccionado,
+            metodo_pago_id: metodoPagoSeleccionado,
+            estado: EstadoVentaEnum.activa,
+            detalles: detallesVenta,
+        };
+
+        try {
+            const nuevaVenta = await createVenta(ventaData);
+            setVentaExitosaId(nuevaVenta.venta_id);
+            setShowSuccessModal(true);
+
+            // Restablecer el estado del formulario después de una venta exitosa
+            setCarrito([]);
+            setCodigoProducto('');
+            setClienteSeleccionado(null);
+            setProductoSeleccionadoId(null);
+            // Volver a cargar productos disponibles para reflejar cambios en stock
+            const productosData = await getProductosParaVenta();
+            setProductosDisponibles(productosData.filter(p => p.estado === EstadoEnum.Activo && p.stock > 0));
+        } catch (err: any) {
+            setError(err.response?.data?.detail || 'Error al finalizar la venta. Intenta de nuevo.');
+            console.error('Error al finalizar la venta:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // --- Manejo del Modal de Éxito ---
+    const handleCloseSuccessModal = () => {
+        setShowSuccessModal(false);
+        setVentaExitosaId(null);
+    };
+
+    // Función auxiliar para obtener la unidad de visualización de la cantidad
+    const getQuantityDisplayUnitText = (item: CarritoItem) => {
+        if (item.metros_por_rollo !== null && item.metros_por_rollo > 0) {
+            return item.sale_unit_type === 'roll' ? 'Rollos' : 'Metros';
+        }
+        return 'Unidades';
+    };
+
+    // Función auxiliar para obtener el texto de la unidad de precio (siempre es por metro o por unidad)
+    const getPriceDisplayUnitText = (item: CarritoItem) => {
+        return item.metros_por_rollo !== null && item.metros_por_rollo > 0 ? 'Bs/m' : 'Bs/u';
+    };
+
+
+    // --- Definición de Columnas para la Tabla del Carrito ---
+    const carritoColumns = useMemo(() => [
+        { Header: 'Código', accessor: 'codigo' },
+        { Header: 'Producto', accessor: 'nombre' },
+        {
+            Header: 'Cantidad',
+            accessor: 'cantidad_ui', // Usamos cantidad_ui para el display
+            Cell: ({ row }: { row: { original: CarritoItem } }) => {
+                const item = row.original;
+                const isMeterProduct = item.metros_por_rollo !== null && item.metros_por_rollo > 0;
+                
+                return (
+                    <div className="flex flex-col space-y-1">
+                        {isMeterProduct && (
+                            <div className="flex items-center space-x-2 text-sm text-gray-700">
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name={`saleUnitType-${item.producto_id}`}
+                                        value="roll"
+                                        checked={item.sale_unit_type === 'roll'}
+                                        onChange={() => handleSaleUnitTypeChange(item.producto_id, 'roll')}
+                                        className="mr-1 accent-indigo-600"
+                                    />
+                                    Por Rollo
+                                </label>
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name={`saleUnitType-${item.producto_id}`}
+                                        value="meter"
+                                        checked={item.sale_unit_type === 'meter'}
+                                        onChange={() => handleSaleUnitTypeChange(item.producto_id, 'meter')}
+                                        className="mr-1 accent-indigo-600"
+                                    />
+                                    Por Metro
+                                </label>
+                            </div>
+                        )}
+                        <div className="flex items-center space-x-1">
+                            <Input
+                                type="number"
+                                // El paso es 0.01 si es por metro, 1 si es por rollo/unidad
+                                step={isMeterProduct && item.sale_unit_type === 'meter' ? "0.01" : "1"}
+                                // Mostrar la cantidad con 2 decimales si es por metro, 0 si es por rollo/unidad
+                                value={item.cantidad_ui.toFixed(isMeterProduct && item.sale_unit_type === 'meter' ? 2 : 0)}
+                                onChange={(e: { target: { value: string; }; }) => handleQuantityChange(item.producto_id, e.target.value)}
+                                className="w-24 p-1 border border-gray-300 rounded-md text-right focus:border-indigo-500 focus:ring-indigo-500"
+                                min="0"
+                            />
+                            <span className="text-sm text-gray-600">{getQuantityDisplayUnitText(item)}</span>
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            Header: 'Precio Unit.',
+            accessor: 'precio_unitario',
+            Cell: ({ row }: { row: { original: CarritoItem } }) => {
+                const item = row.original;
+                // Mostrar el precio unitario con la unidad correspondiente (Bs/m o Bs/u)
+                return `${item.precio_unitario} ${getPriceDisplayUnitText(item)}`;
+            },
+        },
+        {
+            Header: 'Subtotal',
+            accessor: 'subtotal',
+            Cell: ({ row }: { row: { original: CarritoItem } }) => {
+                const item = row.original;
+                const isMeterProduct = item.metros_por_rollo !== null && item.metros_por_rollo > 0;
+                let itemQuantityInBaseUnit: number;
+                if (isMeterProduct) {
+                    itemQuantityInBaseUnit = (item.sale_unit_type === 'roll')
+                        ? item.cantidad_ui * item.metros_por_rollo!
+                        : item.cantidad_ui; // Si es 'meter', cantidad_ui ya está en metros
+                } else {
+                    itemQuantityInBaseUnit = item.cantidad_ui;
+                }
+                return (itemQuantityInBaseUnit * item.precio_unitario);
+            },
+        },
+        {
+            Header: 'Acciones',
+            accessor: 'acciones',
+            Cell: ({ row }: { row: { original: CarritoItem } }) => {
+                const item = row.original;
+                return (
+                    <div className="flex space-x-2">
+                        <Button
+                            onClick={() => handleRemoveItem(item.producto_id)}
+                            className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md shadow-sm"
+                            variant="danger"
+                        >
+                            X
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ], [handleQuantityChange, handleRemoveItem, handleSaleUnitTypeChange, getQuantityDisplayUnitText, getPriceDisplayUnitText]);
+
+    // --- Renderizado del Componente ---
+    return (
+        <div className="p-6 bg-gray-100 min-h-screen">
+            <h1 className="text-3xl font-bold text-gray-800 mb-6">Nueva Venta</h1>
+
+            {isLoading && <LoadingSpinner />}
+            {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4" role="alert">
+                    {error}
+                </div>
+            )}
+
+            {/* Estado del WebSocket */}
+            <div className="mb-4 text-sm font-semibold text-gray-600">
+                Estado del escáner remoto: <span className={websocketStatus === 'Conectado' ? 'text-green-600' : 'text-red-600'}>
+                    {websocketStatus}
+                </span>
+            </div>
+
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                {/* Panel de Añadir Producto */}
+                <div className="md:col-span-1 bg-white p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Añadir Producto</h2>
+
+                    {/* Sección para Selector de Productos (Dropdown) */}
+                    <div className="flex flex-col space-y-4 mb-6 border-b pb-4">
+                        <label htmlFor="select_producto" className="block text-sm font-medium text-gray-700">Seleccionar de la lista:</label>
+                        <select
+                            id="select_producto"
+                            value={productoSeleccionadoId || ''}
+                            onChange={(e) => setProductoSeleccionadoId(Number(e.target.value))}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            disabled={isLoading}
+                        >
+                            <option value="">-- Selecciona un producto --</option>
+                            {productosDisponibles.map(producto => {
+                                // Ajusta el stock para la visualización en el dropdown (siempre en "rollos" para productos metro)
+                                const isMeterProduct = producto.metros_por_rollo !== undefined && producto.metros_por_rollo !== null && producto.metros_por_rollo > 0;
+                                let displayStock = producto.stock;
+                                let displayUnit = 'unidades';
+                                if (isMeterProduct && producto.metros_por_rollo) {
+                                    displayStock = producto.stock / producto.metros_por_rollo;
+                                    displayUnit = 'rollos';
+                                }
+
+                                return (
+                                    <option key={producto.producto_id} value={producto.producto_id} disabled={displayStock <= 0}>
+                                        {producto.nombre} ({producto.codigo}) - Stock: {displayStock} {displayUnit}
+                                        {displayStock <= 0 && " (Agotado)"}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                        <Button
+                            onClick={handleAddSelectedProduct}
+                            className="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition duration-200"
+                            disabled={isLoading || !productoSeleccionadoId}
+                        >
+                            Añadir Producto Seleccionado
+                        </Button>
+                    </div>
+
+                    {/* Sección para Escáner/Código */}
+                    <form onSubmit={handleScanOrEnterProduct} className="flex flex-col space-y-4">
+                        <label htmlFor="codigo_producto" className="block text-sm font-medium text-gray-700">O Escanear/Ingresar Código:</label>
+                        <Input
+                            id="codigo_producto"
+                            type="text"
+                            placeholder="Escanear o ingresar código de producto"
+                            value={codigoProducto}
+                            onChange={(e: { target: { value: React.SetStateAction<string>; }; }) => setCodigoProducto(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <Button
+                            type="submit"
+                            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition duration-200"
+                            disabled={isLoading || !codigoProducto.trim()}
+                        >
+                            Añadir por Código
+                        </Button>
+                    </form>
+                </div>
+
+                {/* Panel del Carrito de Compras */}
+                <div className="md:col-span-2 bg-white p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Carrito de Compras ({carrito.length} ítems)</h2>
+                    {carrito.length === 0 ? (
+                        <p className="text-gray-500">El carrito está vacío. Añade productos para empezar.</p>
+                    ) : (
+                        <Table columns={carritoColumns} data={carrito} />
+                    )}
+                    <div className="mt-4 text-right text-2xl font-bold text-gray-800">
+                        Total: {totalVenta} Bs.
+                    </div>
+                </div>
+            </div>
+
+            {/* Panel de Información de Pago y Cliente */}
+            <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold text-gray-700 mb-4">Información de Pago y Cliente</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label htmlFor="metodoPago" className="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
+                        <select
+                            id="metodoPago"
+                            value={metodoPagoSeleccionado || ''}
+                            onChange={(e) => setMetodoPagoSeleccionado(Number(e.target.value))}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        >
+                            <option value="">Selecciona un método de pago</option>
+                            {metodosPago.map(metodo => (
+                                <option key={metodo.metodo_pago_id} value={metodo.metodo_pago_id}>
+                                    {metodo.nombre_metodo}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="cliente" className="block text-sm font-medium text-gray-700 mb-1">Cliente (Opcional)</label>
+                        <select
+                            id="cliente"
+                            value={clienteSeleccionado || ''}
+                            onChange={(e) => setClienteSeleccionado(Number(e.target.value) || null)}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        >
+                            <option value="">Selecciona un cliente</option>
+                            {clientes.map(cliente => (
+                                <option key={cliente.cliente_id} value={cliente.cliente_id}>
+                                    {`${cliente.persona.nombre} ${cliente.persona.apellido_paterno || ''}`.trim()}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <Button
+                    onClick={handleFinalizarVenta}
+                    className="w-full bg-green-600 text-white py-3 rounded-md text-lg font-semibold hover:bg-green-700 transition duration-200"
+                    disabled={isLoading || carrito.length === 0 || !metodoPagoSeleccionado}
+                >
+                    Finalizar Venta
+                </Button>
+            </div>
+
+            {/* Modal de Éxito de Venta */}
+            <Modal
+                isOpen={showSuccessModal}
+                onClose={handleCloseSuccessModal}
+                title="Venta Realizada con Éxito"
+            >
+                <p className="text-lg text-gray-700 mb-4">La venta ha sido registrada correctamente.</p>
+                {ventaExitosaId && <p className="text-md text-gray-600">ID de Venta: <span className="font-semibold">{ventaExitosaId}</span></p>}
+                <div className="mt-6 flex justify-end">
+                    <Button
+                        onClick={handleCloseSuccessModal}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                    >
+                        Aceptar
+                    </Button>
+                </div>
+            </Modal>
+        </div>
+    );
+};
+
+export default VentasFormPage;

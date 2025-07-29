@@ -1,0 +1,29 @@
+
+npm create vite@latest frontEnd --template react-ts
+cd frontEnd
+npm install
+npm install -D tailwindcss@3 postcss autoprefixer
+npx tailwindcss init -p
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}", // Esto le dice a Tailwind que escanee todos los archivos .js, .ts, .jsx, .tsx dentro de src/
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+//en index.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+npm install react-router-dom axios
+npm install -D @types/react-router-dom @types/axios # Para TypeScript
+
+
+//para instalar dependencias
+rm -rf node_modules package-lock.json
+npm cache clean --force
+npm install
