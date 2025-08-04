@@ -41,3 +41,8 @@ export interface GetProveedoresParams {
     skip?: number; 
     limit?: number; 
 }
+
+export interface ProveedorPagination {
+    items: Proveedor[];
+    total: number;
+}

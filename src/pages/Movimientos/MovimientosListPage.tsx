@@ -11,8 +11,10 @@ import Select from '../../components/Common/Select';
 import ErrorMessage from '../../components/Common/ErrorMessage';
 import Modal from '../../components/Common/Modal';
 import MovimientoForm from '../../components/Specific/MovimientoForm';
+import { useTheme } from '../../context/ThemeContext';
 
 const MovimientosListPage: React.FC = () => {
+    const { theme } = useTheme();
     const [movimientos, setMovimientos] = useState<MovimientoResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -57,7 +59,7 @@ const MovimientosListPage: React.FC = () => {
             setLoadingFilterData(true);
             try {
                 const productosData = await getProductos({ limit: 100 }); // Obtener todos los productos para el filtro
-                setAvailableProductosFilter(productosData);
+                setAvailableProductosFilter(productosData.items);
             } catch (err) {
                 console.error("Error loading filter data:", err);
                 setError("Error al cargar datos de filtro.");
@@ -113,10 +115,10 @@ const MovimientosListPage: React.FC = () => {
     }
 
     return (
-        <div>
+        <div className={`${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black'} min-h-screen p-4`}>
             <h1 className="text-2xl font-bold mb-4">Gestión de Movimientos de Inventario</h1>
 
-            <div className="mb-4 bg-white p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4">
+            <div className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 mb-4`}>
                 <div className="flex-grow min-w-[150px]">
                     <Input id="search" type="text" placeholder="Buscar por motivo" value={search} onChange={(e) => handleFilterValueChange(setSearch)(e.target.value)} />
                  </div>

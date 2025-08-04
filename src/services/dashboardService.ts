@@ -1,4 +1,4 @@
-import axiosInstance from '../api/axiosInstance'; // Asumiendo que tienes esto configurado
+import axiosInstance from '../api/axiosInstance'; 
 import { DashboardData } from '../types/dashboard';
 
 export const getDashboardData = async (): Promise<DashboardData> => {

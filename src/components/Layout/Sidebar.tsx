@@ -1,75 +1,116 @@
 // src/components/Layout/Sidebar.tsx
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth'; // Para control de acceso por rol
-import { IPersonaWithRoles } from '../../types/persona'; // Importa el tipo correcto
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import { IPersonaWithRoles } from '../../types/persona';
+import {
+    FiHome, FiUsers, FiUserCheck, FiKey, FiFolder, FiPackage, 
+    FiTruck, FiShoppingCart, FiDollarSign, FiBarChart2, FiRepeat,
+    FiChevronLeft, FiChevronRight
+} from 'react-icons/fi';
 
-const Sidebar: React.FC = () => {
-    const { user, loading } = useAuth(); // Obtenemos el usuario y el estado de carga
+interface SidebarProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
 
-    // Si el usuario o los roles aún se están cargando, no renderizamos la barra lateral.
-    if (loading) {
+const navLinks = [
+    { path: '/dashboard', label: 'Resumen general', icon: FiHome, roles: [] },
+    { path: '/personas', label: 'Personas', icon: FiUsers, roles: ['Administrador', 'Empleado'] },
+    { path: '/usuarios', label: 'Usuarios', icon: FiUserCheck, roles: ['Administrador'] },
+    { path: '/roles', label: 'Roles', icon: FiKey, roles: ['Administrador'] },
+    { path: '/categorias', label: 'Categorías', icon: FiFolder, roles: ['Administrador'] },
+    { path: '/productos', label: 'Productos', icon: FiPackage, roles: ['Administrador'] },
+    { path: '/proveedores', label: 'Proveedores', icon: FiTruck, roles: ['Administrador', 'Empleado'] },
+    { path: '/compras', label: 'Compras', icon: FiShoppingCart, roles: ['Administrador', 'Empleado'] },
+    { path: '/ventas', label: 'Ventas', icon: FiDollarSign, roles: ['Administrador', 'Empleado'] },
+    { path: '/reportes', label: 'Reportes', icon: FiBarChart2, roles: ['Administrador', 'Empleado'] },
+    { path: '/movimientos', label: 'Movimientos', icon: FiRepeat, roles: ['Administrador', 'Empleado'] },
+];
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+    const { user, loading } = useAuth();
+    const location = useLocation();
+    const [isCollapsed, setCollapsed] = useState(false);
+
+    if (loading || !user) {
         return null;
     }
 
-    // Si no hay usuario logeado después de la carga, no renderizamos la barra lateral.
-    if (!user) {
-        return null;
-    }
-
-    // Casteamos 'user.persona' a IPersonaWithRoles para que TypeScript sepa que 'roles' existe.
     const personaConRoles = user.persona as IPersonaWithRoles;
-
-    // Helper para verificar si el usuario tiene un rol específico.
     const hasRole = (roleName: string): boolean => {
-        const userRoles = personaConRoles.roles || [];
-        return userRoles.some(rol => rol.nombre_rol === roleName);
+        return personaConRoles.roles?.some(rol => rol.nombre_rol === roleName) ?? false;
     };
 
-    // Define tus enlaces de navegación.
-    const navLinks = [
-        { path: '/dashboard', label: 'Resumen general', icon: '📊', roles: [] },
-        { path: '/personas', label: 'Personas', icon: '🧑', roles: ['Administrador', 'Empleado'] },
-        { path: '/usuarios', label: 'Usuarios', icon: '👥', roles: ['Administrador'] },
-        { path: '/roles', label: 'Roles', icon: '🔑', roles: ['Administrador'] },
-        { path: '/categorias', label: 'Categorias', icon: '📂', roles: ['Administrador'] },
-        { path: '/productos', label: 'Productos', icon: '📦', roles: ['Administrador'] },
-        { path: '/proveedores', label: 'Proveedores', icon: '🚚', roles: ['Administrador', 'Empleado'] },
-        { path: '/compras', label: 'Compras', icon: '🛒', roles: ['Administrador', 'Empleado'] },
-        { path: '/ventas', label: 'Ventas', icon: '💸', roles: ['Administrador', 'Empleado'] },
-        { path: '/reportes', label: 'Reportes', icon: '📄', roles: ['Administrador', 'Empleado'] },
-        { path: '/movimientos', label: 'movimientos', icon: '💸', roles: ['Administrador', 'Empleado'] },
+    const handleToggleCollapse = () => {
+        setCollapsed(!isCollapsed);
+    };
 
-    ];
+    const sidebarClasses = `
+        bg-white dark:bg-gray-800 text-gray-800 dark:text-white
+        flex flex-col
+        h-screen
+        p-4
+        transition-all duration-300 ease-in-out
+        shadow-lg md:shadow-none
+        border-r border-gray-200 dark:border-gray-700
+        fixed md:relative
+        z-30
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0
+        ${isCollapsed ? 'w-20' : 'w-64'}
+    `;
 
     return (
-        // Los estilos 'min-h-screen' y 'sticky top-0' harán que la sidebar ocupe toda la altura
-        // y se "pegue" a la parte superior si el contenedor padre tiene scroll.
-        // 'shrink-0' previene que se encoja en un flex container.
-        <aside className="w-64 bg-gray-700 text-white p-4 shadow-md min-h-screen sticky top-0 shrink-0">
-            <nav>
-                <ul>
-                    {navLinks.map((link) => {
-                        const isAuthorized = link.roles.length === 0 || link.roles.some(role => hasRole(role));
+        <>
+            {isOpen && <div className="fixed inset-0 bg-black opacity-50 z-20 md:hidden" onClick={onClose}></div>}
 
-                        if (isAuthorized) {
-                            return (
-                                <li key={link.path} className="mb-2">
-                                    <Link
-                                        to={link.path}
-                                        className="flex items-center space-x-2 p-2 rounded hover:bg-gray-600 transition-colors"
-                                    >
-                                        <span role="img" aria-label={link.label}>{link.icon}</span>
-                                        <span>{link.label}</span>
-                                    </Link>
-                                </li>
-                            );
-                        }
-                        return null;
-                    })}
-                </ul>
-            </nav>
-        </aside>
+            <aside className={sidebarClasses}>
+                <div className="flex-grow overflow-y-auto">
+                    <nav>
+                        <ul>
+                            {navLinks.map((link) => {
+                                const isAuthorized = link.roles.length === 0 || link.roles.some(role => hasRole(role));
+                                const isActive = location.pathname === link.path;
+
+                                if (isAuthorized) {
+                                    return (
+                                        <li key={link.path} className="mb-2">
+                                            <Link
+                                                to={link.path}
+                                                onClick={onClose}
+                                                className={`
+                                                    flex items-center p-2 rounded-md transition-colors
+                                                    ${isActive 
+                                                        ? 'bg-indigo-600 text-white font-semibold' 
+                                                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                    }
+                                                    ${isCollapsed ? 'justify-center' : 'space-x-3'}
+                                                `}
+                                            >
+                                                <link.icon className={`h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`} />
+                                                <span className={`${isCollapsed ? 'hidden' : 'block'}`}>{link.label}</span>
+                                            </Link>
+                                        </li>
+                                    );
+                                }
+                                return null;
+                            })}
+                        </ul>
+                    </nav>
+                </div>
+
+                <div className="hidden md:block mt-4">
+                    <button 
+                        onClick={handleToggleCollapse}
+                        className="w-full flex items-center justify-center p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+                    >
+                        {isCollapsed ? <FiChevronRight className="h-6 w-6" /> : <FiChevronLeft className="h-6 w-6" />}
+                    </button>
+                </div>
+            </aside>
+        </>
     );
 };
 

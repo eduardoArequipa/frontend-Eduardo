@@ -1,195 +1,208 @@
-// src/pages/Ventas/VentasListPage.tsx
-import React, { useState, useEffect } from 'react';
-import {
-    getVentas,
-    anularVenta
-} from '../../services/ventasService';
-
-// Importa el tipo Venta (CORRECCIÓN: Asegúrate de que este sea el nombre de la interfaz exportada en types/venta.ts)
-import { Venta } from '../../types/venta';
+import React, { useState, useEffect, useMemo } from 'react';
+import { getVentas, anularVenta } from '../../services/ventasService';
+import { Venta, VentaPagination } from '../../types/venta';
 import { EstadoVentaEnum } from '../../types/enums';
 
-// Importa componentes comunes
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorMessage from '../../components/Common/ErrorMessage';
 import Select from '../../components/Common/Select';
+import Modal from '../../components/Common/Modal';
 import { Link, useNavigate } from 'react-router-dom';
 
+interface Notification {
+    message: string;
+    type: 'success' | 'error';
+}
+
 const VentasListPage: React.FC = () => {
-    // Usa Venta para el estado de las ventas
     const [ventas, setVentas] = useState<Venta[]>([]);
+    const [totalVentas, setTotalVentas] = useState<number>(0);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [pageSize, setPageSize] = useState<number>(10);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    
+    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+    const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
+    const [notification, setNotification] = useState<Notification | null>(null);
 
-    // Estados para filtros
     const [filters, setFilters] = useState({
         estado: '' as EstadoVentaEnum | '',
-        search: '', // Para buscar por cliente o producto
+        search: '',
         fecha_desde: '',
         fecha_hasta: '',
     });
 
     const navigate = useNavigate();
 
-    // Función para obtener la lista de ventas con los parámetros actuales
     const fetchVentas = async () => {
         setIsLoading(true);
         setError(null);
         try {
-            const fetchedVentas = await getVentas({
+            const skip = (currentPage - 1) * pageSize;
+            const fetchedData: VentaPagination = await getVentas({
                 estado: filters.estado === '' ? undefined : filters.estado,
                 search: filters.search || undefined,
                 fecha_desde: filters.fecha_desde || undefined,
                 fecha_hasta: filters.fecha_hasta || undefined,
+                skip: skip,
+                limit: pageSize,
             });
-            setVentas(fetchedVentas);
+            setVentas(fetchedData.items);
+            setTotalVentas(fetchedData.total);
         } catch (err: any) {
-            // Asegúrate de acceder a la propiedad 'response' antes de 'data'
             setError(err.response?.data?.detail || 'Error al cargar las ventas.');
-            console.error('Error fetching sales:', err);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Efecto para cargar ventas cuando cambian los filtros (con un debounce)
     useEffect(() => {
         const handler = setTimeout(() => {
             fetchVentas();
-        }, 300); // Pequeño retardo para no hacer peticiones en cada pulsación de tecla
+        }, 300);
         return () => clearTimeout(handler);
-    }, [filters]); // Dependencia: el objeto filters completo
+    }, [filters, currentPage, pageSize]);
 
-    // Handler genérico para cambios en los inputs de filtro
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFilters(prev => ({ ...prev, [name]: value }));
+        setCurrentPage(1);
     };
 
-    // Handler para anular una venta
-    const handleAnularVenta = async (ventaId: number) => {
-        if (window.confirm('¿Estás seguro de que quieres ANULAR esta venta? Esta acción revertirá el stock de los productos. ¡Es irreversible!')) {
-            setIsLoading(true);
-            setError(null);
-            try {
-                await anularVenta(ventaId);
-                alert('Venta anulada con éxito y stock revertido.'); // Considera reemplazar alert con un modal de notificación
-                fetchVentas(); // Volver a cargar las ventas para actualizar la lista
-            } catch (err: any) {
-                setError(err.response?.data?.detail || 'Error al anular la venta.');
-                console.error('Error canceling sale:', err);
-            } finally {
-                setIsLoading(false);
-            }
+    const handleAnularVentaClick = (venta: Venta) => {
+        setSelectedVenta(venta);
+        setIsModalOpen(true);
+        setNotification(null);
+    };
+
+    const handleConfirmAnularVenta = async () => {
+        if (!selectedVenta) return;
+
+        setIsLoading(true);
+        setError(null);
+        try {
+            await anularVenta(selectedVenta.venta_id);
+            setNotification({ message: 'Venta anulada con éxito y stock revertido.', type: 'success' });
+            fetchVentas();
+        } catch (err: any) {
+            const errorMessage = err.response?.data?.detail || 'Error al anular la venta.';
+            setError(errorMessage);
+            setNotification({ message: errorMessage, type: 'error' });
+        } finally {
+            setIsLoading(false);
+            setIsModalOpen(false);
+            setSelectedVenta(null);
         }
     };
 
-    // Navegar al formulario de creación de venta
     const handleCreateNewSale = () => {
         navigate('/ventas/new');
     };
 
-    // Definición de las columnas de la tabla de Ventas
-    const columns = [
+    const totalPages = Math.ceil(totalVentas / pageSize);
+
+    const columns = useMemo(() => [
         { Header: 'ID Venta', accessor: 'venta_id' },
         {
             Header: 'Fecha',
-            accessor: 'fecha_venta', // Asume que el backend devuelve 'fecha_venta'
-            Cell: ({ row }: { row: { original: Venta } }) => new Date(row.original.fecha_creacion || '').toLocaleDateString(), // Maneja posible undefined
+            accessor: 'fecha_venta',
+            Cell: ({ row }: { row: { original: Venta } }) => new Date(row.original.fecha_venta).toLocaleString('es-BO'),
         },
         {
             Header: 'Cliente',
-            accessor: 'persona', // Accesamos al objeto persona
+            accessor: 'persona',
             Cell: ({ row }: { row: { original: Venta } }) => {
-                const ventaItem = row.original;
-                // Asume que si persona_id existe, entonces venta.persona debería estar poblado en la respuesta.
-                // Si persona_id es null, es una venta a Consumidor Final.
-                return ventaItem.persona // Asegúrate de que `persona` esté en tu tipo `Venta` si esperas el objeto anidado
-                    ? `${ventaItem.persona.nombre || ''} ${ventaItem.persona.apellido_paterno || ''} ${ventaItem.persona.apellido_materno || ''}`.trim()
-                    : 'Consumidor Final'; // O 'N/A' si no hay persona asignada o es una venta de mostrador
-            },
+                const { persona } = row.original;
+                return persona ? `${persona.nombre || ''} ${persona.apellido_paterno || ''}`.trim() : 'Consumidor Final';
+            }
         },
         {
             Header: 'Método Pago',
-            accessor: 'metodo_pago',
-            // Accede a 'nombre_metodo' dentro de 'metodo_pago'
+            accessor: 'metodo_pago_id',
             Cell: ({ row }: { row: { original: Venta } }) => {
-                const ventaItem = row.original;
-                // Asegúrate de que ventaItem.metodo_pago existe y tiene nombre_metodo
-                return ventaItem.metodo_pago ? ventaItem.metodo_pago.nombre_metodo : 'N/A';
+                return row.original.metodo_pago ? row.original.metodo_pago.nombre_metodo : 'N/A';
             },
         },
         {
             Header: 'Total',
             accessor: 'total',
-            Cell: ({ row }: { row: { original: Venta } }) => `${Number(row.original.total).toFixed(2)} Bs.`,
+            Cell: ({ row }: { row: { original: Venta } }) => <span className="text-green-700 dark:text-green-400 font-semibold">{`${Number(row.original.total).toFixed(2)} Bs.`}</span>,
         },
-        { Header: 'Estado', accessor: 'estado' },
+        { 
+            Header: 'Estado', 
+            accessor: 'estado',
+            Cell: ({ row }: { row: { original: Venta } }) => (
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                    row.original.estado === EstadoVentaEnum.activa ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                }`}>
+                    {row.original.estado}
+                </span>
+            )
+        },
         {
             Header: 'Acciones',
-            accessor: 'acciones',
-            Cell: ({ row }: { row: { original: Venta } }) => {
-                const ventaItem = row.original;
-                return (
-                    <div className="flex space-x-2">
-                        <Link
-                            to={`/ventas/${ventaItem.venta_id}`}
-                            className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            accessor: 'venta_id',
+            id: 'acciones',
+            Cell: ({ row }: { row: { original: Venta } }) => (
+                <div className="flex space-x-2">
+                    <Link
+                        to={`/ventas/${row.original.venta_id}`}
+                        className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                    >
+                        Ver
+                    </Link>
+                    {row.original.estado === EstadoVentaEnum.activa && (
+                        <Button
+                            onClick={() => handleAnularVentaClick(row.original)}
+                            size="sm"
+                            variant="danger"
                         >
-                            Ver
-                        </Link>
-                        {/* Solo mostrar el botón Anular si la venta está activa */}
-                        {ventaItem.estado === EstadoVentaEnum.activa && (
-                            <Button
-                                onClick={() => handleAnularVenta(ventaItem.venta_id)}
-                                className="px-3 py-1"
-                                variant="danger" // Asume que tu componente Button soporta una variante 'danger'
-                            >
-                                Anular
-                            </Button>
-                        )}
-                    </div>
-                );
-            },
+                            Anular
+                        </Button>
+                    )}
+                </div>
+            ),
         },
-    ];
+    ], []);
 
-    // --- JSX Principal ---
     return (
-        <div className="p-6 bg-gray-100 min-h-screen">
+        <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Listado de Ventas</h1>
-                <Button
-                    onClick={handleCreateNewSale}
-                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition duration-200"
-                >
+                <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Listado de Ventas</h1>
+                <Button onClick={handleCreateNewSale} variant="success">
                     Crear Nueva Venta
                 </Button>
             </div>
 
-            {/* Mensajes de carga y error */}
-            {isLoading && ventas.length === 0 && <LoadingSpinner />} {/* Spinner para carga inicial */}
-            {error && <ErrorMessage message={error} />}
+            {notification && (
+                <div className={`mb-4 p-4 rounded-md ${
+                    notification.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                }`}>
+                    {notification.message}
+                </div>
+            )}
+            
+            {isLoading && ventas.length === 0 && <LoadingSpinner />}
+            {error && !notification && <ErrorMessage message={error} />}
 
-            {/* Sección de Filtros */}
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                    <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">Buscar (Cliente/Producto)</label>
+                    <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar (Cliente/Producto)</label>
                     <Input
                         type="text"
                         name="search"
                         value={filters.search}
                         onChange={handleFilterChange}
                         placeholder="Buscar..."
-                        className="w-full p-2 border border-gray-300 rounded-md"
                     />
                 </div>
                 <div>
-                    <label htmlFor="estado" className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                    <Select // Usar el componente Select para consistencia
+                    <label htmlFor="estado" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+                    <Select
                         id="estado"
                         name="estado"
                         value={filters.estado}
@@ -198,47 +211,72 @@ const VentasListPage: React.FC = () => {
                             { value: '', label: 'Todos' },
                             { value: EstadoVentaEnum.activa, label: 'Activa' },
                             { value: EstadoVentaEnum.anulada, label: 'Anulada' },
-                            // Añade otros estados si los tienes (ej: 'pendiente', 'completada')
                         ]}
                     />
                 </div>
                 <div>
-                    <label htmlFor="fecha_desde" className="block text-sm font-medium text-gray-700 mb-1">Fecha Desde</label>
+                    <label htmlFor="fecha_desde" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Desde</label>
                     <Input
                         type="date"
                         name="fecha_desde"
                         value={filters.fecha_desde}
                         onChange={handleFilterChange}
-                        className="w-full p-2 border border-gray-300 rounded-md"
                     />
                 </div>
                 <div>
-                    <label htmlFor="fecha_hasta" className="block text-sm font-medium text-gray-700 mb-1">Fecha Hasta</label>
+                    <label htmlFor="fecha_hasta" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Hasta</label>
                     <Input
                         type="date"
                         name="fecha_hasta"
                         value={filters.fecha_hasta}
                         onChange={handleFilterChange}
-                        className="w-full p-2 border border-gray-300 rounded-md"
                     />
                 </div>
             </div>
 
-            {/* Mensaje si no hay ventas */}
             {ventas.length === 0 && !isLoading && !error ? (
-                <p className="text-gray-600 text-center mt-8">No se encontraron ventas con los filtros aplicados.</p>
+                <p className="text-gray-600 dark:text-gray-400 text-center mt-8">No se encontraron ventas con los filtros aplicados.</p>
             ) : (
-                // Mostrar tabla si hay ventas
-                <div className="bg-white p-6 rounded-lg shadow-md overflow-x-auto">
-                    {/* Spinner superpuesto si está cargando y ya hay datos */}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md overflow-x-auto relative">
                     {isLoading && ventas.length > 0 && (
-                        <div className="absolute inset-0 flex justify-center items-center bg-white bg-opacity-75 z-10">
+                        <div className="absolute inset-0 flex justify-center items-center bg-white dark:bg-gray-800 bg-opacity-75 dark:bg-opacity-75 z-10">
                             <LoadingSpinner />
                         </div>
                     )}
                     <Table columns={columns} data={ventas} />
+                    <div className="flex justify-between items-center mt-4">
+                        <Button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1 || isLoading} variant="secondary">
+                            Anterior
+                        </Button>
+                        <span className="text-gray-700 dark:text-gray-300">
+                            Página {currentPage} de {totalPages} (Total: {totalVentas} ventas)
+                        </span>
+                        <Button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages || isLoading} variant="secondary">
+                            Siguiente
+                        </Button>
+                    </div>
                 </div>
             )}
+
+            <Modal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onConfirm={handleConfirmAnularVenta}
+                title="Confirmar Anulación de Venta"
+                confirmButtonText="Sí, Anular Venta"
+                cancelButtonText="Cancelar"
+            >
+                {selectedVenta && (
+                    <div>
+                        <p className="text-gray-700 dark:text-gray-300">¿Estás seguro de que quieres anular la venta <strong>#{selectedVenta.venta_id}</strong>?</p>
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            Cliente: {selectedVenta.persona ? `${selectedVenta.persona.nombre} ${selectedVenta.persona.apellido_paterno || ''}`.trim() : 'Consumidor Final'}<br/>
+                            Total: {Number(selectedVenta.total).toFixed(2)} Bs.
+                        </p>
+                        <p className="mt-4 font-semibold text-red-600 dark:text-red-400">Esta acción es irreversible y repondrá el stock de los productos involucrados.</p>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };

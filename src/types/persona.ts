@@ -29,7 +29,6 @@ export interface IPersonaWithRoles extends PersonaBase {
     persona_id: number;
     creado_en: string;
     modificado_en?: string | null;
-    creado_por?: number | null;
     modificado_por?: number | null;
     estado: EstadoEnum; // Estado de la persona, aquí es requerido porque viene de DB
     roles: IRolInDB[]; // Confirmado: Lista de roles de la persona
@@ -41,8 +40,12 @@ export interface IPersonaNested extends PersonaBase {
     persona_id: number;
     creado_en: string;
     modificado_en?: string | null;
-    creado_por?: number | null;
     modificado_por?: number | null;
     estado: EstadoEnum;
 
+}
+
+export interface PersonaPagination {
+    items: IPersonaWithRoles[];
+    total: number;
 }

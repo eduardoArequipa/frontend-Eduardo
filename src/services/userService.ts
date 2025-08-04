@@ -1,7 +1,7 @@
 // src/services/userService.ts
 
 import axiosInstance from '../api/axiosInstance';
-import { IUsuarioReadAudit, IUsuarioCreate, IUsuarioUpdate } from '../types/usuario';
+import { IUsuarioReadAudit, IUsuarioCreate, IUsuarioUpdate, UsuarioPagination } from '../types/usuario'; // Importar UsuarioPagination
 import { EstadoEnum } from '../types/enums';
 
 interface IGetUsersParams {
@@ -14,7 +14,7 @@ interface IGetUsersParams {
 }
 
 
-export const getUsers = async (params?: IGetUsersParams): Promise<IUsuarioReadAudit[]> => {
+export const getUsers = async (params?: IGetUsersParams): Promise<UsuarioPagination> => { // Cambiado el tipo de retorno
     const response = await axiosInstance.get('/usuarios/', { params });
     return response.data;
 };

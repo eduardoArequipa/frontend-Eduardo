@@ -1,27 +1,30 @@
 // src/components/Layout/Layout.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
-import Sidebar from './Sidebar'; // Importa el Sidebar si lo estás usando
-import { LowStockProvider } from '../../context/LowStockContext'; // Importa el proveedor del contexto
-import LowStockNotification from '../Common/LowStockNotification'; // Importa el componente de notificación
+import Sidebar from './Sidebar';
+import Footer from './Footer';
+import { LowStockProvider } from '../../context/LowStockContext';
+import LowStockNotification from '../Common/LowStockNotification';
 
 const Layout: React.FC = () => {
-    return (
-        // Envuelve toda la estructura del layout con LowStockProvider
-        <LowStockProvider>
-            <div className="flex flex-col min-h-screen bg-gray-100">
-                <Navbar />
-                <div className="flex flex-grow">
-                    <Sidebar />
+    const [isSidebarOpen, setSidebarOpen] = useState(false);
 
-                    <main className="flex-grow p-2 container mx-auto">
+    const toggleSidebar = () => {
+        setSidebarOpen(!isSidebarOpen);
+    };
+
+    return (
+        <LowStockProvider>
+            <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+                <Sidebar isOpen={isSidebarOpen} onClose={toggleSidebar} />
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    <Navbar onMenuButtonClick={toggleSidebar} />
+                    <main className="flex-grow p-4 md:p-6 lg:p-8 overflow-y-auto">
                         <Outlet />
                     </main>
+                    <Footer />
                 </div>
-                
-                {/* Renderiza el componente de notificación de bajo stock */}
-                {/* Se posicionará en la esquina superior derecha de la pantalla */}
                 <LowStockNotification />
             </div>
         </LowStockProvider>

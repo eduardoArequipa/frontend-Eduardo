@@ -76,3 +76,8 @@ export interface ProductoSchemaBase {
     es_fraccionable_unidad?: boolean;
     nombre_marca?: string;
 }
+
+export interface ProductoPagination {
+    items: Producto[];
+    total: number;
+}

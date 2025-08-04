@@ -1,9 +1,8 @@
-// src/pages/Personas/PersonasListPage.tsx
 import React, { useEffect, useState, useMemo } from 'react';
-import { getPersonas, deactivatePersona, activatePersona } from '../../services/personaService';
-import { getRoles } from '../../services/rolService'; // Asegúrate de que este es el nombre correcto del servicio de roles
-import {  IPersonaInDB } from '../../types/persona'; // Usar la interfaz con 'I'
-import { IRolInDB } from '../../types/rol'; // Usar la interfaz con 'I' (asumiendo que RolNested es ahora IRolInDB)
+import { getPersonas, deactivatePersona, activatePersona, GetPersonasParams } from '../../services/personaService';
+import { getRoles } from '../../services/rolService';
+import { IPersonaWithRoles } from '../../types/persona';
+import { IRolInDB } from '../../types/rol';
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
@@ -14,7 +13,8 @@ import { EstadoEnum, GeneroEnum } from '../../types/enums';
 
 const PersonasListPage: React.FC = () => {
     const navigate = useNavigate();
-    const [personas, setPersonas] = useState<IPersonaInDB[]>([]); // Cambiado a IPersonaInDB[]
+    const [personas, setPersonas] = useState<IPersonaWithRoles[]>([]);
+    const [totalPersonas, setTotalPersonas] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -24,21 +24,19 @@ const PersonasListPage: React.FC = () => {
     const [rolFilterName, setRolFilterName] = useState<string>('');
 
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(5);
+    const [itemsPerPage] = useState(10);
 
-    // *** ESTADO PARA LA LISTA DE ROLES (para el filtro por rol) ***
-    const [availableRoles, setAvailableRoles] = useState<IRolInDB[]>([]); // Cambiado a IRolInDB[]
+    const [availableRoles, setAvailableRoles] = useState<IRolInDB[]>([]);
     const [loadingRoles, setLoadingRoles] = useState(true);
 
-    // Función para obtener la lista de roles disponibles para el filtro
     const fetchRoles = async () => {
         setLoadingRoles(true);
         try {
-            const roles = await getRoles(); // getRoles del roleService
+            const roles = await getRoles();
             setAvailableRoles(roles);
         } catch (err) {
             console.error("Error fetching roles for filter:", err);
-            setError("Error al cargar los roles para el filtro."); // Añadir manejo de error para roles
+            setError("Error al cargar los roles para el filtro.");
         } finally {
             setLoadingRoles(false);
         }
@@ -48,20 +46,20 @@ const PersonasListPage: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const params: any = {
+            const params: GetPersonasParams = {
                  search: search || undefined,
                  estado: estadoFilter || undefined,
                  genero: generoFilter || undefined,
-                 rol_nombre: rolFilterName || undefined, // <-- CORRECCIÓN AQUÍ
+                 rol_nombre: rolFilterName || undefined,
                  skip: (currentPage - 1) * itemsPerPage,
                  limit: itemsPerPage,
             };
 
-            // Limpiar parámetros undefined
-            Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
+            Object.keys(params).forEach(key => params[key as keyof GetPersonasParams] === undefined && delete params[key as keyof GetPersonasParams]);
 
-            const data = await getPersonas(params);
-            setPersonas(data);
+            const fetchedData = await getPersonas(params);
+            setPersonas(fetchedData.items);
+            setTotalPersonas(fetchedData.total);
 
         } catch (err: any) {
             console.error("Error fetching personas:", err);
@@ -72,12 +70,10 @@ const PersonasListPage: React.FC = () => {
         }
     };
 
-    // *** Efecto para cargar Roles al montar el componente ***
     useEffect(() => {
         fetchRoles();
     }, []);
 
-    // *** Efecto para cargar Personas cuando cambian Filtros, Búsqueda o Paginación ***
     useEffect(() => {
         fetchPersonas();
     }, [search, estadoFilter, generoFilter, rolFilterName, currentPage, itemsPerPage]);
@@ -87,15 +83,11 @@ const PersonasListPage: React.FC = () => {
         setCurrentPage(1);
     };
 
-    // Función para manejar la desactivación
     const handleDelete = async (id: number) => {
         if (window.confirm('¿Estás seguro de desactivar esta persona?')) {
             try {
                 await deactivatePersona(id);
-                // Actualizar el estado localmente o volver a cargar la lista
-                setPersonas(prevPersonas =>
-                    prevPersonas.map(p => p.persona_id === id ? { ...p, estado: EstadoEnum.Inactivo } : p)
-                );
+                fetchPersonas();
                 alert("Persona desactivada con éxito!");
             } catch (err: any) {
                  console.error("Error deactivating persona:", err);
@@ -104,14 +96,11 @@ const PersonasListPage: React.FC = () => {
         }
     };
 
-    // Función para manejar la activación
     const handleActivate = async (id: number) => {
       if (window.confirm('¿Estás seguro de activar esta persona?')) {
          try {
              await activatePersona(id);
-             setPersonas(prevPersonas =>
-                 prevPersonas.map(p => p.persona_id === id ? { ...p, estado: EstadoEnum.Activo } : p)
-             );
+             fetchPersonas();
              alert("Persona activada con éxito!");
          } catch (err: any) {
               console.error("Error activating persona:", err);
@@ -120,13 +109,14 @@ const PersonasListPage: React.FC = () => {
      }
     };
 
-    // Definición de las columnas de la tabla
+    const totalPages = Math.ceil(totalPersonas / itemsPerPage);
+
     const columns = useMemo(() => [
         { Header: 'ID', accessor: 'persona_id' },
         {
             Header: 'Nombre Completo',
-            accessor: 'nombre', // Se usa 'nombre' como accessor principal para la columna
-            Cell: ({ row }: { row: { original: IPersonaInDB } }) => // Especificar tipo de row.original
+            accessor: 'nombre',
+            Cell: ({ row }: { row: { original: IPersonaWithRoles } }) => 
                 `${row.original.nombre} ${row.original.apellido_paterno || ''} ${row.original.apellido_materno || ''}`.trim()
         },
         { Header: 'CI', accessor: 'ci' },
@@ -136,7 +126,7 @@ const PersonasListPage: React.FC = () => {
         {
             Header: 'Acciones',
             accessor: 'acciones',
-            Cell: ({ row }: { row: { original: IPersonaInDB } }) => ( // Especificar tipo de row.original
+            Cell: ({ row }: { row: { original: IPersonaWithRoles } }) => (
                 <div className="flex space-x-2">
                     <Button
                         onClick={() => navigate(`/personas/edit/${row.original.persona_id}`)}
@@ -162,11 +152,11 @@ const PersonasListPage: React.FC = () => {
                 </div>
             ),
         },
-    ], []); // Dependencias: no necesitas personas ni handleDelete aquí si no los usas directamente en la definición de la columna
+    ], [navigate]);
 
     if (loading && personas.length === 0) {
         return (
-            <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+            <div className="flex justify-center items-center min-h-[calc(100vh-200px)] text-gray-800 dark:text-gray-200">
                  <LoadingSpinner /> Cargando personas...
             </div>
         );
@@ -177,11 +167,10 @@ const PersonasListPage: React.FC = () => {
     }
 
     return (
-        <div>
-            <h1 className="text-2xl font-bold mb-4">Gestión de Personas</h1>
+        <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+            <h1 className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Gestión de Personas</h1>
 
-            {/* *** SECCIÓN DE BÚSQUEDA Y FILTROS *** */}
-            <div className="mb-4 bg-white p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4">
+            <div className="mb-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4">
                 <div className="flex-grow min-w-[150px]">
                     <label htmlFor="search" className="sr-only">Buscar</label>
                     <Input
@@ -190,7 +179,6 @@ const PersonasListPage: React.FC = () => {
                         placeholder="Buscar por nombre, CI, etc."
                         value={search}
                         onChange={(e) => handleFilterChange(setSearch)(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     />
                 </div>
 
@@ -228,7 +216,6 @@ const PersonasListPage: React.FC = () => {
                         id="rolFilter"
                         value={rolFilterName}
                         onChange={(e) => handleFilterChange(setRolFilterName)(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-md"
                         disabled={loadingRoles}
                     >
                         <option value="">Todos los roles</option>
@@ -250,41 +237,37 @@ const PersonasListPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* *** LISTADO DE PERSONAS O MENSAJE *** */}
             {loading && personas.length > 0 && (
-                <div className="absolute inset-0 flex justify-center items-center bg-white bg-opacity-75 z-10">
+                <div className="absolute inset-0 flex justify-center items-center bg-white dark:bg-gray-800 bg-opacity-75 dark:bg-opacity-75 z-10">
                      <LoadingSpinner />
                 </div>
             )}
             {personas.length === 0 && !loading && !error ? (
-                <p className="text-center text-gray-500">No hay personas registradas que coincidan con los filtros.</p>
+                <p className="text-center text-gray-500 dark:text-gray-400">No hay personas registradas que coincidan con los filtros.</p>
             ) : (
                  personas.length > 0 && (
                      <div className="relative">
                         <Table columns={columns} data={personas} />
+                        <div className="mt-4 flex justify-center items-center space-x-4">
+                            <Button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1 || loading}
+                            >
+                                Anterior
+                            </Button>
+                            <span className="text-gray-700 dark:text-gray-300">
+                                Página {currentPage} de {totalPages} (Total: {totalPersonas} personas)
+                            </span>
+                            <Button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages || loading}
+                            >
+                                Siguiente
+                            </Button>
+                        </div>
                      </div>
                  )
             )}
-
-            {/* *** SECCIÓN DE PAGINACIÓN *** */}
-             <div className="mt-4 flex justify-center items-center space-x-4">
-                 <Button
-                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                     disabled={currentPage === 1 || loading}
-                     className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                 >
-                     Anterior
-                 </Button>
-
-                 <span className="text-gray-700">Página {currentPage}</span>
-                 <Button
-                     onClick={() => setCurrentPage(prev => prev + 1)}
-                     disabled={loading}
-                     className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                 >
-                     Siguiente
-                 </Button>
-             </div>
         </div>
     );
 };

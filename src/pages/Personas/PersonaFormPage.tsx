@@ -1,4 +1,3 @@
-
 // src/pages/Personas/PersonaFormPage.tsx
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -19,7 +18,7 @@ const PersonaFormPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-6 bg-gray-50 dark:bg-gray-900 rounded-lg shadow-md">
       <PersonaForm
         personaId={personaId}
         mode="full"

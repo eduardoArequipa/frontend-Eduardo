@@ -1,15 +1,15 @@
-
 import axiosInstance from '../api/axiosInstance';
 
 import {
     Compra, // Esquema de lectura completa
     CompraCreate, // Esquema para creación
     CompraUpdate, // Esquema para actualización
-    GetComprasParams // Interfaz para los parámetros de consulta del listado
+    GetComprasParams, // Interfaz para los parámetros de consulta del listado
+    CompraPagination // Importar CompraPagination
 } from '../types/compra';
 
 
-export const getCompras = async (params?: GetComprasParams): Promise<Compra[]> => {
+export const getCompras = async (params?: GetComprasParams): Promise<CompraPagination> => { // Cambiado el tipo de retorno
 
     const response = await axiosInstance.get('/compras/', { params });
     return response.data;
@@ -47,5 +47,3 @@ export const completarCompra = async (id: number): Promise<Compra> => {
     const response = await axiosInstance.patch(`/compras/${id}/completar`);
      return response.data; // Retorna el objeto Compra actualizado (con estado 'completada')
 };
-
-

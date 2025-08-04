@@ -12,7 +12,7 @@ import {
   updateCompra,
 } from "../../services/compraService";
 import { getProveedores } from "../../services/proveedorService";
-import { getProductos, getProductoByCode} from "../../services/productoService"; // Asegúrate de importar getProductoByCodigo
+import { getProductos, getProductoByCode} from "../../services/productoService";
 import { getCategorias } from "../../services/categoriaService";
 import { getUnidadesMedida } from "../../services/unidadMedidaService";
 import { getMarcas } from "../../services/marcaService";
@@ -24,7 +24,7 @@ import {
 } from "../../types/compra";
 import { EstadoEnum, EstadoCompraEnum } from "../../types/enums";
 import { Proveedor } from "../../types/proveedor";
-import { Producto, ProductoSchemaBase } from "../../types/producto"; // Importa ProductoSchemaBase si es necesario para el tipo de producto recibido por el WS
+import { Producto, ProductoSchemaBase } from "../../types/producto";
 import { CategoriaNested } from "../../types/categoria";
 import { UnidadMedidaNested } from "../../types/unidad_medida";
 import { MarcaNested } from "../../types/marca";
@@ -73,14 +73,11 @@ const ComprasFormPage: React.FC = () => {
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [productoSearchTerm, setProductoSearchTerm] = useState('');
 
-  // --- Estados para el Modal de Crear Producto ---
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState<boolean>(false);
   const [availableCategorias, setAvailableCategorias] = useState<CategoriaNested[]>([]);
   const [availableUnidadesMedida, setAvailableUnidadesMedida] = useState<UnidadMedidaNested[]>([]);
   const [availableMarcas, setAvailableMarcas] = useState<MarcaNested[]>([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(true);
-
-  // --- Estados y Refs para el WebSocket ---
 
     const { websocketStatus, scannerError, lastScannedProduct, lastScannedType } = useScannerWebSocket();
 
@@ -111,14 +108,12 @@ const ComprasFormPage: React.FC = () => {
           {
             producto_id: producto.producto_id,
             cantidad: 1,
-            // Usa el precio de compra del producto si está disponible, sino 0
             precio_unitario: producto.precio_compra || 0,
           },
         ];
       }
     });
     setProductosMap(prevMap => {
-      // Solo añade el producto al mapa si no existe
       if (!prevMap.has(producto.producto_id)) {
         const newMap = new Map(prevMap);
         newMap.set(producto.producto_id, producto);
@@ -135,12 +130,11 @@ const ComprasFormPage: React.FC = () => {
         estado: EstadoEnum.Activo,
         limit: 1000,
       });
-      setProductos(fetchedProductos);
+      setProductos(fetchedProductos.items);
       const pMap = new Map<number, Producto>();
-      fetchedProductos.forEach((p) => pMap.set(p.producto_id, p));
+      fetchedProductos.items.forEach((p) => pMap.set(p.producto_id, p));
       setProductosMap(pMap);
     } catch (err) {
-      console.error("Error fetching productos:", err);
       setError("No se pudieron cargar los productos.");
     }
   };
@@ -148,10 +142,8 @@ const ComprasFormPage: React.FC = () => {
     useEffect(() => {
         if (lastScannedProduct && lastScannedType === 'purchase_scan') {
             addOrUpdateProductInCart(lastScannedProduct);
-            // Opcional: limpiar lastScannedProduct y lastScannedType si el hook no lo hace
-            // para evitar procesarlo múltiples veces si el componente se re-renderiza
         }
-    }, [lastScannedProduct, lastScannedType, addOrUpdateProductInCart]);// Asegúrate de que addOrUpdateProductInCart sea estable (usa useCallback)
+    }, [lastScannedProduct, lastScannedType, addOrUpdateProductInCart]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -163,7 +155,7 @@ const ComprasFormPage: React.FC = () => {
           estado: EstadoEnum.Activo,
           limit: 1000,
         });
-        setProveedores(fetchedProveedores);
+        setProveedores(fetchedProveedores.items || []);
 
         await fetchProducts();
 
@@ -184,7 +176,6 @@ const ComprasFormPage: React.FC = () => {
           setDetallesCompra(loadedDetalles);
         }
       } catch (err: any) {
-        console.error("Error cargando datos iniciales o compra:", err);
         setError(
           "Error al cargar datos: " +
           (err.response?.data?.detail || err.message)
@@ -202,11 +193,10 @@ const ComprasFormPage: React.FC = () => {
           getUnidadesMedida({ limit: 100 }),
           getMarcas({ limit: 100 }),
         ]);
-        setAvailableCategorias(categoriasData);
+        setAvailableCategorias(categoriasData.items);
         setAvailableUnidadesMedida(unidadesMedidaData);
         setAvailableMarcas(marcasData);
       } catch (err) {
-        console.error("Error loading catalogs:", err);
         setError("Error al cargar catálogos para el formulario de productos.");
       } finally {
         setLoadingCatalogs(false);
@@ -315,7 +305,6 @@ const ComprasFormPage: React.FC = () => {
       }
       setTimeout(() => navigate("/compras"), 1500);
     } catch (err: any) {
-      console.error("Error al guardar la compra:", err.response?.data || err);
       const errorMessage = err.response?.data?.detail || err.message || "Ocurrió un error al guardar la compra.";
       setFormSubmitError(errorMessage);
     } finally {
@@ -327,43 +316,42 @@ const ComprasFormPage: React.FC = () => {
   const handleCloseAddProductModal = () => setIsAddProductModalOpen(false);
   const handleProductFormSuccess = () => {
     handleCloseAddProductModal();
-    fetchProducts(); // Recargar la lista de productos
+    fetchProducts();
   };
 
   if (loading && !isEditing && productos.length === 0 && proveedores.length === 0) {
-    return <div className="flex justify-center items-center min-h-[calc(100vh-200px)]"><LoadingSpinner /> Cargando datos iniciales...</div>;
+    return <div className="flex justify-center items-center min-h-[calc(100vh-200px)] text-gray-800 dark:text-gray-200"><LoadingSpinner /> Cargando datos iniciales...</div>;
   }
   if (loading && isEditing) {
-    return <div className="flex justify-center items-center min-h-[calc(100vh-200px)]"><LoadingSpinner /> Cargando compra para editar...</div>;
+    return <div className="flex justify-center items-center min-h-[calc(100vh-200px)] text-gray-800 dark:text-gray-200"><LoadingSpinner /> Cargando compra para editar...</div>;
   }
   if (error) {
     return <div className="text-red-500 text-center mt-4 p-4">{error}</div>;
   }
   if (!loading && (proveedores.length === 0)) {
-    return <div className="text-yellow-600 text-center mt-4 p-4">No hay proveedores activos disponibles para crear una compra.</div>;
+    return <div className="text-yellow-600 dark:text-yellow-400 text-center mt-4 p-4">No hay proveedores activos disponibles para crear una compra.</div>;
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">
+    <div className="container mx-auto p-6 max-w-7xl bg-gray-50 dark:bg-gray-900 rounded-lg">
+      <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">
         {isEditing ? `Editar Compra #${compraId}` : "Registrar Nueva Compra"}
       </h1>
-      {formSubmitError && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4" role="alert">{formSubmitError}</div>}
-      {formMessage && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mb-4" role="alert">{formMessage}</div>}
-      {/* Estado del WebSocket */}
-      <div className="text-sm text-gray-600 mb-4 flex items-center justify-end">
-        Estado del escáner: <span className={`ml-2 font-semibold ${websocketStatus.includes('Conectado') ? 'text-green-600' : websocketStatus.includes('Desconectado') || websocketStatus.includes('Error') || websocketStatus.includes('Fallo') ? 'text-red-600' : 'text-yellow-600'}`}>{websocketStatus}</span>
+      {formSubmitError && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 dark:bg-red-900 dark:border-red-700 dark:text-red-200" role="alert">{formSubmitError}</div>}
+      {formMessage && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mb-4 dark:bg-green-900 dark:border-green-700 dark:text-green-200" role="alert">{formMessage}</div>}
+      <div className="text-sm text-gray-600 dark:text-gray-400 mb-4 flex items-center justify-end">
+        Estado del escáner: <span className={`ml-2 font-semibold ${websocketStatus.includes('Conectado') ? 'text-green-600 dark:text-green-400' : websocketStatus.includes('Desconectado') || websocketStatus.includes('Error') || websocketStatus.includes('Fallo') ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'}`}>{websocketStatus}</span>
         {websocketStatus.includes('Conectando') && <LoadingSpinner className="ml-2 w-4 h-4" />}
       </div>
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="flex flex-col gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">1. Detalles de la Compra</h2>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">1. Detalles de la Compra</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="proveedor" className="block text-sm font-medium text-gray-700">Proveedor</label>
+                  <label htmlFor="proveedor" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Proveedor</label>
                   <Select id="proveedor" value={proveedorId} onChange={(e) => setProveedorId(Number(e.target.value))} required className="mt-1 block w-full" disabled={loading}>
                     <option value="">Seleccione un proveedor</option>
                     {proveedores.map((prov) => (
@@ -374,12 +362,12 @@ const ComprasFormPage: React.FC = () => {
                   </Select>
                 </div>
                 <div>
-                  <label htmlFor="fechaCompra" className="block text-sm font-medium text-gray-700">Fecha y Hora</label>
-                  <Input id="fechaCompra" type="datetime-local" value={fechaCompra} readOnly className="mt-1 block w-full bg-gray-100" />
+                  <label htmlFor="fechaCompra" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Fecha y Hora</label>
+                  <Input id="fechaCompra" type="datetime-local" value={fechaCompra} readOnly className="mt-1 block w-full bg-gray-100 dark:bg-gray-700 dark:text-gray-200" />
                 </div>
                 {isEditing && (
                   <div className="md:col-span-2">
-                    <label htmlFor="estadoCompra" className="block text-sm font-medium text-gray-700">Estado</label>
+                    <label htmlFor="estadoCompra" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado</label>
                     <Select id="estadoCompra" value={estadoCompra} onChange={(e) => setEstadoCompra(e.target.value as EstadoCompraEnum)} required className="mt-1 block w-full" disabled={loading}>
                       {Object.values(EstadoCompraEnum).map((estado) => (
                         <option key={estado} value={estado}>{estado.charAt(0).toUpperCase() + estado.slice(1)}</option>
@@ -390,58 +378,58 @@ const ComprasFormPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">2. Añadir Productos</h2>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">2. Añadir Productos</h2>
               <div>
                 <div className="flex items-center gap-4 mb-2">
-                    <label htmlFor="search-product" className="block text-sm font-medium text-gray-700 flex-grow">Buscar en Lista</label>
-                    <Button type="button" onClick={handleOpenAddProductModal} variant="success" className="px-3 py-1 text-sm" disabled={loadingCatalogs}>
+                    <label htmlFor="search-product" className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex-grow">Buscar en Lista</label>
+                    <Button type="button" onClick={handleOpenAddProductModal} variant="success" size="sm" disabled={loadingCatalogs}>
                         {loadingCatalogs ? 'Cargando...' : '+ Nuevo Producto'}
                     </Button>
                 </div> 
-                <Input id="search-product" type="text" placeholder="Filtrar por nombre o código..." value={productoSearchTerm} onChange={(e) => setProductoSearchTerm(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" />
-                <div className="mt-2 max-h-[300px] overflow-y-auto border rounded-md">
+                <Input id="search-product" type="text" placeholder="Filtrar por nombre o código..." value={productoSearchTerm} onChange={(e) => setProductoSearchTerm(e.target.value)} />
+                <div className="mt-2 max-h-[300px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md">
                   {filteredProducts.length > 0 ? (
-                    <ul className="divide-y divide-gray-200">
+                    <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                       {filteredProducts.map(producto => (
-                        <li key={producto.producto_id} className="flex items-center justify-between p-3 hover:bg-gray-50">
+                        <li key={producto.producto_id} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
                           <div>
-                            <p className="font-semibold text-gray-900">{producto.nombre}</p>
-                            <p className="text-sm text-gray-500">Cód: {producto.codigo}</p>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">{producto.nombre}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Cód: {producto.codigo}</p>
                           </div>
-                          <Button type="button" onClick={() => addOrUpdateProductInCart(producto)} variant="success" className="px-3 py-1 text-sm">+ Añadir</Button>
+                          <Button type="button" onClick={() => addOrUpdateProductInCart(producto)} variant="success" size="sm">+ Añadir</Button>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-center text-gray-500 p-4">No se encontraron productos. Puede crear uno nuevo.</p>
+                    <p className="text-center text-gray-500 dark:text-gray-400 p-4">No se encontraron productos. Puede crear uno nuevo.</p>
                   )}
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-md flex flex-col">
-            <h2 className="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">3. Productos en la Compra ({detallesCompra.length})</h2>
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex flex-col">
+            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">3. Productos en la Compra ({detallesCompra.length})</h2>
             <div className="flex-grow min-h-[300px] max-h-[60vh] overflow-y-auto pr-2 -mr-4 space-y-3">
               {detallesCompra.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-gray-500"><p>El carrito de compras está vacío.</p></div>
+                <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400"><p>El carrito de compras está vacío.</p></div>
               ) : (
                 detallesCompra.map((detalle, index) => {
                   const subtotal = (Number(detalle.cantidad) || 0) * (Number(detalle.precio_unitario) || 0);
                   return (
-                    <div key={index} className="flex items-center gap-3 p-3 border rounded-md bg-gray-50 shadow-sm">
+                    <div key={index} className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-700 shadow-sm">
                       <div className="flex-grow">
-                        <p className="font-semibold text-gray-800 text-base">{productosMap.get(Number(detalle.producto_id))?.nombre || `ID: ${detalle.producto_id}`}</p>
-                        <p className="text-sm text-gray-500">Subtotal: <span className="font-bold">{subtotal.toFixed(2)} Bs.</span></p>
+                        <p className="font-semibold text-gray-800 dark:text-gray-100">{productosMap.get(Number(detalle.producto_id))?.nombre || `ID: ${detalle.producto_id}`}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Subtotal: <span className="font-bold">{subtotal.toFixed(2)} Bs.</span></p>
                       </div>
                       <div className="w-24">
-                        <label className="text-xs text-gray-600 block text-center mb-1">Cant.</label>
-                        <Input type="number" value={detalle.cantidad} onChange={(e) => handleDetalleChange(index, "cantidad", e.target.value)} min="1" className="w-full p-2" />
+                        <label className="text-xs text-gray-600 dark:text-gray-400 block text-center mb-1">Cant.</label>
+                        <Input type="number" value={detalle.cantidad} onChange={(e) => handleDetalleChange(index, "cantidad", e.target.value)} min="1" />
                       </div>
                       <div className="w-28">
-                        <label className="text-xs text-gray-600 block text-center mb-1">Precio (Bs.)</label>
-                        <Input type="number" value={detalle.precio_unitario} onChange={(e) => handleDetalleChange(index, "precio_unitario", e.target.value)} min="0" step="0.01" className="w-full p-2" />
+                        <label className="text-xs text-gray-600 dark:text-gray-400 block text-center mb-1">Precio (Bs.)</label>
+                        <Input type="number" value={detalle.precio_unitario} onChange={(e) => handleDetalleChange(index, "precio_unitario", e.target.value)} min="0" step="0.01" />
                       </div>
                       <Button type="button" onClick={() => removeDetalle(index)} variant="danger" className="p-2 self-center mt-4">X</Button>
                     </div>
@@ -450,24 +438,23 @@ const ComprasFormPage: React.FC = () => {
               )}
             </div>
             {detallesCompra.length > 0 && (
-                <div className="mt-auto pt-4 border-t">
-                    <div className="text-right p-4 bg-indigo-50 rounded-md">
-                        <p className="text-2xl font-bold text-indigo-800">Total: Bs. {totalCompra}</p>
+                <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="text-right p-4 bg-indigo-50 dark:bg-indigo-900 rounded-md">
+                        <p className="text-2xl font-bold text-indigo-800 dark:text-indigo-300">Total: Bs. {totalCompra}</p>
                     </div>
                 </div>
             )}
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t flex justify-end space-x-4">
-          <Button type="button" onClick={() => navigate(-1)} variant="secondary" disabled={loading} className="px-6 py-2">Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={loading || detallesCompra.length === 0} className="px-6 py-2 text-base">
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4">
+          <Button type="button" onClick={() => navigate(-1)} variant="secondary">Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={loading || detallesCompra.length === 0}>
             {loading ? <LoadingSpinner /> : isEditing ? "Actualizar Compra" : "Registrar Compra"}
           </Button>
         </div>
       </form>
 
-      {/* --- Modal para Crear Nuevo Producto --- */}
       <Modal
         isOpen={isAddProductModalOpen}
         onClose={handleCloseAddProductModal}

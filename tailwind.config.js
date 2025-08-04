@@ -1,11 +1,14 @@
-/** @type {import('tailwindcss').Config} */
+
+import type { Config } from 'tailwindcss';
+
 export default {
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}", // Esto le dice a Tailwind que escanee todos los archivos .js, .ts, .jsx, .tsx dentro de src/
+    './index.html',
+    './src/**/*.{js,ts,jsx,tsx}',
   ],
+  darkMode: 'class', // Habilitar el modo oscuro basado en clases
   theme: {
     extend: {},
   },
   plugins: [],
-}
+} satisfies Config;

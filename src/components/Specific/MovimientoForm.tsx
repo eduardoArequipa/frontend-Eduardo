@@ -8,6 +8,7 @@ import Button from '../Common/Button';
 import Select from '../Common/Select';
 import ErrorMessage from '../Common/ErrorMessage';
 import LoadingSpinner from '../Common/LoadingSpinner';
+import { useTheme } from '../../context/ThemeContext';
 
 interface MovimientoFormProps {
     onSuccess: () => void;
@@ -16,6 +17,7 @@ interface MovimientoFormProps {
 }
 
 const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel, availableProductos }) => {
+    const { theme } = useTheme();
     const { handleSubmit, control, reset, formState: { errors } } = useForm<MovimientoCreate>();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -44,12 +46,12 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel, av
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-md space-y-4`}>
             {loading && <LoadingSpinner />}
             {error && <ErrorMessage message={error} />}
 
             <div>
-                <label htmlFor="producto_id" className="block text-sm font-medium text-gray-700">Producto</label>
+                <label htmlFor="producto_id" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Producto</label>
                 <Controller
                     name="producto_id"
                     control={control}
@@ -71,7 +73,7 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel, av
             </div>
 
             <div>
-                <label htmlFor="tipo_movimiento" className="block text-sm font-medium text-gray-700">Tipo de Movimiento</label>
+                <label htmlFor="tipo_movimiento" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Tipo de Movimiento</label>
                 <Controller
                     name="tipo_movimiento"
                     control={control}
@@ -89,7 +91,7 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel, av
             </div>
 
             <div>
-                <label htmlFor="cantidad" className="block text-sm font-medium text-gray-700">Cantidad</label>
+                <label htmlFor="cantidad" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Cantidad</label>
                 <Controller
                     name="cantidad"
                     control={control}
@@ -112,7 +114,7 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel, av
             </div>
 
             <div>
-                <label htmlFor="motivo" className="block text-sm font-medium text-gray-700">Motivo (Opcional)</label>
+                <label htmlFor="motivo" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Motivo (Opcional)</label>
                 <Controller
                     name="motivo"
                     control={control}

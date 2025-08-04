@@ -6,7 +6,7 @@ import { getRoles } from '../../services/rolService';
 import { uploadImage } from '../../services/uploadService';
 
 // Tipos
-import { IPersonaInDB, IPersonaCreate, IPersonaUpdate, IPersonaNested } from '../../types/persona';
+import { IPersonaInDB, IPersonaCreate, IPersonaUpdate, IPersonaWithRoles } from '../../types/persona';
 import { IUsuarioCreateNested } from '../../types/usuario';
 import { IRolInDB } from '../../types/rol';
 import { EstadoEnum, GeneroEnum } from '../../types/enums';
@@ -79,7 +79,7 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
   // --- ESTADOS PARA MODO "assign-role" ---
   const [useExistingPerson, setUseExistingPerson] = useState<boolean>(true);
   const [searchPersonaTerm, setSearchPersonaTerm] = useState<string>('');
-  const [foundPersonas, setFoundPersonas] = useState<IPersonaNested[]>([]);
+  const [foundPersonas, setFoundPersonas] = useState<IPersonaWithRoles[]>([]);
   const [searchingPersonas, setSearchingPersonas] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] = useState<number | ''>( '');
   const [roleToAssignId, setRoleToAssignId] = useState<number | null>(null);
@@ -108,29 +108,6 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
     }
   };
 
-  // --- EFECTOS DE CARGA INICIAL ---
-
-  // Cargar Rol a Asignar (para modo 'assign-role')
-  useEffect(() => {
-    if (mode === 'assign-role' && roleToAssign) {
-      const fetchRoles = async () => {
-        try {
-          const roles = await getRoles();
-          const role = roles.find((r: IRolInDB) => r.nombre_rol.toLowerCase() === roleToAssign.toLowerCase());
-          if (role) {
-            setRoleToAssignId(role.rol_id);
-          } else {
-            setInitialLoadError(`El rol '${roleToAssign}' no fue encontrado.`);
-          }
-        } catch (err) {
-          setInitialLoadError("Error al cargar la información de roles.");
-        }
-      };
-      fetchRoles();
-    }
-  }, [mode, roleToAssign]);
-
-  // Cargar datos de la persona (si se edita) y roles disponibles (para modo 'full')
   useEffect(() => {
     const loadPersonaData = async () => {
       if (isEditing && personaId) {
@@ -174,7 +151,25 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
     loadPersonaData();
     loadAvailableRoles();
   }, [isEditing, personaId, mode]);
-
+  // --- EFECTOS DE CARGA INICIAL ---
+  useEffect(() => {
+    if (mode === 'assign-role' && roleToAssign) {
+      const fetchRoles = async () => {
+        try {
+          const roles = await getRoles();
+          const role = roles.find((r: IRolInDB) => r.nombre_rol.toLowerCase() === roleToAssign.toLowerCase());
+          if (role) {
+            setRoleToAssignId(role.rol_id);
+          } else {
+            setInitialLoadError(`El rol '${roleToAssign}' no fue encontrado.`);
+          }
+        } catch (err) {
+          setInitialLoadError("Error al cargar la información de roles.");
+        }
+      };
+      fetchRoles();
+    }
+  }, [mode, roleToAssign]);
 
   // --- LÓGICA DE BÚSQUEDA (para modo 'assign-role') ---
   const debouncedSearch = useCallback(
@@ -187,7 +182,7 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
       try {
         // CORRECCIÓN API: Usamos getPersonas con el parámetro 'search'
         const personas = await getPersonas({ search: term, limit: 10 });
-        setFoundPersonas(personas);
+        setFoundPersonas(personas.items);
       } catch (err) {
         setFormSubmitError("Error al buscar personas.");
       } finally {
@@ -205,7 +200,6 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
 
 
   // --- MANEJADORES DE EVENTOS ---
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setPersonaFormData(prev => ({ ...prev, [name]: value }));
@@ -229,6 +223,7 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
     }
   };
 
+  // --- LÓGICA DE ENVÍO DEL FORMULARIO ---
   // --- LÓGICA DE ENVÍO DEL FORMULARIO ---
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -332,7 +327,6 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
       setLoading(false);
     }
   };
-
   // --- RENDERIZADO ---
 
   if (initialLoadError) {
@@ -340,34 +334,32 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
   }
 
   if (loading && !formSubmitError) {
-      return <div className="flex justify-center items-center p-8"><LoadingSpinner /></div>;
+      return <div className="flex justify-center items-center p-8 text-gray-800 dark:text-gray-200"><LoadingSpinner /> Cargando...</div>;
   }
 
   const isFormInvalid = Object.values(errors).some(error => error !== '');
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-xl space-y-6">
-      {showTitle && <h1 className="text-3xl font-bold text-gray-800">{isEditing ? 'Editar Persona' : `Crear Nueva Persona`}</h1>}
+    <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl space-y-6">
+      {showTitle && <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">{isEditing ? 'Editar Persona' : `Crear Nueva Persona`}</h1>}
 
-      {/* --- Selector de Modo para 'assign-role' --- */}
       {mode === 'assign-role' && !isEditing && (
         <div className="mb-4">
-          <div className="flex space-x-4">
+          <div className="flex space-x-4 text-gray-800 dark:text-gray-200">
             <label className="inline-flex items-center">
-              <input type="radio" name="person_option" value="existing" checked={useExistingPerson} onChange={() => setUseExistingPerson(true)} className="form-radio" />
+              <input type="radio" name="person_option" value="existing" checked={useExistingPerson} onChange={() => setUseExistingPerson(true)} className="form-radio text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600" />
               <span className="ml-2">Asignar a Persona Existente</span>
             </label>
             <label className="inline-flex items-center">
-              <input type="radio" name="person_option" value="new" checked={!useExistingPerson} onChange={() => setUseExistingPerson(false)} className="form-radio" />
+              <input type="radio" name="person_option" value="new" checked={!useExistingPerson} onChange={() => setUseExistingPerson(false)} className="form-radio text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600" />
               <span className="ml-2">Crear Nueva Persona</span>
             </label>
           </div>
         </div>
       )}
 
-      {/* --- Formulario de Búsqueda/Creación para 'assign-role' --- */}
       {mode === 'assign-role' && !isEditing && useExistingPerson && (
-        <div className="border p-4 rounded-md bg-blue-50">
+        <div className="border p-4 rounded-md bg-blue-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600">
           <Input
             type="text"
             placeholder="Buscar por CI, nombre..."
@@ -389,7 +381,6 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
         </div>
       )}
 
-      {/* --- Campos del Formulario Principal --- */}
       {((mode === 'assign-role' && !useExistingPerson) || mode === 'full') && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input id="nombre" name="nombre" label="Nombre *" value={personaFormData.nombre || ''} onChange={handleInputChange} required placeholder="Nombre" error={errors.nombre} />
@@ -404,8 +395,8 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
             <Input id="email" name="email" label="Email *" type="email" value={personaFormData.email || ''} onChange={handleInputChange} required placeholder="Email" error={errors.email} />
             <Input id="telefono" name="telefono" label="Teléfono *" value={personaFormData.telefono || ''} onChange={handleInputChange} required placeholder="+59172973548" error={errors.telefono} />
             <div className="md:col-span-2">
-                <label htmlFor="direccion" className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-                <textarea id="direccion" name="direccion" value={personaFormData.direccion || ''} onChange={handleInputChange} rows={3} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Dirección" />
+                <label htmlFor="direccion" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección</label>
+                <textarea id="direccion" name="direccion" value={personaFormData.direccion || ''} onChange={handleInputChange} rows={3} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 shadow-sm p-2" placeholder="Dirección" />
             </div>
             <Select name="estado" label="Estado" value={personaFormData.estado || EstadoEnum.Activo} onChange={handleInputChange}>
                 <option value={EstadoEnum.Activo}>Activo</option>
@@ -414,10 +405,9 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
         </div>
       )}
 
-      {/* --- Sección de Roles para 'full' mode --- */}
       {mode === 'full' && (
         <div className="md:col-span-2 mt-4">
-          <label htmlFor="persona_rol_ids" className="block text-sm font-medium text-gray-700 mb-1">Roles de la Persona</label>
+          <label htmlFor="persona_rol_ids" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Roles de la Persona</label>
           {loadingRoles ? <LoadingSpinner /> : (
             <Select id="persona_rol_ids" name="rol_ids" multiple value={personaFormData.rol_ids?.map(String) || []} onChange={handleRoleSelectChange} className="w-full h-32">
               {availableRoles.map(rol => (
@@ -428,11 +418,10 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
         </div>
       )}
 
-      {/* --- Sección de Usuario para 'full' mode --- */}
       {mode === 'full' && !isEditing && (
-        <div className="md:col-span-2 mt-6 p-6 border rounded-lg bg-blue-50">
-          <label className="flex items-center">
-            <input type="checkbox" checked={showUserDataFields} onChange={(e) => setShowUserDataFields(e.target.checked)} className="h-5 w-5" />
+        <div className="md:col-span-2 mt-6 p-6 border rounded-lg bg-blue-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+          <label className="flex items-center text-gray-800 dark:text-gray-200">
+            <input type="checkbox" checked={showUserDataFields} onChange={(e) => setShowUserDataFields(e.target.checked)} className="h-5 w-5 rounded text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600" />
             <span className="ml-3 text-base font-medium">¿Crear Usuario asociado?</span>
           </label>
           {showUserDataFields && (
@@ -445,14 +434,13 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
         </div>
       )}
 
-      {/* --- Botones y Errores --- */}
       {formSubmitError && <ErrorMessage message={formSubmitError} />}
       <div className="flex justify-end space-x-4 mt-6">
         {showCancelButton && onCancel && (
-          <Button type="button" onClick={onCancel} className="bg-gray-300 hover:bg-gray-400">Cancelar</Button>
+          <Button type="button" onClick={onCancel} variant="secondary">Cancelar</Button>
         )}
-        <Button type="submit" disabled={loading || isFormInvalid} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-          {loading ? <LoadingSpinner /> : (isEditing ? 'Actualizar' : 'Guardar')}
+        <Button type="submit" disabled={loading || isFormInvalid} variant="primary">
+          {loading ? <LoadingSpinner /> : (isEditing ? 'Actualizar Persona' : 'Guardar Persona')}
         </Button>
       </div>
     </form>

@@ -13,24 +13,10 @@ import { getCategorias } from '../../services/categoriaService';
 import { getUsers } from '../../services/userService';
 import { generarReporteVentasPDF } from '../../services/reportesService';
 
-// Tipos de Ant Design
-// RangePickerProps is now imported from 'antd/es/date-picker'
-
-// Tipos de datos
-interface Producto {
-  producto_id: number;
-  nombre: string;
-}
-
-interface Categoria {
-  categoria_id: number;
-  nombre_categoria: string;
-}
-
-interface Usuario {
-  usuario_id: number;
-  nombre_usuario: string;
-}
+// Tipos de datos (usar los tipos ya definidos globalmente)
+import { Producto } from '../../types/producto'; // Usar el tipo Producto completo
+import { CategoriaNested } from '../../types/categoria'; // Usar el tipo CategoriaNested
+import { IUsuarioReadAudit } from '../../types/usuario'; // Usar el tipo IUsuarioReadAudit
 
 const { Title, Text } = Typography;
 
@@ -43,8 +29,8 @@ const ReportesPage: React.FC = () => {
 
   // Estados para cargar los datos de los selects
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [empleados, setEmpleados] = useState<Usuario[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaNested[]>([]);
+  const [empleados, setEmpleados] = useState<IUsuarioReadAudit[]>([]);
 
   // Estado de carga
   const [loading, setLoading] = useState(false);
@@ -55,14 +41,15 @@ const ReportesPage: React.FC = () => {
     const cargarDatos = async () => {
       try {
         setLoadingData(true);
+        // Asegurarse de acceder a la propiedad .items de la respuesta de paginación
         const [productosRes, categoriasRes, usuariosRes] = await Promise.all([
-          getProductos(),
-          getCategorias(),
-          getUsers(),
+          getProductos({ limit: 1000 }), // Pasar límite para obtener todos los productos
+          getCategorias({ limit: 1000 }), // Pasar límite para obtener todas las categorías
+          getUsers({ limit: 1000 }), // Pasar límite para obtener todos los usuarios
         ]);
-        setProductos(productosRes || []);
-        setCategorias(categoriasRes || []);
-        setEmpleados(usuariosRes || []);
+        setProductos(productosRes.items || []); // Acceder a .items
+        setCategorias(categoriasRes.items || []); // Acceder a .items
+        setEmpleados(usuariosRes.items || []); // Acceder a .items
       } catch (error) {
         console.error("Error al cargar datos para filtros:", error);
         notification.error({ message: 'Error al Cargar Datos', description: 'No se pudieron obtener los datos para los filtros.' });

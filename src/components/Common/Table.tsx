@@ -4,7 +4,7 @@ import React from 'react';
 // Define una estructura básica para las columnas
 interface Column {
     Header: string;
-    accessor: string;
+    accessor?: string; // Hacer el accessor opcional
     Cell?: ({ row }: { row: { original: any } }) => React.ReactNode; // row.original contiene los datos de la fila
 }
 
@@ -20,9 +20,9 @@ const Table: React.FC<TableProps> = ({ columns, data }) => {
     }
 
     return (
-        <div className="overflow-x-auto shadow-md rounded-lg">
-            <table className="w-full text-sm text-left text-gray-500">
-                <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+        <div className="overflow-x-auto shadow-md rounded-lg border border-gray-200 dark:border-gray-700">
+            <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                     <tr>
                         {columns.map((column, index) => (
                             <th key={index} scope="col" className="px-6 py-3">
@@ -33,15 +33,14 @@ const Table: React.FC<TableProps> = ({ columns, data }) => {
                 </thead>
                 <tbody>
                     {data.map((row, rowIndex) => (
-                        <tr key={rowIndex} className="bg-white border-b hover:bg-gray-50">
+                        <tr key={rowIndex} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                             {columns.map((column, colIndex) => (
-                                <td key={colIndex} className="px-8 py-4">
+                                <td key={colIndex} className="px-8 py-4 text-gray-900 dark:text-white">
                                     {/* Si hay un renderizador Cell custom, úsalo */}
                                     {column.Cell ? column.Cell({ row: { original: row } }) : (
-                                        // Si no, usa el accessor para mostrar el valor
-                                        // Maneja posibles valores null/undefined mostrando cadena vacía o un fallback
-                                        (row as any)[column.accessor] !== undefined && (row as any)[column.accessor] !== null
-                                            ? String((row as any)[column.accessor])
+                                        // Si no, usa el accessor para mostrar el valor, solo si el accessor existe
+                                        column.accessor && (row as any)[column.accessor] !== undefined && (row as any)[column.accessor] !== null
+                                            ? String((row as any)[column.accessor!])
                                             : ''
                                     )}
                                 </td>

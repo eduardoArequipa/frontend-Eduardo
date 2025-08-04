@@ -4,6 +4,7 @@ import {
    IPersonaCreate,
  IPersonaUpdate,
    IPersonaNested,
+   PersonaPagination // Importar PersonaPagination
 } from '../types/persona';
 import { IRolInDB } from '../types/rol'; // Asegúrate de que esta ruta y nombre de tipo sean correctos
 import { EstadoEnum } from '../types/enums'; // Si el estado de la persona es un EstadoEnum
@@ -26,11 +27,9 @@ export interface GetPersonasParams {
  * Obtiene una lista de personas con opciones de filtrado y paginación.
  * Utiliza axiosInstance para incluir el token de autenticación.
  * @param params Parámetros de filtrado y paginación.
- * @returns Una promesa que resuelve con una lista de PersonaInDB.
+ * @returns Una promesa que resuelve con un objeto PersonaPagination.
  */
-export const getPersonas = async (params?: GetPersonasParams): Promise<IPersonaInDB[]> => {
-    // Si tienes un endpoint que soporta 'rol_nombre' como filtro, lo incluyes aquí.
-    // Tu backend ya lo soporta, así que es bueno pasarlo.
+export const getPersonas = async (params?: GetPersonasParams): Promise<PersonaPagination> => {
     const response = await axiosInstance.get('/personas/', { params });
     return response.data;
 };
@@ -81,7 +80,7 @@ export const deactivatePersona = async (id: number): Promise<void> => {
  * @returns Una promesa que resuelve con el objeto PersonaInDB actualizada.
  */
 export const activatePersona = async (id: number): Promise<void> => {
-    await axiosInstance.post(`/personas/${id}/activar`);
+    await axiosInstance.patch(`/personas/${id}/activar`);
 };
 
 // --- Servicios para Roles ---

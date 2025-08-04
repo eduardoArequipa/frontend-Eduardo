@@ -16,6 +16,7 @@ import LoadingSpinner from "../Common/LoadingSpinner";
 import Select from "../Common/Select";
 import ErrorMessage from "../Common/ErrorMessage";
 import { Producto } from "../../types/producto";
+import { useTheme } from "../../context/ThemeContext";
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 interface ProductoFormProps {
@@ -40,14 +41,15 @@ type FormData = {
   metros_por_rollo?: number | null;
 };
 
-const ProductoForm: React.FC<ProductoFormProps> = ({ 
-  productoId, 
-  onSuccess, 
-  onCancel, 
+const ProductoForm: React.FC<ProductoFormProps> = ({
+  productoId,
+  onSuccess,
+  onCancel,
   availableCategorias,
   availableUnidadesMedida,
-  availableMarcas 
+  availableMarcas
 }) => {
+  const { theme } = useTheme();
   const isEditing = !!productoId;
   const {
     register,
@@ -192,9 +194,9 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-6 rounded-lg shadow-md grid grid-cols-1 md:grid-cols-2 gap-6">
+    <form onSubmit={handleSubmit(onSubmit)} className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-md grid grid-cols-1 md:grid-cols-2 gap-6`}>
       <div>
-        <label htmlFor="codigo" className="block text-sm font-medium text-gray-700">Código</label>
+        <label htmlFor="codigo" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Código</label>
         <Input
           id="codigo"
           type="text"
@@ -205,7 +207,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
       </div>
 
       <div>
-        <label htmlFor="nombre" className="block text-sm font-medium text-gray-700">Nombre</label>
+        <label htmlFor="nombre" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Nombre</label>
         <Input
           id="nombre"
           type="text"
@@ -216,7 +218,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
       </div>
 
       <div>
-        <label htmlFor="precio_compra" className="block text-sm font-medium text-gray-700">Precio de Compra</label>
+        <label htmlFor="precio_compra" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Precio de Compra</label>
         <Input
           id="precio_compra"
           type="number"
@@ -232,7 +234,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
       </div>
 
       <div>
-        <label htmlFor="precio_venta" className="block text-sm font-medium text-gray-700">Precio de Venta</label>
+        <label htmlFor="precio_venta" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Precio de Venta</label>
         <Input
           id="precio_venta"
           type="number"
@@ -248,7 +250,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
       </div>
 
       <div>
-        <label htmlFor="stock_minimo" className="block text-sm font-medium text-gray-700">Stock Mínimo</label>
+        <label htmlFor="stock_minimo" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Stock Mínimo</label>
         <Input
           id="stock_minimo"
           type="number"
@@ -264,7 +266,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
       </div>
 
       <div>
-        <label htmlFor="stock" className="block text-sm font-medium text-gray-700">Stock Actual</label>
+        <label htmlFor="stock" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Stock Actual</label>
         <Input
           id="stock"
           type="number"
@@ -280,7 +282,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
       </div>
 
       <div>
-        <label htmlFor="categoria_id" className="block text-sm font-medium text-gray-700">Categoría</label>
+        <label htmlFor="categoria_id" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Categoría</label>
         <Select
           id="categoria_id"
           {...register("categoria_id", { required: "Debe seleccionar una categoría", valueAsNumber: true })}
@@ -297,7 +299,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
       </div>
 
       <div>
-        <label htmlFor="unidad_medida_id" className="block text-sm font-medium text-gray-700">Unidad de Medida</label>
+        <label htmlFor="unidad_medida_id" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Unidad de Medida</label>
         <Select
           id="unidad_medida_id"
           {...register("unidad_medida_id", { required: "Debe seleccionar una unidad", valueAsNumber: true })}
@@ -314,7 +316,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
       </div>
 
       <div>
-        <label htmlFor="marca_id" className="block text-sm font-medium text-gray-700">Marca</label>
+        <label htmlFor="marca_id" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Marca</label>
         <Select
           id="marca_id"
           {...register("marca_id", { required: "Debe seleccionar una marca", valueAsNumber: true })}
@@ -332,7 +334,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
 
       {availableUnidadesMedida.find((u) => u.unidad_id === watchedUnidadMedidaId)?.nombre_unidad.toLowerCase().trim() === "metro" && (
         <div>
-          <label htmlFor="metros_por_rollo" className="block text-sm font-medium text-gray-700">Metros por Rollo</label>
+          <label htmlFor="metros_por_rollo" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Metros por Rollo</label>
           <Input
             id="metros_por_rollo"
             type="number"
@@ -349,7 +351,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
       )}
 
       <div className="md:col-span-2">
-        <label htmlFor="product_image" className="block text-sm font-medium text-gray-700">Imagen del Producto</label>
+        <label htmlFor="product_image" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Imagen del Producto</label>
         <Input
           id="product_image"
           type="file"

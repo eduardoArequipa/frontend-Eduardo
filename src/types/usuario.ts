@@ -74,3 +74,8 @@ export interface IUsuarioReadAudit extends IUsuarioInDB {
     creador?: IUsuarioAudit; // El usuario que creó este registro (solo ID y nombre)
     modificador?: IUsuarioAudit; // El usuario que modificó por última vez este registro (solo ID y nombre)
 }
+
+export interface UsuarioPagination {
+    items: IUsuarioReadAudit[];
+    total: number;
+}

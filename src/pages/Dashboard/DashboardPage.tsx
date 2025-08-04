@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
-import { getDashboardData } from '../../services/dashboardService'; // Asegúrate de que la ruta sea correcta
-import { DashboardData } from '../../types/dashboard'; // Asegúrate de que la ruta sea correcta
-import { KpiCard } from '../Dashboard/KpiCard'; // Asegúrate de que la ruta sea correcta
-import { SalesChart } from '../Dashboard/SalesChart'; // Asegúrate de que la ruta sea correcta
-// Importa otros componentes de gráficos (TopProductsChart, etc.) aquí
+import { getDashboardData } from '../../services/dashboardService';
+import { DashboardData, SalesDataPoint } from '../../types/dashboard';
+import { KpiCard } from './KpiCard';
+import { SalesChart } from './SalesChart';
+import { TopProductsChart } from './TopProductsChart';
+import { CategoryChart } from './CategoryChart';
+import { PurchasesStats } from './PurchasesStats';
+import { LowStockTable } from './LowStockTable';
+
+type SalesPeriod = 'daily' | 'monthly' | 'yearly';
 
 const DashboardPage = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>('daily');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,40 +41,72 @@ const DashboardPage = () => {
     return <div className="text-red-500">{error || 'No se pudieron cargar los datos.'}</div>;
   }
 
-  // Mapear los íconos basados en el título o un identificador
   const getIconForKpi = (title: string): 'sales' | 'profit' | 'stock' => {
-      if (title.toLowerCase().includes('ventas')) return 'sales';
-      if (title.toLowerCase().includes('ganancia')) return 'profit';
-      return 'stock';
-  }
+    if (title.toLowerCase().includes('ventas')) return 'sales';
+    if (title.toLowerCase().includes('ganancia')) return 'profit';
+    return 'stock';
+  };
+
+  const getSalesData = (): SalesDataPoint[] => {
+    switch (salesPeriod) {
+      case 'monthly':
+        return data.sales_monthly;
+      case 'yearly':
+        return data.sales_yearly;
+      case 'daily':
+      default:
+        return data.sales_daily;
+    }
+  };
 
   return (
-    <div className="p-4 md:p-8 space-y-4">
-      <h1 className="text-3xl font-bold">Resumen general</h1>
+    <div className="p-4 md:p-8 space-y-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Resumen General</h1>
 
-      {/* Sección de KPIs */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* KPIs */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {data.kpi_cards.map((card) => (
           <KpiCard key={card.title} title={card.title} value={card.value} icon={getIconForKpi(card.title)} />
         ))}
+        <KpiCard title="Valor Total del Inventario" value={`Bs. ${data.total_inventory_value.toFixed(2)}`} icon="stock" />
       </div>
 
-      {/* Sección de Gráficos */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-4 p-4 border rounded-lg">
-            <h2 className="text-xl font-semibold mb-4">Rendimiento de Ventas (Últimos 30 días)</h2>
-            <SalesChart data={data.sales_over_time} />
+      {/* Gráfico de Ventas con selector */}
+      <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200">Rendimiento de Ventas</h2>
+            <div className="flex space-x-2">
+                <button onClick={() => setSalesPeriod('daily')} className={`px-3 py-1 rounded-md text-sm ${salesPeriod === 'daily' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-600 dark:text-gray-300'}`}>Diario</button>
+                <button onClick={() => setSalesPeriod('monthly')} className={`px-3 py-1 rounded-md text-sm ${salesPeriod === 'monthly' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-600 dark:text-gray-300'}`}>Mensual</button>
+                <button onClick={() => setSalesPeriod('yearly')} className={`px-3 py-1 rounded-md text-sm ${salesPeriod === 'yearly' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-600 dark:text-gray-300'}`}>Anual</button>
+            </div>
         </div>
-        <div className="col-span-3 p-4 border rounded-lg">
-            <h2 className="text-xl font-semibold mb-4">Top 5 Productos</h2>
-            {/* Aquí iría tu componente de gráfico de barras para Top Products */}
-            <ul>
-                {data.top_products.map(p => <li key={p.producto}>{p.producto} - Bs. {p.ingresos_totales.toFixed(2)}</li>)}
-            </ul>
+        <SalesChart data={getSalesData()} />
+      </div>
+
+      {/* Gráficos de Productos y Categorías */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <div className="lg:col-span-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Top 5 Productos Más Vendidos</h2>
+          <TopProductsChart data={data.top_selling_products} />
+        </div>
+        <div className="lg:col-span-2 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Inventario por Categoría</h2>
+          <CategoryChart data={data.inventory_by_category} />
         </div>
       </div>
-      
-       {/* Aquí podrías agregar más componentes para el resto de los datos */}
+
+      {/* Estadísticas de Compras y Stock Bajo */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <div className="lg:col-span-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Estadísticas de Compras</h2>
+          <PurchasesStats data={data.purchase_stats} />
+        </div>
+        <div className="lg:col-span-2 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Productos con Bajo Stock</h2>
+          <LowStockTable products={data.low_stock_products} />
+        </div>
+      </div>
 
     </div>
   );

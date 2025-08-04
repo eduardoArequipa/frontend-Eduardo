@@ -1,8 +1,5 @@
-import * as React from "react";
 
-// Función de utilidad para unir clases de CSS. 
-// Puedes instalar una librería como `clsx` (`npm install clsx`) para esto, 
-// pero una función simple también funciona.
+import * as React from "react";
 import { twMerge } from 'tailwind-merge';
 import clsx, { ClassValue } from 'clsx';
 
@@ -10,7 +7,6 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// ---- Componente Principal: Card ----
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -18,15 +14,14 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border bg-white text-gray-900 shadow-sm", // Estilos base
-      className // Permite sobreescribir o añadir clases desde fuera
+      "rounded-lg border bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-50 dark:border-gray-700",
+      className
     )}
     {...props}
   />
 ));
 Card.displayName = "Card";
 
-// ---- Componente de Cabecera: CardHeader ----
 const CardHeader = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -39,33 +34,30 @@ const CardHeader = React.forwardRef<
 ));
 CardHeader.displayName = "CardHeader";
 
-// ---- Componente de Título: CardTitle ----
 const CardTitle = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
   <h3
     ref={ref}
-    className={cn("text-lg font-semibold leading-none tracking-tight", className)}
+    className={cn("text-lg font-semibold leading-none tracking-tight dark:text-gray-100", className)}
     {...props}
   />
 ));
 CardTitle.displayName = "CardTitle";
 
-// ---- Componente de Descripción: CardDescription ----
 const CardDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-sm text-gray-500", className)} // Texto con color apagado
+    className={cn("text-sm text-gray-500 dark:text-gray-400", className)}
     {...props}
   />
 ));
 CardDescription.displayName = "CardDescription";
 
-// ---- Componente de Contenido: CardContent ----
 const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -74,7 +66,6 @@ const CardContent = React.forwardRef<
 ));
 CardContent.displayName = "CardContent";
 
-// ---- Componente de Pie de Página: CardFooter ----
 const CardFooter = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -87,5 +78,4 @@ const CardFooter = React.forwardRef<
 ));
 CardFooter.displayName = "CardFooter";
 
-// ---- Exportamos todo ----
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent };

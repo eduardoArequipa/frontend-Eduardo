@@ -23,3 +23,8 @@ export interface CategoriaNested {
     categoria_id: number;
     nombre_categoria: string;
 }
+
+export interface CategoriaPagination {
+    items: Categoria[];
+    total: number;
+}

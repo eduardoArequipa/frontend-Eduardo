@@ -1,65 +1,54 @@
-
 import { MetodoPagoNested } from "./metodoPago";
-import {  ProductoSchemaBase } from "./producto"; 
-import { IPersonaNested } from "./persona"; 
-
+import { ProductoSchemaBase } from "./producto";
+import { IPersonaNested } from "./persona";
 import { EstadoVentaEnum } from "./enums";
+import { IUsuarioAudit } from "./usuario"; // Asegúrate de tener este tipo para el creador/modificador
 
-export interface CarritoItem {
+// --- Detalle de Venta ---
+// Interfaz para la creación de un detalle de venta.
+export interface DetalleVentaCreate {
     producto_id: number;
-    codigo: string;
-    nombre: string;
-    cantidad_entrada: number;
+    cantidad: number;
     precio_unitario: number;
-    stock_disponible_base_unit: number;
-    metros_por_rollo: number | null;
-    is_meter_product: boolean;
-    sale_mode: 'rollo' | 'metro' | 'unidad';
 }
 
-// --- DetalleVenta ---
-export interface DetalleVentaBase {
-    producto_id: number;
-    cantidad: number; 
-    precio_unitario: number; 
-}
-
-export interface DetalleVentaCreate extends DetalleVentaBase {}
-
-export interface DetalleVentaInDB extends DetalleVentaBase {
+// Interfaz completa para un detalle de venta, tal como se recibe de la API.
+export interface DetalleVenta extends DetalleVentaCreate {
     detalle_id: number;
-    subtotal: number; 
-    producto: ProductoSchemaBase; 
-    fecha_creacion?: string;
-    fecha_actualizacion?: string;
+    subtotal: number; // El subtotal ahora viene calculado desde el backend.
+    producto: ProductoSchemaBase;
 }
 
-export interface VentaBase {
-    fecha_venta?: string; 
-    persona_id: number | null; 
+// --- Venta ---
+// Interfaz para la creación de una nueva venta.
+export interface VentaCreate {
+    persona_id: number | null;
     metodo_pago_id: number;
     estado: EstadoVentaEnum;
     total: number;
-}
-
-export interface VentaCreate extends VentaBase {
     detalles: DetalleVentaCreate[];
 }
 
-export interface VentaInDB extends VentaBase {
+// Interfaz completa para una Venta, tal como se recibe de la API.
+export interface Venta {
     venta_id: number;
-    fecha_venta: string; 
-    total: number; 
+    fecha_venta: string;
+    total: number;
+    estado: EstadoVentaEnum;
+    persona_id: number | null;
+    metodo_pago_id: number;
 
-    persona?: IPersonaNested; 
-
+    // Relaciones anidadas
+    persona?: IPersonaNested;
     metodo_pago: MetodoPagoNested;
-    detalles: DetalleVentaInDB[]; 
-    creador?: IPersonaNested; 
-    modificador?: IPersonaNested; 
+    detalles: DetalleVenta[];
+    creador?: IUsuarioAudit;
+    modificador?: IUsuarioAudit;
     fecha_creacion?: string;
     fecha_actualizacion?: string;
 }
 
-export interface Venta extends VentaInDB {}
-
+export interface VentaPagination {
+    items: Venta[];
+    total: number;
+}

@@ -5,10 +5,11 @@ import {
     Proveedor, // Esquema de lectura
     ProveedorCreate, // Esquema para creación (con opciones anidadas)
     ProveedorUpdate, // Esquema para actualización (con datos anidados opcionales)
-    GetProveedoresParams // Interfaz para los parámetros de consulta del listado
+    GetProveedoresParams, // Interfaz para los parámetros de consulta del listado
+    ProveedorPagination // Importar ProveedorPagination
 } from '../types/proveedor';
 
-export const getProveedores = async (params?: GetProveedoresParams): Promise<Proveedor[]> => {
+export const getProveedores = async (params?: GetProveedoresParams): Promise<ProveedorPagination> => { // Cambiado el tipo de retorno
     const response = await axiosInstance.get('/proveedores/', { params });
     return response.data;
 };

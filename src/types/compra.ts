@@ -58,3 +58,8 @@ export interface GetComprasParams {
     skip?: number; 
     limit?: number; 
 }
+
+export interface CompraPagination {
+    items: Compra[];
+    total: number;
+}

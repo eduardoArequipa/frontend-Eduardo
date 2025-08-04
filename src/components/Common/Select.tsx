@@ -19,13 +19,13 @@ const Select: React.FC<SelectProps> = ({ label, id, children, className, options
   return (
     <div>
       {label && (
-        <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor={id} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           {label}
         </label>
       )}
       <select
         id={id}
-        className={`mt-1 block w-full pl-3 pr-10 py-2.5 text-base border-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md ${className || ''}`}
+        className={`mt-1 block w-full pl-3 pr-10 py-2.5 text-base border-gray-400 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md ${className || ''}`}
         {...rest}
       >
         {/* Renderiza las opciones pasadas por la prop 'options' si existen */}
@@ -34,6 +34,7 @@ const Select: React.FC<SelectProps> = ({ label, id, children, className, options
             key={option.value || index} // Usa el valor o el índice como key
             value={option.value} 
             disabled={option.disabled}
+            className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200"
           >
             {option.label}
           </option>
