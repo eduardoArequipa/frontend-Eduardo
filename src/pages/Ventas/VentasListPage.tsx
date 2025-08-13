@@ -21,7 +21,7 @@ const VentasListPage: React.FC = () => {
     const [ventas, setVentas] = useState<Venta[]>([]);
     const [totalVentas, setTotalVentas] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [pageSize, setPageSize] = useState<number>(10);
+    const [pageSize,] = useState<number>(10);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     
@@ -193,6 +193,7 @@ const VentasListPage: React.FC = () => {
                 <div>
                     <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar (Cliente/Producto)</label>
                     <Input
+                        id="search"
                         type="text"
                         name="search"
                         value={filters.search}
@@ -217,6 +218,7 @@ const VentasListPage: React.FC = () => {
                 <div>
                     <label htmlFor="fecha_desde" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Desde</label>
                     <Input
+                        id="fecha_desde"
                         type="date"
                         name="fecha_desde"
                         value={filters.fecha_desde}
@@ -226,6 +228,7 @@ const VentasListPage: React.FC = () => {
                 <div>
                     <label htmlFor="fecha_hasta" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Hasta</label>
                     <Input
+                        id="fecha_hasta" // Añadido ID
                         type="date"
                         name="fecha_hasta"
                         value={filters.fecha_hasta}

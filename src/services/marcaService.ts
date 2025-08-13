@@ -1,6 +1,6 @@
 // src/services/marcaService.ts
 import axiosInstance from '../api/axiosInstance'; // Import your configured Axios instance
-import { Marca, MarcaCreate } from '../types/marca'; // Import Marca and MarcaCreate types
+import { Marca, MarcaCreate, MarcaUpdate } from '../types/marca'; // Import Marca and MarcaCreate types
 import { EstadoEnum } from '../types/enums'; // Import EstadoEnum if used for filters/status types
 
 /**
@@ -55,7 +55,7 @@ export const createMarca = async (marcaData: MarcaCreate): Promise<Marca> => {
  * @param marcaData The updated data for the brand.
  * @returns A promise that resolves to the updated Marca.
  */
-export const updateMarca = async (id: number, marcaData: MarcaCreate): Promise<Marca> => {
+export const updateMarca = async (id: number, marcaData: MarcaUpdate): Promise<Marca> => {
     const response = await axiosInstance.put(`/marcas/${id}`, marcaData);
     // Assuming the backend returns the updated Marca.
     return response.data;

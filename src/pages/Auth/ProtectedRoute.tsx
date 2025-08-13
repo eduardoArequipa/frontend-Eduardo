@@ -2,14 +2,13 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { IPersonaWithRoles } from '../../types/persona'; // ¡Importante para los roles!
 
 interface ProtectedRouteProps {
-    allowedRoles?: string[]; // Define la prop para los roles permitidos
+    requiredMenu?: string; // La URL base del menú requerido para acceder
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
-    const { isAuthenticated, user, loading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredMenu }) => {
+    const { isAuthenticated, loading, menus } = useAuth();
 
     // Muestra un indicador de carga mientras se verifica la sesión
     if (loading) {
@@ -25,22 +24,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
         return <Navigate to="/login" replace />;
     }
 
-    // Si la ruta requiere roles específicos, verifica si el usuario tiene alguno
-    if (allowedRoles && allowedRoles.length > 0) {
-        // En este punto, `user` no es null y `user.persona` debería tener `roles` debido a cómo tipificamos `useAuth`.
-        const userPersona = user!.persona as IPersonaWithRoles; // Usamos '!' para asegurar que no es null y 'as' para el tipo de roles
-        const userRoles = userPersona.roles?.map(rol => rol.nombre_rol) || [];
+    // Si la ruta requiere un menú específico, verificamos si el usuario tiene acceso a él.
+    if (requiredMenu) {
+        // `menus` es la lista de menús permitidos para el usuario desde AuthContext.
+        const hasAccess = menus.some(menu => menu.ruta === requiredMenu);
 
-        // Comprueba si el usuario tiene al menos uno de los roles permitidos
-        const isAuthorized = allowedRoles.some(role => userRoles.includes(role));
-
-        // Si no está autorizado, redirige al dashboard (o a una página de acceso denegado)
-        if (!isAuthorized) {
-            return <Navigate to="/dashboard" replace />;
+        // Si no tiene acceso, redirige al dashboard.
+        if (!hasAccess) {
+            return <Navigate to="/home" replace />;
         }
     }
 
-    // Si está autenticado y autorizado, renderiza el contenido de la ruta anidada
+    // Si está autenticado y (si se requiere) tiene acceso, renderiza el contenido.
     return <Outlet />;
 };
 

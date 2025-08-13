@@ -198,6 +198,7 @@ const VentasFormPage: React.FC = () => {
             } catch (err) {
                 setError("Error al cargar catálogos para el formulario de productos.");
             } finally {
+                
                 setLoadingCatalogs(false);
             }
         };

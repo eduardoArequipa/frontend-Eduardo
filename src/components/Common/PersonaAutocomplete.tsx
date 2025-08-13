@@ -1,7 +1,7 @@
 // src/components/Common/PersonaAutocomplete.tsx
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPersonas } from '../../services/personaService';
+import { getPersonas, getPersonaById } from '../../services/personaService';
 import { IPersonaInDB, PersonaPagination } from '../../types/persona';
 import Input from './Input';
 import LoadingSpinner from './LoadingSpinner';
@@ -27,7 +27,6 @@ const PersonaAutocomplete: React.FC<Props> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedPersonaName, setSelectedPersonaName] = useState<string>('');
-    const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
     const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
         let timeoutId: ReturnType<typeof setTimeout>;
@@ -81,33 +80,32 @@ const PersonaAutocomplete: React.FC<Props> = ({
 
     useEffect(() => {
         const loadInitialPersona = async () => {
-            if (initialPersonaId && !initialLoadComplete) {
+            if (initialPersonaId) {
                 setIsLoading(true);
                 try {
-                    const params: any = {
-                        skip: 0,
-                        limit: 1,
-                        persona_id: initialPersonaId
-                    };
-                    if (rolFilterName) { params.rol_nombre = rolFilterName; }
-                    if (excludeRolName) { params.exclude_rol_nombre = excludeRolName; }
-
-                    const response: PersonaPagination = await getPersonas(params); 
+                    // Usamos getPersonas con el ID para obtener el objeto completo
+                    const response: PersonaPagination = await getPersonas({ 
+                        persona_id: initialPersonaId, 
+                        limit: 1 
+                    });
                     if (response.items.length > 0) {
                         const persona = response.items[0];
                         setSelectedPersonaName(`${persona.nombre} ${persona.apellido_paterno || ''} ${persona.apellido_materno || ''}`.trim());
-                        onPersonaSelect(persona);
+                        // No llamamos a onPersonaSelect aquí para no crear un bucle si el padre no usa useCallback
                     }
                 } catch (err) {
-                    setError('Error al cargar persona inicial.');
+                    setError('Error al cargar la persona seleccionada.');
+                    setSelectedPersonaName(''); // Limpiar en caso de error
                 } finally {
                     setIsLoading(false);
-                    setInitialLoadComplete(true);
                 }
+            } else {
+                // Si el ID inicial es nulo o indefinido, limpiamos el nombre
+                setSelectedPersonaName('');
             }
         };
         loadInitialPersona();
-    }, [initialPersonaId, onPersonaSelect, initialLoadComplete, rolFilterName, excludeRolName]);
+    }, [initialPersonaId]);
 
     const handleSelect = (persona: IPersonaInDB) => {
         setSearchTerm('');

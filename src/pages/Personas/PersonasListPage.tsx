@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { getPersonas, deactivatePersona, activatePersona, GetPersonasParams } from '../../services/personaService';
-import { getRoles } from '../../services/rolService';
+import { getRoles } from '../../services/rolService'; // Importar servicio de roles
 import { IPersonaWithRoles } from '../../types/persona';
-import { IRolInDB } from '../../types/rol';
+import { IRolInDB } from '../../types/rol'; // Importar tipo de Rol
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
@@ -14,33 +14,32 @@ import { EstadoEnum, GeneroEnum } from '../../types/enums';
 const PersonasListPage: React.FC = () => {
     const navigate = useNavigate();
     const [personas, setPersonas] = useState<IPersonaWithRoles[]>([]);
+    const [roles, setRoles] = useState<IRolInDB[]>([]); // Estado para roles
     const [totalPersonas, setTotalPersonas] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Estados de los filtros
     const [search, setSearch] = useState('');
     const [estadoFilter, setEstadoFilter] = useState<EstadoEnum | ''>(EstadoEnum.Activo);
-    const [generoFilter, setGeneroFilter] = useState<GeneroEnum | ''>('');
-    const [rolFilterName, setRolFilterName] = useState<string>('');
+    const [generoFilter, setGeneroFilter] = useState<GeneroEnum | '' > ('');
+    const [rolFilter, setRolFilter] = useState<string>(''); // Estado para el filtro de rol
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
 
-    const [availableRoles, setAvailableRoles] = useState<IRolInDB[]>([]);
-    const [loadingRoles, setLoadingRoles] = useState(true);
-
-    const fetchRoles = async () => {
-        setLoadingRoles(true);
-        try {
-            const roles = await getRoles();
-            setAvailableRoles(roles);
-        } catch (err) {
-            console.error("Error fetching roles for filter:", err);
-            setError("Error al cargar los roles para el filtro.");
-        } finally {
-            setLoadingRoles(false);
-        }
-    };
+    // Fetch de Roles para el dropdown
+    useEffect(() => {
+        const fetchRoles = async () => {
+            try {
+                const rolesData = await getRoles({ estado: EstadoEnum.Activo });
+                setRoles(rolesData);
+            } catch (err) {
+                console.error("Error fetching roles:", err);
+            }
+        };
+        fetchRoles();
+    }, []);
 
     const fetchPersonas = async () => {
         setLoading(true);
@@ -50,7 +49,7 @@ const PersonasListPage: React.FC = () => {
                  search: search || undefined,
                  estado: estadoFilter || undefined,
                  genero: generoFilter || undefined,
-                 rol_nombre: rolFilterName || undefined,
+                 rol_nombre: rolFilter || undefined, // Añadir rol_nombre a los parámetros
                  skip: (currentPage - 1) * itemsPerPage,
                  limit: itemsPerPage,
             };
@@ -71,12 +70,8 @@ const PersonasListPage: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchRoles();
-    }, []);
-
-    useEffect(() => {
         fetchPersonas();
-    }, [search, estadoFilter, generoFilter, rolFilterName, currentPage, itemsPerPage]);
+    }, [search, estadoFilter, generoFilter, rolFilter, currentPage, itemsPerPage]); // Añadir rolFilter a las dependencias
 
     const handleFilterChange = (setter: React.Dispatch<any>) => (value: any) => {
         setter(value);
@@ -124,6 +119,12 @@ const PersonasListPage: React.FC = () => {
         { Header: 'Teléfono', accessor: 'telefono' },
         { Header: 'Estado', accessor: 'estado' },
         {
+            Header: 'Rol',
+            accessor: 'roles',
+            Cell: ({ row }: { row: { original: IPersonaWithRoles } }) => 
+                row.original.roles.map(rol => rol.nombre_rol).join(', ')
+        },
+                {
             Header: 'Acciones',
             accessor: 'acciones',
             Cell: ({ row }: { row: { original: IPersonaWithRoles } }) => (
@@ -183,6 +184,19 @@ const PersonasListPage: React.FC = () => {
                 </div>
 
                 <div>
+                    <label htmlFor="rolFilter" className="sr-only">Filtrar por Rol</label>
+                    <Select
+                        id="rolFilter"
+                        value={rolFilter}
+                        onChange={(e) => handleFilterChange(setRolFilter)(e.target.value)}
+                        options={[
+                            { value: '', label: 'Todos los roles' },
+                            ...roles.map(rol => ({ value: rol.nombre_rol, label: rol.nombre_rol }))
+                        ]}
+                    />
+                </div>
+
+                <div>
                     <label htmlFor="estadoFilter" className="sr-only">Filtrar por Estado</label>
                     <Select
                         id="estadoFilter"
@@ -210,23 +224,6 @@ const PersonasListPage: React.FC = () => {
                     />
                 </div>
 
-                <div>
-                    <label htmlFor="rolFilter" className="sr-only">Filtrar por Rol</label>
-                    <Select
-                        id="rolFilter"
-                        value={rolFilterName}
-                        onChange={(e) => handleFilterChange(setRolFilterName)(e.target.value)}
-                        disabled={loadingRoles}
-                    >
-                        <option value="">Todos los roles</option>
-                        {availableRoles.map(rol => (
-                            <option key={rol.rol_id} value={rol.nombre_rol}>
-                                {rol.nombre_rol}
-                            </option>
-                        ))}
-                    </Select>
-                    {loadingRoles && <LoadingSpinner />}
-                </div>
                 <div className="flex-grow md:flex-none flex justify-end">
                     <Button
                         onClick={() => navigate('/personas/new')}

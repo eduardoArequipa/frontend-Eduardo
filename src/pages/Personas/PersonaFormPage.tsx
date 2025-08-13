@@ -1,5 +1,5 @@
 // src/pages/Personas/PersonaFormPage.tsx
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import PersonaForm from '../../components/Common/PersonaForm'; // <-- ¡NUESTRO NUEVO COMPONENTE!
 
@@ -13,9 +13,9 @@ const PersonaFormPage: React.FC = () => {
     navigate('/personas');
   };
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     navigate('/personas');
-  };
+  }, [navigate]);
 
   return (
     <div className="container mx-auto p-6 bg-gray-50 dark:bg-gray-900 rounded-lg shadow-md">

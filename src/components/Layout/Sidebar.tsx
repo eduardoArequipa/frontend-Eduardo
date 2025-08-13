@@ -2,45 +2,38 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { IPersonaWithRoles } from '../../types/persona';
-import {
-    FiHome, FiUsers, FiUserCheck, FiKey, FiFolder, FiPackage, 
-    FiTruck, FiShoppingCart, FiDollarSign, FiBarChart2, FiRepeat,
-    FiChevronLeft, FiChevronRight
-} from 'react-icons/fi';
+import { IMenuInDB } from '../../types/menu'; // CORRECCIÓN: Importar IMenuInDB
+import { FiHome, FiUsers, FiUserCheck, FiKey, FiFolder, FiPackage, FiTruck, FiShoppingCart, FiDollarSign, FiBarChart2, FiRepeat, FiChevronLeft, FiChevronRight, FiTag } from 'react-icons/fi';
+
+// Mapeo de rutas a iconos
+const iconMap: { [key: string]: React.ElementType } = {
+    '/dashboard': FiHome,
+    '/personas': FiUsers,
+    '/usuarios': FiUserCheck,
+    '/roles': FiKey,
+    '/categorias': FiFolder,
+    '/productos': FiPackage,
+    '/proveedores': FiTruck,
+    '/compras': FiShoppingCart,
+    '/ventas': FiDollarSign,
+    '/reportes': FiBarChart2,
+    '/movimientos': FiRepeat,
+    '/marcas': FiTag,
+};
 
 interface SidebarProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-const navLinks = [
-    { path: '/dashboard', label: 'Resumen general', icon: FiHome, roles: [] },
-    { path: '/personas', label: 'Personas', icon: FiUsers, roles: ['Administrador', 'Empleado'] },
-    { path: '/usuarios', label: 'Usuarios', icon: FiUserCheck, roles: ['Administrador'] },
-    { path: '/roles', label: 'Roles', icon: FiKey, roles: ['Administrador'] },
-    { path: '/categorias', label: 'Categorías', icon: FiFolder, roles: ['Administrador'] },
-    { path: '/productos', label: 'Productos', icon: FiPackage, roles: ['Administrador'] },
-    { path: '/proveedores', label: 'Proveedores', icon: FiTruck, roles: ['Administrador', 'Empleado'] },
-    { path: '/compras', label: 'Compras', icon: FiShoppingCart, roles: ['Administrador', 'Empleado'] },
-    { path: '/ventas', label: 'Ventas', icon: FiDollarSign, roles: ['Administrador', 'Empleado'] },
-    { path: '/reportes', label: 'Reportes', icon: FiBarChart2, roles: ['Administrador', 'Empleado'] },
-    { path: '/movimientos', label: 'Movimientos', icon: FiRepeat, roles: ['Administrador', 'Empleado'] },
-];
-
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-    const { user, loading } = useAuth();
+    const { user, menus, loading } = useAuth(); // CORRECCIÓN: Usar 'menus' en lugar de 'userMenus'
     const location = useLocation();
     const [isCollapsed, setCollapsed] = useState(false);
 
     if (loading || !user) {
         return null;
     }
-
-    const personaConRoles = user.persona as IPersonaWithRoles;
-    const hasRole = (roleName: string): boolean => {
-        return personaConRoles.roles?.some(rol => rol.nombre_rol === roleName) ?? false;
-    };
 
     const handleToggleCollapse = () => {
         setCollapsed(!isCollapsed);
@@ -69,32 +62,30 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <div className="flex-grow overflow-y-auto">
                     <nav>
                         <ul>
-                            {navLinks.map((link) => {
-                                const isAuthorized = link.roles.length === 0 || link.roles.some(role => hasRole(role));
-                                const isActive = location.pathname === link.path;
+                            {/* CORRECCIÓN: Usar 'menus' y tipar el parámetro 'menu' */}
+                            {menus.map((menu: IMenuInDB) => {
+                                const Icon = iconMap[menu.ruta] || FiFolder;
+                                const isActive = location.pathname.startsWith(menu.ruta);
 
-                                if (isAuthorized) {
-                                    return (
-                                        <li key={link.path} className="mb-2">
-                                            <Link
-                                                to={link.path}
-                                                onClick={onClose}
-                                                className={`
-                                                    flex items-center p-2 rounded-md transition-colors
-                                                    ${isActive 
-                                                        ? 'bg-indigo-600 text-white font-semibold' 
-                                                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                    }
-                                                    ${isCollapsed ? 'justify-center' : 'space-x-3'}
-                                                `}
-                                            >
-                                                <link.icon className={`h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`} />
-                                                <span className={`${isCollapsed ? 'hidden' : 'block'}`}>{link.label}</span>
-                                            </Link>
-                                        </li>
-                                    );
-                                }
-                                return null;
+                                return (
+                                    <li key={menu.menu_id} className="mb-2">
+                                        <Link
+                                            to={menu.ruta}
+                                            onClick={onClose}
+                                            className={`
+                                                flex items-center p-2 rounded-md transition-colors
+                                                ${isActive 
+                                                    ? 'bg-indigo-600 text-white font-semibold' 
+                                                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                }
+                                                ${isCollapsed ? 'justify-center' : 'space-x-3'}
+                                            `}
+                                        >
+                                            <Icon className={`h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`} />
+                                            <span className={`${isCollapsed ? 'hidden' : 'block'}`}>{menu.nombre}</span>
+                                        </Link>
+                                    </li>
+                                );
                             })}
                         </ul>
                     </nav>

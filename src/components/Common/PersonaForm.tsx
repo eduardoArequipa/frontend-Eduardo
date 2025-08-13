@@ -1,7 +1,7 @@
 
 // src/components/Common/PersonaForm.tsx
 import React, { useEffect, useState, useCallback } from 'react';
-import { getPersonaById, createPersona, updatePersona, getPersonas } from '../../services/personaService';
+import { getPersonaById, createPersona, updatePersona, getPersonas, GetPersonasParams } from '../../services/personaService';
 import { getRoles } from '../../services/rolService';
 import { uploadImage } from '../../services/uploadService';
 
@@ -180,8 +180,12 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
       }
       setSearchingPersonas(true);
       try {
-        // CORRECCIÓN API: Usamos getPersonas con el parámetro 'search'
-        const personas = await getPersonas({ search: term, limit: 10 });
+        const params: GetPersonasParams = {
+            search: term,
+            limit: 10,
+            exclude_rol_nombre: roleToAssign || undefined
+        };
+        const personas = await getPersonas(params);
         setFoundPersonas(personas.items);
       } catch (err) {
         setFormSubmitError("Error al buscar personas.");
@@ -205,6 +209,26 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
     setPersonaFormData(prev => ({ ...prev, [name]: value }));
     const error = validateField(name, value);
     setErrors(prev => ({ ...prev, [name]: error }));
+  };
+
+  const handlePersonaSelectAndAssign = async (personaId: number) => {
+    if (!roleToAssignId) {
+        setFormSubmitError("El rol a asignar no está configurado correctamente.");
+        return;
+    }
+
+    setLoading(true);
+    setFormSubmitError(null);
+    try {
+        const personaToUpdate = await getPersonaById(personaId);
+        const updatedRoles = [...new Set([...personaToUpdate.roles.map(r => r.rol_id), roleToAssignId])];
+        const finalPersona = await updatePersona(personaId, { rol_ids: updatedRoles });
+        onSuccess(finalPersona);
+    } catch (err: any) {
+        setFormSubmitError(err.response?.data?.detail || "Ocurrió un error al asignar el rol.");
+    } finally {
+        setLoading(false);
+    }
   };
 
   const handleUserInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -259,15 +283,11 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
         let finalPersona: IPersonaInDB;
 
         if (useExistingPerson) {
-          if (!selectedPersonaId) {
-            setFormSubmitError("Debe seleccionar una persona existente.");
-            setLoading(false);
-            return;
-          }
-          const personaToUpdate = await getPersonaById(selectedPersonaId);
-          const updatedRoles = [...new Set([...personaToUpdate.roles.map(r => r.rol_id), roleToAssignId])];
-          finalPersona = await updatePersona(selectedPersonaId, { rol_ids: updatedRoles });
-
+          // Esta lógica ahora se maneja en handlePersonaSelectAndAssign
+          // y no debería ser alcanzada por el botón de submit.
+          setFormSubmitError("Por favor, seleccione una persona de la lista para continuar.");
+          setLoading(false);
+          return;
         } else { // Crear nueva persona
           const createPayload: IPersonaCreate = {
             nombre: personaFormData.nombre!,
@@ -369,7 +389,17 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
           />
           {searchingPersonas && <LoadingSpinner />}
           {foundPersonas.length > 0 && (
-            <Select value={selectedPersonaId} onChange={(e) => setSelectedPersonaId(Number(e.target.value))} required>
+            <Select 
+              value={selectedPersonaId} 
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                setSelectedPersonaId(id);
+                if (id) {
+                  handlePersonaSelectAndAssign(id);
+                }
+              }}
+              required
+            >
               <option value="">-- Seleccione una persona --</option>
               {foundPersonas.map(p => (
                 <option key={p.persona_id} value={p.persona_id}>

@@ -1,12 +1,14 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
-import ProtectedRoute from './pages/Auth/ProtectedRoute'; // Asegúrate de que esta ruta sea correcta
-import Layout from './components/Layout/Layout'; // Tu Layout principal
+import ProtectedRoute from './pages/Auth/ProtectedRoute';
+import Layout from './components/Layout/Layout';
 import { ThemeProvider } from './context/ThemeContext';
+import RolePermissionsPage from './pages/Roles/RolePermissionsPage';
 
-// Componentes cargados diferidamente (Lazy-loaded components)
+// Componentes cargados diferidamente
 const LoginPage = React.lazy(() => import('./pages/Auth/LoginPage'));
+const HomePage = React.lazy(() => import('./pages/Home/HomePage')); // Nueva página de inicio
 const DashboardPage = React.lazy(() => import('./pages/Dashboard/DashboardPage'));
 
 const PersonasListPage = React.lazy(() => import('./pages/Personas/PersonasListPage'));
@@ -17,10 +19,11 @@ const UserRolesPage = React.lazy(() => import('./pages/Usuarios/UserRolesPage'))
 const UsuarioFormPage = React.lazy(() => import('./pages/Usuarios/UsuariosFormPage'));
 
 const RolesListPage = React.lazy(() => import('./pages/Roles/RolesListPage'));
-const RolesFormPage = React.lazy(() => import('./pages/Roles/RolesFormPage'));
 
 const CategoriasListPage = React.lazy(() => import('./pages/Categorias/CategoriasListPage'));
 const CategoriasFormPage = React.lazy(() => import('./pages/Categorias/CategoriasFormPage'));
+
+const MarcasListPage = React.lazy(() => import('./pages/Marcas/MarcasListPage'));
 
 const ProductosListPage = React.lazy(() => import('./pages/Productos/ProductosListPage'));
 const MovimientosListPage = React.lazy(() => import('./pages/Movimientos/MovimientosListPage'));
@@ -46,99 +49,98 @@ const App: React.FC = () => {
             <BrowserRouter>
                 <AuthProvider>
                     <Routes>
-                        {/* --- RUTAS PÚBLICAS (ACCESIBLES SIN AUTENTICACIÓN) --- */}
-                        <Route path="/login" element={<React.Suspense fallback={<div>Cargando Login...</div>}><LoginPage /></React.Suspense>} />
+                        {/* --- RUTAS PÚBLICAS --- */}
+                        <Route path="/login" element={<React.Suspense fallback={<div>Cargando...</div>}><LoginPage /></React.Suspense>} />
                         <Route path="/forgot-password" element={<React.Suspense fallback={<div>Cargando...</div>}><ForgotPasswordRequestPage /></React.Suspense>} />
                         <Route path="/reset-password" element={<React.Suspense fallback={<div>Cargando...</div>}><ResetPasswordPage /></React.Suspense>} />
 
-                        {/* Ruta Raíz - Redirige a /dashboard (la lógica de AuthProvider redirigirá a /login si no hay token) */}
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        {/* --- RUTA RAÍZ --- */}
+                        {/* Redirige a /home por defecto. La lógica de login se encarga de enviar a los admins a /dashboard */}
+                        <Route path="/" element={<Navigate to="/home" replace />} />
 
-                        {/* --- RUTAS PROTEGIDAS (REQUIEREN AUTENTICACIÓN Y POSIBLEMENTE ROLES) --- */}
-                        {/* Todas las rutas anidadas aquí requieren al menos autenticación */}
+                        {/* --- RUTAS PROTEGIDAS --- */}
                         <Route element={<ProtectedRoute />}>
-                            {/* El Layout envolverá el contenido de las rutas protegidas */}
                             <Route element={<Layout />}>
-                                {/* Dashboard - Accesible para cualquier usuario autenticado */}
-                                <Route path="/dashboard" element={<React.Suspense fallback={<div>Cargando Dashboard...</div>}><DashboardPage /></React.Suspense>} />
+                                {/* Página de bienvenida general */}
+                                <Route path="/home" element={<React.Suspense fallback={<div>Cargando...</div>}><HomePage /></React.Suspense>} />
 
-                                {/* *** Rutas del Módulo Personas (Administrador, Empleado, o Cliente si aplica) *** */}
-                                {/* Puedes decidir qué roles pueden ver las personas. Ej: Admin y Empleado */}
-                                <Route element={<ProtectedRoute allowedRoles={['Administrador', 'Empleado']} />}>
-                                    <Route path="/personas" element={<React.Suspense fallback={<div>Cargando Personas...</div>}><PersonasListPage /></React.Suspense>} />
-                                    <Route path="/personas/new" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><PersonaFormPage /></React.Suspense>} />
-                                    <Route path="/personas/edit/:id" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><PersonaFormPage /></React.Suspense>} />
+                                {/* Dashboard (Solo para usuarios con permiso al menú /dashboard) */}
+                                <Route element={<ProtectedRoute requiredMenu="/dashboard" />}>
+                                    <Route path="/dashboard" element={<React.Suspense fallback={<div>Cargando...</div>}><DashboardPage /></React.Suspense>} />
                                 </Route>
 
-                                {/* *** Rutas del Módulo Usuarios (Solo Administrador) *** */}
-                                <Route element={<ProtectedRoute allowedRoles={['Administrador']} />}>
-                                    <Route path="/usuarios" element={<React.Suspense fallback={<div>Cargando Usuarios...</div>}><UsuariosListPage /></React.Suspense>} />
-                                    <Route path="/usuarios/new" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><UsuarioFormPage /></React.Suspense>} />
-                                     <Route path="/usuarios/edit/:id" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><UsuarioFormPage /></React.Suspense>} />
-                                    <Route path="/usuarios/roles/:id" element={<React.Suspense fallback={<div>Cargando Roles de Usuario...</div>}><UserRolesPage /></React.Suspense>} />
-
+                                {/* *** Módulo Personas *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/personas" />}>
+                                    <Route path="/personas" element={<React.Suspense fallback={<div>Cargando...</div>}><PersonasListPage /></React.Suspense>} />
+                                    <Route path="/personas/new" element={<React.Suspense fallback={<div>Cargando...</div>}><PersonaFormPage /></React.Suspense>} />
+                                    <Route path="/personas/edit/:id" element={<React.Suspense fallback={<div>Cargando...</div>}><PersonaFormPage /></React.Suspense>} />
                                 </Route>
 
-                                {/* *** Rutas del Módulo Roles (Solo Administrador) *** */}
-                                <Route element={<ProtectedRoute allowedRoles={['Administrador']} />}>
-                                    <Route path="/roles" element={<React.Suspense fallback={<div>Cargando Roles...</div>}><RolesListPage /></React.Suspense>} />
-                                    <Route path="/roles/new" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><RolesFormPage /></React.Suspense>} />
-                                    <Route path="/roles/edit/:id" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><RolesFormPage /></React.Suspense>} />
+                                {/* *** Módulo Usuarios *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/usuarios" />}>
+                                    <Route path="/usuarios" element={<React.Suspense fallback={<div>Cargando...</div>}><UsuariosListPage /></React.Suspense>} />
+                                    <Route path="/usuarios/new" element={<React.Suspense fallback={<div>Cargando...</div>}><UsuarioFormPage /></React.Suspense>} />
+                                    <Route path="/usuarios/edit/:id" element={<React.Suspense fallback={<div>Cargando...</div>}><UsuarioFormPage /></React.Suspense>} />
+                                    <Route path="/usuarios/roles/:id" element={<React.Suspense fallback={<div>Cargando...</div>}><UserRolesPage /></React.Suspense>} />
                                 </Route>
 
-                                {/* *** Rutas del Módulo Categorias (Solo Administrador) *** */}
-                                <Route element={<ProtectedRoute allowedRoles={['Administrador']} />}>
-                                    <Route path="/categorias" element={<React.Suspense fallback={<div>Cargando Categorías...</div>}><CategoriasListPage /></React.Suspense>} />
-                                    <Route path="/categorias/new" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><CategoriasFormPage /></React.Suspense>} />
-                                    <Route path="/categorias/edit/:id" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><CategoriasFormPage /></React.Suspense>} />
+                                {/* *** Módulo Roles *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/roles" />}>
+                                    <Route path="/roles" element={<React.Suspense fallback={<div>Cargando...</div>}><RolesListPage /></React.Suspense>} />
+                                    <Route path="/roles/permissions/:id" element={<React.Suspense fallback={<div>Cargando...</div>}><RolePermissionsPage /></React.Suspense>} />
                                 </Route>
 
-                                {/* *** Rutas del Módulo Productos (Administrador, Empleado si pueden ver/modificar) *** */}
-                                <Route element={<ProtectedRoute allowedRoles={['Administrador', 'Empleado']} />}>
-                                    <Route path="/productos" element={<React.Suspense fallback={<div>Cargando Productos...</div>}><ProductosListPage /></React.Suspense>} />
-                                    {/* Agrega rutas para new/edit de productos si existen */}
+                                {/* *** Módulo Categorias *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/categorias" />}>
+                                    <Route path="/categorias" element={<React.Suspense fallback={<div>Cargando...</div>}><CategoriasListPage /></React.Suspense>} />
+                                    <Route path="/categorias/new" element={<React.Suspense fallback={<div>Cargando...</div>}><CategoriasFormPage /></React.Suspense>} />
+                                    <Route path="/categorias/edit/:id" element={<React.Suspense fallback={<div>Cargando...</div>}><CategoriasFormPage /></React.Suspense>} />
                                 </Route>
 
-                                {/* *** Rutas del Módulo Movimientos de Inventario (Administrador, Empleado) *** */}
-                                <Route element={<ProtectedRoute allowedRoles={['Administrador', 'Empleado']} />}>
-                                    <Route path="/movimientos" element={<React.Suspense fallback={<div>Cargando Movimientos...</div>}><MovimientosListPage /></React.Suspense>} />
+                                {/* *** Módulo Marcas *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/marcas" />}>
+                                    <Route path="/marcas" element={<React.Suspense fallback={<div>Cargando...</div>}><MarcasListPage /></React.Suspense>} />
                                 </Route>
 
-                                {/* *** Rutas del Módulo Proveedores (Administrador, Empleado) *** */}
-                                <Route element={<ProtectedRoute allowedRoles={['Administrador', 'Empleado']} />}>
-                                    <Route path="/proveedores" element={<React.Suspense fallback={<div>Cargando Proveedores...</div>}><ProveedoresListPage /></React.Suspense>} />
-                                    <Route path="/proveedores/new" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><ProveedorFormPage /></React.Suspense>} />
-                                    <Route path="/proveedores/edit/:id" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><ProveedorFormPage /></React.Suspense>} />
+                                {/* *** Módulo Productos *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/productos" />}>
+                                    <Route path="/productos" element={<React.Suspense fallback={<div>Cargando...</div>}><ProductosListPage /></React.Suspense>} />
                                 </Route>
 
-                                {/* *** Rutas del Módulo Compras (Administrador, Empleado) *** */}
-                                <Route element={<ProtectedRoute allowedRoles={['Administrador', 'Empleado']} />}>
-                                    <Route path="/compras" element={<React.Suspense fallback={<div>Cargando Compras...</div>}><ComprasListPage /></React.Suspense>} />
-                                    <Route path="/compras/new" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><ComprasFormPage /></React.Suspense>} />
-                                    <Route path="/compras/view/:id" element={<React.Suspense fallback={<div>Cargando Vista...</div>}><ComprasViewPage /></React.Suspense>} />
-                                    <Route path="/compras/edit/:id" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><ComprasFormPage /></React.Suspense>} />
+                                {/* *** Módulo Movimientos *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/movimientos" />}>
+                                    <Route path="/movimientos" element={<React.Suspense fallback={<div>Cargando...</div>}><MovimientosListPage /></React.Suspense>} />
                                 </Route>
 
-                                {/* *** Rutas del Módulo Ventas (Administrador, Empleado, Cajero si aplican) *** */}
-                                <Route element={<ProtectedRoute allowedRoles={['Administrador', 'Empleado', 'Cajero']} />}>
-                                    <Route path="/ventas" element={<React.Suspense fallback={<div>Cargando Ventas...</div>}><VentasListPage/></React.Suspense>} />
-                                    <Route path="/ventas/new" element={<React.Suspense fallback={<div>Cargando Formulario...</div>}><VentaFormPage /></React.Suspense>} />
-                                    <Route path="/ventas/:ventaId" element={<React.Suspense fallback={<div>Cargando Detalle...</div>}><VentaDetailPage /></React.Suspense>} />
+                                {/* *** Módulo Proveedores *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/proveedores" />}>
+                                    <Route path="/proveedores" element={<React.Suspense fallback={<div>Cargando...</div>}><ProveedoresListPage /></React.Suspense>} />
+                                    <Route path="/proveedores/new" element={<React.Suspense fallback={<div>Cargando...</div>}><ProveedorFormPage /></React.Suspense>} />
+                                    <Route path="/proveedores/edit/:id" element={<React.Suspense fallback={<div>Cargando...</div>}><ProveedorFormPage /></React.Suspense>} />
                                 </Route>
 
-                                {/* *** Ruta del Módulo Reportes (Administrador, Empleado) *** */}
-                                <Route element={<ProtectedRoute allowedRoles={['Administrador', 'Empleado']} />}>
-                                    <Route path="/reportes" element={<React.Suspense fallback={<div>Cargando Reportes...</div>}><ReportesPage /></React.Suspense>} />
+                                {/* *** Módulo Compras *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/compras" />}>
+                                    <Route path="/compras" element={<React.Suspense fallback={<div>Cargando...</div>}><ComprasListPage /></React.Suspense>} />
+                                    <Route path="/compras/new" element={<React.Suspense fallback={<div>Cargando...</div>}><ComprasFormPage /></React.Suspense>} />
+                                    <Route path="/compras/view/:id" element={<React.Suspense fallback={<div>Cargando...</div>}><ComprasViewPage /></React.Suspense>} />
+                                    <Route path="/compras/edit/:id" element={<React.Suspense fallback={<div>Cargando...</div>}><ComprasFormPage /></React.Suspense>} />
                                 </Route>
 
-                                {/* Ruta de fallback para cualquier ruta no definida dentro del Layout (opcional) */}
-                                {/* <Route path="*" element={<div>Página no encontrada</div>} /> */}
+                                {/* *** Módulo Ventas *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/ventas" />}>
+                                    <Route path="/ventas" element={<React.Suspense fallback={<div>Cargando...</div>}><VentasListPage /></React.Suspense>} />
+                                    <Route path="/ventas/new" element={<React.Suspense fallback={<div>Cargando...</div>}><VentaFormPage /></React.Suspense>} />
+                                    <Route path="/ventas/:ventaId" element={<React.Suspense fallback={<div>Cargando...</div>}><VentaDetailPage /></React.Suspense>} />
+                                </Route>
+
+                                {/* *** Módulo Reportes *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/reportes" />}>
+                                    <Route path="/reportes" element={<React.Suspense fallback={<div>Cargando...</div>}><ReportesPage /></React.Suspense>} />
+                                </Route>
 
                             </Route>
                         </Route>
-
-                        {/* Ruta de fallback para cualquier otra ruta fuera del ProtectedRoute (e.g., 404) */}
-                        {/* <Route path="*" element={<div>404 - Página no encontrada</div>} /> */}
 
                     </Routes>
                 </AuthProvider>

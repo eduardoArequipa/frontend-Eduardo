@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getCompras, anularCompra, completarCompra } from '../../services/compraService';
-import { getProveedores } from '../../services/proveedorService'; 
-import { getUsers } from '../../services/userService'; 
+import { getProveedores } from '../../services/proveedorService';
 
 import {
     Compra, 
@@ -11,7 +10,6 @@ import {
 } from '../../types/compra';
 import { EstadoCompraEnum, EstadoEnum } from '../../types/enums'; 
 import { Proveedor} from '../../types/proveedor'; 
-import { IUsuarioReadAudit } from '../../types/usuario'; 
 
 import Table from '../../components/Common/Table'; 
 import Button from '../../components/Common/Button'; 
@@ -32,7 +30,6 @@ const ComprasListPage: React.FC = () => {
 
     const [estadoFilter, setEstadoFilter] = useState<EstadoCompraEnum | ''>(EstadoCompraEnum.pendiente);
     const [proveedorFilter, setProveedorFilter] = useState<number | ''>('');
-    const [creadorFilter, setCreadorFilter] = useState<number | ''>('');
     const [fechaDesdeFilter, setFechaDesdeFilter] = useState<string>('');
     const [fechaHastaFilter, setFechaHastaFilter] = useState<string>('');
     const [search, setSearch] = useState('');
@@ -41,7 +38,6 @@ const ComprasListPage: React.FC = () => {
     const [itemsPerPage] = useState(10);
 
     const [availableProveedores, setAvailableProveedores] = useState<Proveedor[]>([]);
-    const [availableUsuarios, setAvailableUsuarios] = useState<IUsuarioReadAudit[]>([]);
     const [loadingFiltersData, setLoadingFiltersData] = useState(true);
     const [errorFiltersData, setErrorFiltersData] = useState<string | null>(null);
 
@@ -53,7 +49,6 @@ const ComprasListPage: React.FC = () => {
             const params: GetComprasParams = {
                  ...(estadoFilter && { estado: estadoFilter }),
                  ...(proveedorFilter && { proveedor_id: proveedorFilter }),
-                 ...(creadorFilter && { creador_id: creadorFilter }),
                  ...(fechaDesdeFilter && { fecha_desde: fechaDesdeFilter }),
                  ...(fechaHastaFilter && { fecha_hasta: fechaHastaFilter }),
                  ...(search && { search }),
@@ -75,7 +70,7 @@ const ComprasListPage: React.FC = () => {
 
     useEffect(() => {
         fetchCompras();
-    }, [estadoFilter, proveedorFilter, creadorFilter, fechaDesdeFilter, fechaHastaFilter, search, currentPage, itemsPerPage]);
+    }, [estadoFilter, proveedorFilter, fechaDesdeFilter, fechaHastaFilter, search, currentPage, itemsPerPage]);
 
     useEffect(() => {
         const fetchFiltersData = async () => {
@@ -84,10 +79,6 @@ const ComprasListPage: React.FC = () => {
             try {
                 const proveedoresResponse = await getProveedores({ estado: EstadoEnum.Activo, limit: 1000 });
                 setAvailableProveedores(proveedoresResponse.items || []);
-
-                const usersResponse = await getUsers({ estado: EstadoEnum.Activo, limit: 1000 });
-                setAvailableUsuarios(usersResponse.items);
-
             } catch (err: any) {
                 setErrorFiltersData("Error al cargar datos para filtros.");
             } finally {
@@ -134,13 +125,13 @@ const ComprasListPage: React.FC = () => {
         }
     };
 
-    const handleViewCompra = (id: number) => {
+    const handleViewCompra = useCallback((id: number) => {
         navigate(`/compras/view/${id}`);
-    };
+    }, [navigate]);
 
-    const handleEditCompra = (id: number) => {
+    const handleEditCompra = useCallback((id: number) => {
         navigate(`/compras/edit/${id}`);
-    };
+    }, [navigate]);
 
     const totalPages = Math.ceil(totalCompras / itemsPerPage);
 
@@ -295,13 +286,6 @@ const ComprasListPage: React.FC = () => {
                             value: prov.proveedor_id,
                             label: prov.persona ? `${prov.persona.nombre} ${prov.persona.apellido_paterno || ''}`.trim() : prov.empresa ? prov.empresa.razon_social : `ID ${prov.proveedor_id}`,
                         })),
-                    ]} />
-                </div>
-                <div>
-                    <label htmlFor="creadorFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Registrado por</label>
-                    <Select id="creadorFilter" value={creadorFilter} onChange={handleNumericFilterChange(setCreadorFilter)} disabled={loadingFiltersData} options={[
-                        { value: '', label: 'Todos' },
-                        ...availableUsuarios.map(user => ({ value: user.usuario_id, label: user.nombre_usuario })),
                     ]} />
                 </div>
                 <div>

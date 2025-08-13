@@ -15,10 +15,12 @@ export interface GetPersonasParams {
     skip?: number;
     limit?: number;
     rol_id?: number;
-    genero?: string; // O el tipo de tu enum si tienes uno para género
-    estado?: EstadoEnum; // Asumiendo que usas EstadoEnum para el estado general de la persona
+    genero?: string; 
+    estado?: EstadoEnum; 
     search?: string;
-    rol_nombre?: string; // Nuevo parámetro para filtrar por nombre de rol
+    rol_nombre?: string; 
+    exclude_rol_nombre?: string; // <-- AÑADIDO
+    persona_id?: number; // Para el autocomplete
 }
 
 // --- Servicios para Persona ---

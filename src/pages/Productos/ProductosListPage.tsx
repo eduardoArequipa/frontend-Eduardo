@@ -52,9 +52,9 @@ const ProductosListPage: React.FC = () => {
             const params: GetProductosParams = {
                  ...(search && { search }),
                  ...(estadoFilter && { estado: estadoFilter }),
-                 ...(categoriaFilter !== '' && { categoria_id: categoriaFilter }),
-                 ...(unidadMedidaFilter !== '' && { unidad_medida_id: unidadMedidaFilter }),
-                 ...(marcaFilter !== '' && { marca_id: marcaFilter }),
+                 ...(categoriaFilter !== '' && { categoria: categoriaFilter }),
+                 ...(unidadMedidaFilter !== '' && { unidad_medida: unidadMedidaFilter }),
+                 ...(marcaFilter !== '' && { marca: marcaFilter }),
                  skip: (currentPage - 1) * itemsPerPage,
                  limit: itemsPerPage,
             };
@@ -72,21 +72,40 @@ const ProductosListPage: React.FC = () => {
      useEffect(() => {
           const loadFilterData = async () => {
                setLoadingFilterData(true);
-               try {
-                    const [categoriasData, unidadesMedidaData, marcasData] = await Promise.all([
-                        getCategorias({ limit: 100 }),
-                        getUnidadesMedida({ limit: 100 }),
-                        getMarcas({ limit: 100 })
-                    ]);
-                    setAvailableCategoriasFilter(categoriasData.items || []);
-                    setAvailableUnidadesMedidaFilter(unidadesMedidaData);
-                    setAvailableMarcasFilter(marcasData);
-               } catch (err) {
-                    setError("Error al cargar datos de filtro.");
-               } finally {
-                    setLoadingFilterData(false);
+
+               const results = await Promise.allSettled([
+                   getCategorias({ limit: 1000, estado: EstadoEnum.Activo }),
+                   getUnidadesMedida({ limit: 1000 }),
+                   getMarcas({ limit: 1000, estado: EstadoEnum.Activo })
+               ]);
+
+               // Procesar resultado de Categorías (espera objeto de paginación)
+               if (results[0].status === 'fulfilled') {
+                   setAvailableCategoriasFilter(results[0].value.items || []);
+               } else {
+                   console.warn("Filtro de categorías no disponible.", results[0].reason);
+                   setAvailableCategoriasFilter([]);
                }
+
+               // Procesar resultado de Unidades de Medida (espera un array directo)
+               if (results[1].status === 'fulfilled') {
+                   setAvailableUnidadesMedidaFilter(results[1].value || []);
+               } else {
+                   console.warn("Filtro de unidades de medida no disponible.", results[1].reason);
+                   setAvailableUnidadesMedidaFilter([]);
+               }
+
+               // Procesar resultado de Marcas (espera un array directo)
+               if (results[2].status === 'fulfilled') {
+                   setAvailableMarcasFilter(results[2].value || []);
+               } else {
+                   console.warn("Filtro de marcas no disponible.", results[2].reason);
+                   setAvailableMarcasFilter([]);
+               }
+
+               setLoadingFilterData(false);
           };
+
           loadFilterData();
      }, []);
 

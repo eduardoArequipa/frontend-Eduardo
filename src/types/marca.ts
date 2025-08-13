@@ -10,6 +10,10 @@ export interface MarcaCreate extends MarcaBase {
     pais_origen?: string | null;
 }
 
+export interface MarcaUpdate extends MarcaCreate {
+    estado?: EstadoEnum;
+}
+
 export interface Marca {
     marca_id: number;
     nombre_marca: string;

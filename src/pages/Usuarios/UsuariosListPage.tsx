@@ -64,7 +64,7 @@ const UsuariosListPage: React.FC = () => {
         const loadFilterData = async () => {
             setLoadingFilterData(true);
             try {
-                const rolesData = await getRoles({ limit: 100 });
+                const rolesData = await getRoles({ estado: EstadoEnum.Activo });
                 setAvailableRolesFilter(rolesData);
                 const personasData = await getPersonas({ limit: 100 });
                 setAvailablePersonasFilter(personasData.items);
@@ -232,19 +232,7 @@ const UsuariosListPage: React.FC = () => {
                     </div>
                 )}
 
-                {availablePersonasFilter.length > 0 && !loadingFilterData && (
-                     <div>
-                        <Select
-                            id="personaFilter"
-                            value={personaFilter || ''}
-                            onChange={(e) => handleFilterValueChange(setPersonaFilter)(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                            options={[
-                                { value: '', label: 'Todas las Personas' },
-                                ...availablePersonasFilter.map(p => ({ value: p.persona_id, label: `${p.nombre} ${p.apellido_paterno || ''}`.trim() })),
-                            ]}
-                        />
-                     </div>
-                )}
+
 
                     <Button
                         onClick={handleShowCreateOptions}

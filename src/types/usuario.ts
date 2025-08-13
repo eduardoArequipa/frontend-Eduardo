@@ -5,7 +5,7 @@ import { IPersonaWithRoles } from './persona'; // <-- ¡Importa esta interfaz!
 
 export interface IUsuarioBase {
     nombre_usuario: string;
-        contraseña: string; // This is a required property here
+    contraseña: string; // This is a required property here
 
     estado?: EstadoEnum; // Opcional al crear/actualizar, pero siempre presente en DB
     foto_ruta?: string | null; // Puede ser null si no hay foto

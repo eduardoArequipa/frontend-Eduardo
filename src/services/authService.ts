@@ -1,7 +1,9 @@
 // src/services/authService.ts
 import axiosInstance from '../api/axiosInstance';
 import { Token } from '../types/auth';
-import { Usuario } from '../types/usuario'; 
+import { IUsuarioInDB } from '../types/usuario'; 
+import { IMenuInDB } from '../types/menu'; // Importar el tipo de Menú
+
 export interface ForgotPasswordRequestPayload {
     username_or_email: string;
 }
@@ -24,9 +26,19 @@ export const login = async (username: string, password: string): Promise<Token> 
     return response.data;
 };
 
-export const getMe = async (): Promise<Usuario> => {
+export const getMe = async (): Promise<IUsuarioInDB> => {
     const response = await axiosInstance.get('/auth/me');
     return response.data; 
+};
+
+/**
+ * Obtiene los menús permitidos para el usuario actualmente autenticado.
+ * @returns Una promesa que resuelve en un array de IMenuInDB.
+ */
+export const getMeMenus = async (): Promise<IMenuInDB[]> => {
+    const response = await axiosInstance.get('/auth/me/menus');
+    
+    return response.data;
 };
 
 export const requestPasswordReset = async (payload: ForgotPasswordRequestPayload): Promise<{ message: string }> => {
