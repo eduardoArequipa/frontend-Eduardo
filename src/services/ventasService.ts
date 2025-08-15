@@ -1,13 +1,10 @@
 import axiosInstance from '../api/axiosInstance';
 import { Venta, VentaCreate, VentaPagination } from '../types/venta';
-import { ProductoSchemaBase, ProductoPagination } from '../types/producto'; // Importar ProductoPagination
+import { Producto, ProductoPagination } from '../types/producto'; // Importar ProductoPagination
 import { MetodoPagoNested } from '../types/metodoPago';
 import { EstadoEnum, EstadoVentaEnum } from '../types/enums';
 
-/**
- * Define los filtros para la obtención de ventas.
- * Se reemplaza 'cliente_id' por 'persona_id'.
- */
+
 interface IGetVentasFilters {
     estado?: EstadoVentaEnum;
     persona_id?: number;
@@ -24,9 +21,9 @@ interface IGetVentasFilters {
  * @param codigo El código del producto.
  * @returns Una promesa que resuelve en un ProductoSchemaBase.
  */
-export const getProductoByCodigo = async (codigo: string): Promise<ProductoSchemaBase> => {
+export const getProductoByCodigo = async (codigo: string): Promise<Producto> => {
     try {
-        const response = await axiosInstance.get<ProductoSchemaBase>(`/productos/buscar_por_codigo/${codigo}`);
+        const response = await axiosInstance.get<Producto>(`/productos/buscar_por_codigo/${codigo}`);
         return response.data;
     } catch (error) {
         console.error('Error al buscar producto por código:', error);
@@ -124,9 +121,9 @@ export const anularVenta = async (id: number): Promise<Venta> => {
  * Obtiene una lista de métodos de pago.
  * @returns Una promesa que resuelve en un array de MetodoPagoNested.
  */
-export const getMetodosPago = async (): Promise<MetodoPagoNested[]> => {
+export const getMetodosPago = async (params?: { estado?: EstadoEnum }): Promise<MetodoPagoNested[]> => {
     try {
-        const response = await axiosInstance.get<MetodoPagoNested[]>('/metodos_pago/');
+        const response = await axiosInstance.get<MetodoPagoNested[]>('/metodos_pago/', { params });
         return response.data;
     } catch (error) {
         console.error('Error al obtener métodos de pago:', error);

@@ -5,6 +5,19 @@ import { IUsuarioAudit } from "./usuario";
 import { UnidadMedidaNested } from "./unidad_medida";
 import { MarcaNested } from "./marca";
 
+// Interfaz para las conversiones de compra/venta
+export interface ConversionCompra {
+  conversion_id: number;
+  producto_id: number;
+  nombre_presentacion: string;
+  unidad_inventario_por_presentacion: number;
+}
+
+export interface ConversionCompraCreate {
+  nombre_presentacion: string;
+  unidad_inventario_por_presentacion: number;
+}
+
 // Corresponde a ProductoBase en el backend
 export interface ProductoBase {
     codigo: string;
@@ -13,15 +26,29 @@ export interface ProductoBase {
     precio_venta: number;
     stock_minimo: number;
     categoria_id: number;
-    unidad_medida_id: number;
+    unidad_inventario_id: number;
     marca_id: number;
+    unidad_compra_predeterminada?: string | null;
 }
+
+// Tipo que se usa en el formulario de ventas para buscar productos
+// Es un subconjunto de Producto, pero incluye las conversiones
+export interface ProductoSchemaBase {
+    producto_id: number;
+    codigo: string;
+    nombre: string;
+    precio_venta: number;
+    stock: number;
+    unidad_inventario: UnidadMedidaNested;
+    conversiones: ConversionCompra[];
+    estado: EstadoEnum;
+}
+
 
 export interface ProductoCreate extends ProductoBase {
     imagen_ruta?: string | null;
-    stock?: number; // Opcional, con default 0 en el backend
+    stock?: number;
     estado?: EstadoEnum;
-    metros_por_rollo?: number | null; // Opcional, solo para unidades "metro"
 }
 
 export interface ProductoUpdate {
@@ -29,52 +56,28 @@ export interface ProductoUpdate {
     nombre?: string;
     precio_compra?: number;
     precio_venta?: number;
-    stock?: number; // Soporta fracciones
-    stock_minimo?: number; // Soporta fracciones
+    stock?: number;
+    stock_minimo?: number;
     categoria_id?: number;
     imagen_ruta?: string | null;
     estado?: EstadoEnum;
-    unidad_medida_id?: number; // Opcional en update
-    marca_id?: number;         // Opcional en update
-    metros_por_rollo?: number | null; // Opcional, solo para unidades "metro"
+    unidad_inventario_id?: number;
+    marca_id?: number;
+    unidad_compra_predeterminada?: string | null;
 }
 
+// El tipo de dato COMPLETO del producto
 export interface Producto extends ProductoBase {
     producto_id: number;
     imagen_ruta?: string | null;
-    stock: number; // Soporta fracciones
+    stock: number;
     estado: EstadoEnum;
-
     categoria: CategoriaNested;
     creador?: IUsuarioAudit | null;
     modificador?: IUsuarioAudit | null;
-
-    // Relaciones anidadas para Unidad de Medida y Marca
-    unidad_medida: UnidadMedidaNested; // Espera un objeto que cumpla la interfaz UnidadMedidaNested
-    marca: MarcaNested;                 // Espera un objeto que cumpla la interfaz MarcaNested
-    metros_por_rollo?: number | null;   // Opcional, reflejo del backend
-}
-
-// Para resolver el error de "ProductoNested no exportado"
-// Si tu interfaz `Producto` ya contiene las relaciones anidadas, puedes simplemente
-// crear un alias `ProductoNested` que apunte a `Producto`.
-export type ProductoNested = Producto; // <--- ¡Este es el cambio clave aquí!
-
-export interface ProductoSchemaBase {
-    producto_id: number;
-    codigo: string;
-    nombre: string;
-    precio_compra: number;
-    precio_venta: number;
-    stock: number; // Soporta fracciones
-    estado: EstadoEnum;
-    unidad_medida_id: number;
-    marca_id: number;
-    metros_por_rollo?: number | null; // Opcional, reflejo del backend
-    nombre_unidad?: string;
-    abreviatura_unidad?: string;
-    es_fraccionable_unidad?: boolean;
-    nombre_marca?: string;
+    unidad_inventario: UnidadMedidaNested;
+    marca: MarcaNested;
+    conversiones: ConversionCompra[];
 }
 
 export interface ProductoPagination {

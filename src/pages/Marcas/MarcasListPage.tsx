@@ -32,7 +32,6 @@ const MarcasListPage: React.FC = () => {
             const params = {
                 ...(search && { search }),
                 ...(estadoFilter && { estado: estadoFilter }),
-                // No hay paginación en el backend de marcas por ahora, se traen todas
                 limit: 1000, // Limite alto para traer todas las marcas activas
             };
             const fetchedData = await getMarcas(params);

@@ -24,7 +24,7 @@ import {
 } from "../../types/compra";
 import { EstadoEnum, EstadoCompraEnum } from "../../types/enums";
 import { Proveedor } from "../../types/proveedor";
-import { Producto, ProductoSchemaBase } from "../../types/producto";
+import { ConversionCompra, Producto } from "../../types/producto";
 import { CategoriaNested } from "../../types/categoria";
 import { UnidadMedidaNested } from "../../types/unidad_medida";
 import { MarcaNested } from "../../types/marca";
@@ -37,13 +37,12 @@ export interface CarritoItemCompra {
   cantidad: number;
   precio_unitario: number;
   stock_actual: number;
+  selected_presentacion_nombre?: string; // Nombre de la presentación seleccionada
+  selected_presentacion_id?: number; // ID de la presentación seleccionada
+  conversiones?: ConversionCompra[]; // Conversiones del producto
 }
 
-const initialDetalle: DetalleCompraCreate = {
-  producto_id: "",
-  cantidad: 1,
-  precio_unitario: 0,
-};
+
 
 const ComprasFormPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
@@ -103,12 +102,31 @@ const ComprasFormPage: React.FC = () => {
         };
         return updatedDetalles;
       } else {
+        // Determinar la presentación inicial y calcular el precio unitario para esa presentación
+        let defaultPresentationName: string | undefined;
+        let initialPricePerPresentation: number = producto.precio_compra || 0; // Precio por unidad de inventario
+
+        if (producto.unidad_compra_predeterminada) {
+          defaultPresentationName = producto.unidad_compra_predeterminada;
+        } else if (producto.conversiones && producto.conversiones.length > 0) {
+          defaultPresentationName = producto.conversiones[0].nombre_presentacion;
+        }
+
+        if (defaultPresentationName) {
+          const selectedConversion = producto.conversiones?.find(c => c.nombre_presentacion === defaultPresentationName);
+          if (selectedConversion) {
+            // Precio por presentación = Precio por unidad de inventario * unidades de inventario por presentación
+            initialPricePerPresentation = (producto.precio_compra || 0) * selectedConversion.unidad_inventario_por_presentacion;
+          }
+        }
+        
         return [
           ...prevDetalles,
           {
             producto_id: producto.producto_id,
-            cantidad: 1,
-            precio_unitario: producto.precio_compra || 0,
+            cantidad: 1, // Cantidad inicial en la presentación seleccionada
+            precio_unitario: initialPricePerPresentation, // Precio calculado para la presentación
+            presentacion_compra: defaultPresentationName, // Asignar la presentación predeterminada
           },
         ];
       }
@@ -171,6 +189,7 @@ const ComprasFormPage: React.FC = () => {
               producto_id: d.producto.producto_id,
               cantidad: d.cantidad,
               precio_unitario: d.precio_unitario,
+              presentacion_compra: d.presentacion_compra || "", // Mapear la presentación de compra
             })
           );
           setDetallesCompra(loadedDetalles);
@@ -221,11 +240,30 @@ const ComprasFormPage: React.FC = () => {
     ) => {
       setDetallesCompra((prevDetalles) => {
         const newDetalles = [...prevDetalles];
-        newDetalles[index] = { ...newDetalles[index], [field]: value };
+        const currentDetalle = newDetalles[index];
+
+        if (field === "presentacion_compra") {
+          const producto = productosMap.get(Number(currentDetalle.producto_id));
+          const selectedConversion = producto?.conversiones?.find(c => c.nombre_presentacion === value);
+
+          let newPrecioUnitario = currentDetalle.precio_unitario; // Mantener el precio actual si no hay conversión
+          if (selectedConversion) {
+            // Calcular el precio por la nueva presentación
+            newPrecioUnitario = (producto?.precio_compra || 0) * selectedConversion.unidad_inventario_por_presentacion;
+          }
+          
+          newDetalles[index] = {
+            ...currentDetalle,
+            presentacion_compra: value as string,
+            precio_unitario: newPrecioUnitario,
+          };
+        } else {
+          newDetalles[index] = { ...currentDetalle, [field]: value };
+        }
         return newDetalles;
       });
     },
-    []
+    [productosMap]
   );
 
   const totalCompra = useMemo(() => {
@@ -263,23 +301,39 @@ const ComprasFormPage: React.FC = () => {
       const prodId = Number(detalle.producto_id);
       const cant = Number(detalle.cantidad);
       const precio = Number(detalle.precio_unitario);
+      const presentacion = detalle.presentacion_compra;
 
       if (!prodId || isNaN(prodId) || !productosMap.has(prodId)) {
         setFormSubmitError(`El producto es requerido o no válido en la línea ${index + 1}.`);
         setLoading(false);
         return;
       }
+      const producto = productosMap.get(prodId);
+      if (producto && producto.conversiones && producto.conversiones.length > 0) {
+        if (!presentacion) {
+          setFormSubmitError(`Debe seleccionar una presentación para el producto ${producto.nombre} en la línea ${index + 1}.`);
+          setLoading(false);
+          return;
+        }
+        const conversionExists = producto.conversiones.some(c => c.nombre_presentacion === presentacion);
+        if (!conversionExists) {
+          setFormSubmitError(`La presentación seleccionada para el producto ${producto.nombre} en la línea ${index + 1} no es válida.`);
+          setLoading(false);
+          return;
+        }
+      }
+
       if (isNaN(cant) || cant <= 0) {
-        setFormSubmitError(`La cantidad para el producto ${productosMap.get(prodId)?.nombre || "desconocido"} en la línea ${index + 1} debe ser un número positivo.`);
+        setFormSubmitError(`La cantidad para el producto ${producto?.nombre || "desconocido"} en la línea ${index + 1} debe ser un número positivo.`);
         setLoading(false);
         return;
       }
       if (isNaN(precio) || precio < 0) {
-        setFormSubmitError(`El precio unitario para el producto ${productosMap.get(prodId)?.nombre || "desconocido"} en la línea ${index + 1} debe ser un número no negativo.`);
+        setFormSubmitError(`El precio unitario para el producto ${producto?.nombre || "desconocido"} en la línea ${index + 1} debe ser un número no negativo.`);
         setLoading(false);
         return;
       }
-      validDetalles.push({ producto_id: prodId, cantidad: cant, precio_unitario: precio });
+      validDetalles.push({ producto_id: prodId, cantidad: cant, precio_unitario: precio, presentacion_compra: presentacion });
     }
 
     if (validDetalles.length === 0) {
@@ -335,7 +389,7 @@ const ComprasFormPage: React.FC = () => {
   return (
     <div className="container mx-auto p-6 max-w-7xl bg-gray-50 dark:bg-gray-900 rounded-lg">
       <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">
-        {isEditing ? `Editar Compra #${compraId}` : "Registrar Nueva Compra"}
+        {isEditing ? `Editar Compra #${compraId}` : "Registrar Nueva Orden Compra"}
       </h1>
       {formSubmitError && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 dark:bg-red-900 dark:border-red-700 dark:text-red-200" role="alert">{formSubmitError}</div>}
       {formMessage && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mb-4 dark:bg-green-900 dark:border-green-700 dark:text-green-200" role="alert">{formMessage}</div>}
@@ -416,15 +470,37 @@ const ComprasFormPage: React.FC = () => {
                 <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400"><p>El carrito de compras está vacío.</p></div>
               ) : (
                 detallesCompra.map((detalle, index) => {
+                  const producto = productosMap.get(Number(detalle.producto_id));
                   const subtotal = (Number(detalle.cantidad) || 0) * (Number(detalle.precio_unitario) || 0);
+                  
+                  // Obtener la conversión seleccionada para mostrar la unidad
+                  const selectedConversion = producto?.conversiones?.find(c => c.nombre_presentacion === detalle.presentacion_compra);
+                  const unidadDisplay = selectedConversion ? selectedConversion.nombre_presentacion : (producto?.unidad_inventario?.nombre_unidad || "Unidad");
+
                   return (
                     <div key={index} className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-700 shadow-sm">
                       <div className="flex-grow">
-                        <p className="font-semibold text-gray-800 dark:text-gray-100">{productosMap.get(Number(detalle.producto_id))?.nombre || `ID: ${detalle.producto_id}`}</p>
+                        <p className="font-semibold text-gray-800 dark:text-gray-100">{producto?.nombre || `ID: ${detalle.producto_id}`}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Subtotal: <span className="font-bold">{subtotal.toFixed(2)} Bs.</span></p>
                       </div>
+                      
+                      {/* Selector de Presentación */}
+                      {producto && producto.conversiones && producto.conversiones.length > 0 && (
+                        <div className="w-32">
+                          <label className="text-xs text-gray-600 dark:text-gray-400 block text-center mb-1">Presentación</label>
+                          <Select
+                            value={detalle.presentacion_compra || ''}
+                            onChange={(e) => handleDetalleChange(index, "presentacion_compra", e.target.value)}
+                            options={[
+                              { value: '', label: 'Seleccione Presentación' }, // Opción por defecto
+                              ...(producto.conversiones || []).map(conv => ({ value: conv.nombre_presentacion, label: conv.nombre_presentacion }))
+                            ]}
+                          />
+                        </div>
+                      )}
+
                       <div className="w-24">
-                        <label className="text-xs text-gray-600 dark:text-gray-400 block text-center mb-1">Cant.</label>
+                        <label className="text-xs text-gray-600 dark:text-gray-400 block text-center mb-1">Cant. ({unidadDisplay})</label>
                         <Input type="number" value={detalle.cantidad} onChange={(e) => handleDetalleChange(index, "cantidad", e.target.value)} min="1" />
                       </div>
                       <div className="w-28">

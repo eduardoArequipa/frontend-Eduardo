@@ -167,8 +167,7 @@ const ProductosListPage: React.FC = () => {
     const totalPages = Math.ceil(totalProductos / itemsPerPage);
 
     const columns = useMemo(() => {
-                type TableCellProps = { row: { original: RowData; }; };
-        type RowData = Producto;
+        type TableCellProps = { row: { original: Producto; }; };
         return [
             {
                 Header: 'Imagen',
@@ -203,6 +202,28 @@ const ProductosListPage: React.FC = () => {
                 Header: 'Marca',
                 accessor: 'marca',
                 Cell: ({ row }: TableCellProps) => <span>{row.original.marca?.nombre_marca || 'N/A'}</span>
+            },
+            {
+                Header: 'Unidad Inventario',
+                accessor: 'unidad_inventario',
+                Cell: ({ row }: TableCellProps) => <span>{row.original.unidad_inventario?.nombre_unidad || 'N/A'}</span>
+            },
+            {
+                Header: 'Detalles de Conversión',
+                accessor: 'conversiones',
+                Cell: ({ row }: { row: { original: Producto } }) => (
+                    <div className="text-sm">
+                        {row.original.conversiones && row.original.conversiones.length > 0 ? (
+                            row.original.conversiones.map(conv => (
+                                <p key={conv.conversion_id} className="text-gray-700 dark:text-gray-300">
+                                    {conv.nombre_presentacion}: {conv.unidad_inventario_por_presentacion} {row.original.unidad_inventario?.nombre_unidad || 'unidades'}
+                                </p>
+                            ))
+                        ) : (
+                            <span className="text-gray-500 dark:text-gray-400">N/A</span>
+                        )}
+                    </div>
+                ),
             },
             {
                 Header: 'Estado',

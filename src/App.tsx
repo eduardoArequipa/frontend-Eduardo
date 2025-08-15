@@ -39,6 +39,7 @@ const VentasListPage = React.lazy(() => import('./pages/Ventas/VentasListPage'))
 const VentaFormPage = React.lazy(() => import('./pages/Ventas/VentaFormPage'));
 const VentaDetailPage = React.lazy(() => import('./pages/Ventas/VentaDetailPage'));
 const ReportesPage = React.lazy(() => import('./pages/Reportes/ReportesPage'));
+const ConversionesCompraList = React.lazy(() => import('./pages/ConversionesCompra/ConversionesCompraList'));
 
 const ForgotPasswordRequestPage = React.lazy(() => import('./pages/Auth/ForgotPasswordRequestPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/Auth/ResetPasswordPage'));
@@ -138,7 +139,12 @@ const App: React.FC = () => {
                                 <Route element={<ProtectedRoute requiredMenu="/reportes" />}>
                                     <Route path="/reportes" element={<React.Suspense fallback={<div>Cargando...</div>}><ReportesPage /></React.Suspense>} />
                                 </Route>
-
+                                {/* *** Módulo Conversiones de Compra *** */}
+                                <Route element={<ProtectedRoute requiredMenu="/conversiones-compra" />}>
+                                    <Route path="/conversiones-compra" element={<React.Suspense fallback={<div>Cargando...</div>}><ConversionesCompraList /></React.Suspense>} />
+                                </Route>
+                            
+                    
                             </Route>
                         </Route>
 

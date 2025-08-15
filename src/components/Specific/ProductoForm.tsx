@@ -4,9 +4,12 @@ import {
   getProductoById,
   createProducto,
   updateProducto,
+  createConversion,
+  updateConversion, // Asegúrate de que updateConversion esté importado
+  deleteConversion,
 } from "../../services/productoService";
 import { uploadImage } from "../../services/uploadService";
-import { ProductoCreate, ProductoUpdate } from "../../types/producto";
+import { ProductoCreate, ProductoUpdate, ConversionCompra, ConversionCompraCreate, Producto } from "../../types/producto";
 import { CategoriaNested } from "../../types/categoria";
 import { UnidadMedidaNested } from "../../types/unidad_medida";
 import { MarcaNested } from "../../types/marca";
@@ -15,8 +18,8 @@ import Button from "../Common/Button";
 import LoadingSpinner from "../Common/LoadingSpinner";
 import Select from "../Common/Select";
 import ErrorMessage from "../Common/ErrorMessage";
-import { Producto } from "../../types/producto";
 import { useTheme } from "../../context/ThemeContext";
+
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 interface ProductoFormProps {
@@ -28,18 +31,10 @@ interface ProductoFormProps {
   availableMarcas: MarcaNested[];
 }
 
-type FormData = {
-  codigo: string;
-  nombre: string;
-  precio_compra: number;
-  precio_venta: number;
-  stock: number;
-  stock_minimo: number;
-  categoria_id: number;
-  unidad_medida_id: number;
-  marca_id: number;
-  metros_por_rollo?: number | null;
-};
+type FormData = Omit<ProductoCreate, 'imagen_ruta'>;
+
+// Usamos un tipo local para manejar conversiones antes de que el producto se cree
+type LocalConversion = Omit<ConversionCompra, 'producto_id'> & { tempId?: number };
 
 const ProductoForm: React.FC<ProductoFormProps> = ({
   productoId,
@@ -55,19 +50,22 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
     register,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors },
   } = useForm<FormData>({ mode: "onBlur" });
 
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  
+  // El estado ahora maneja tanto conversiones guardadas como locales
+  const [conversions, setConversions] = useState<LocalConversion[]>([]);
+  const [newConversion, setNewConversion] = useState({ nombre_presentacion: '', unidad_inventario_por_presentacion: '' });
+  const [editingConversionId, setEditingConversionId] = useState<number | null | undefined>(null);
+  const [editingTempId, setEditingTempId] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
-
-  const watchedUnidadMedidaId = watch("unidad_medida_id");
 
   useEffect(() => {
     const loadEditData = async () => {
@@ -82,9 +80,10 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
           setValue("stock", parseFloat(data.stock.toString()));
           setValue("stock_minimo", parseFloat(data.stock_minimo.toString()));
           setValue("categoria_id", data.categoria.categoria_id);
-          setValue("unidad_medida_id", data.unidad_medida?.unidad_id);
+          setValue("unidad_inventario_id", data.unidad_inventario?.unidad_id);
           setValue("marca_id", data.marca?.marca_id);
-          setValue("metros_por_rollo", data.metros_por_rollo ? parseFloat(data.metros_por_rollo.toString()) : null);
+          setValue("unidad_compra_predeterminada", data.unidad_compra_predeterminada || '');
+          setConversions(data.conversiones || []);
 
           setExistingImageUrl(
             data.imagen_ruta
@@ -116,6 +115,89 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
     if (fileInput) fileInput.value = "";
   };
 
+  const resetConversionForm = () => {
+    setNewConversion({ nombre_presentacion: '', unidad_inventario_por_presentacion: '' });
+    setEditingConversionId(null);
+    setEditingTempId(null);
+  };
+
+  const handleAddOrUpdateConversion = async () => {
+    if (!newConversion.nombre_presentacion || !newConversion.unidad_inventario_por_presentacion) {
+      alert("Por favor, complete los campos de la presentación.");
+      return;
+    }
+
+    const conversionData: ConversionCompraCreate = {
+        nombre_presentacion: newConversion.nombre_presentacion,
+        unidad_inventario_por_presentacion: parseFloat(newConversion.unidad_inventario_por_presentacion)
+    };
+
+    if (isEditing && productoId) { // --- MODO EDICIÓN (con API) ---
+      try {
+        let resultConversion: ConversionCompra;
+        if (editingConversionId) {
+          resultConversion = await updateConversion(editingConversionId, conversionData);
+          setConversions(conversions.map(c => c.conversion_id === editingConversionId ? resultConversion : c));
+          alert("Presentación actualizada con éxito!");
+        } else {
+          resultConversion = await createConversion(productoId, conversionData);
+          setConversions([...conversions, resultConversion]);
+          alert("Presentación añadida con éxito!");
+        }
+        resetConversionForm();
+      } catch (err: any) {
+        alert(`Error al guardar presentación: ${err.response?.data?.detail || err.message}`);
+      }
+    } else { // --- MODO CREACIÓN (local) ---
+        if (editingTempId) {
+            // Editar en la lista local
+            setConversions(conversions.map(c => c.tempId === editingTempId ? { ...c, ...conversionData } : c));
+        } else {
+            // Añadir a la lista local con un ID temporal
+            const newLocalConversion: LocalConversion = {
+                ...conversionData,
+                conversion_id: 0, // Placeholder
+                tempId: Date.now() // ID temporal único
+            };
+            setConversions([...conversions, newLocalConversion]);
+        }
+        resetConversionForm();
+    }
+  };
+
+  const handleEditConversion = (conversion: LocalConversion) => {
+    setNewConversion({ 
+      nombre_presentacion: conversion.nombre_presentacion,
+      unidad_inventario_por_presentacion: conversion.unidad_inventario_por_presentacion.toString()
+    });
+    if (isEditing) {
+        setEditingConversionId(conversion.conversion_id);
+    } else {
+        setEditingTempId(conversion.tempId || null);
+    }
+  };
+
+  const handleCancelEditConversion = () => {
+    resetConversionForm();
+  };
+
+  const handleDeleteConversion = async (conversion: LocalConversion) => {
+    if (window.confirm("¿Está seguro de que desea eliminar esta presentación?")) {
+        if (isEditing && conversion.conversion_id) {
+            try {
+                await deleteConversion(conversion.conversion_id);
+                setConversions(conversions.filter(c => c.conversion_id !== conversion.conversion_id));
+                alert("Presentación eliminada con éxito!");
+            } catch (err: any) {
+                alert(`Error al eliminar presentación: ${err.response?.data?.detail || err.message}`);
+            }
+        } else {
+            // Eliminar de la lista local
+            setConversions(conversions.filter(c => c.tempId !== conversion.tempId));
+        }
+    }
+  };
+
   const onSubmit = async (formData: FormData) => {
     setLoading(true);
     setFormSubmitError(null);
@@ -143,15 +225,27 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
     };
 
     try {
-      let result: Producto;
-      if (isEditing) {
-        result = await updateProducto(productoId!, dataToSend as ProductoUpdate);
+      if (isEditing && productoId) {
+        const result = await updateProducto(productoId, dataToSend as ProductoUpdate);
         alert("Producto actualizado con éxito!");
+        onSuccess(result);
       } else {
-        result = await createProducto(dataToSend as ProductoCreate);
-        alert("Producto creado con éxito!");
+        // --- Lógica para CREAR producto y LUEGO sus conversiones ---
+        const newProduct = await createProducto(dataToSend as ProductoCreate);
+        
+        // Después de crear el producto, crear cada conversión
+        for (const conv of conversions) {
+            const conversionData: ConversionCompraCreate = {
+                nombre_presentacion: conv.nombre_presentacion,
+                unidad_inventario_por_presentacion: conv.unidad_inventario_por_presentacion
+            };
+            await createConversion(newProduct.producto_id, conversionData);
+        }
+
+        alert("Producto y sus presentaciones creados con éxito!");
+        const finalProduct = await getProductoById(newProduct.producto_id); // Obtener el producto final con todo
+        onSuccess(finalProduct);
       }
-      onSuccess(result);
     } catch (err: any) {
       let errorMessage = "Ocurrió un error al guardar el producto.";
       if (err.response && err.response.data) {
@@ -169,33 +263,20 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <LoadingSpinner /> {isEditing ? "Cargando datos del producto..." : ""}
-      </div>
-    );
+  if (loading && isEditing) { // Solo mostrar spinner a pantalla completa al editar
+    return <div className="flex justify-center items-center min-h-[400px]"><LoadingSpinner /></div>;
   }
 
   if (error) {
     return <ErrorMessage message={`Error al cargar el producto: ${error}`} />;
   }
 
-  const showNoOptionsMessage =
-    !isEditing &&
-    (availableCategorias.length === 0 || availableUnidadesMedida.length === 0 || availableMarcas.length === 0);
-
-  if (showNoOptionsMessage) {
-    return (
-      <div className="text-yellow-600 text-center mt-4">
-        No hay opciones activas disponibles para categorías, unidades de medida o marcas. Crea las entidades necesarias primero.
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-md grid grid-cols-1 md:grid-cols-2 gap-6`}>
-      <div>
+    <form onSubmit={handleSubmit(onSubmit)} className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-md`}>
+      {loading && <LoadingSpinner />} {/* Spinner para cargas en segundo plano */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Campos existentes del formulario... */}
+        <div>
         <label htmlFor="codigo" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Código</label>
         <Input
           id="codigo"
@@ -270,7 +351,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
         <Input
           id="stock"
           type="number"
-          step="1"
+          step="0.01"
           {...register("stock", {
             required: "El stock actual es requerido",
             valueAsNumber: true,
@@ -299,11 +380,11 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
       </div>
 
       <div>
-        <label htmlFor="unidad_medida_id" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Unidad de Medida</label>
+        <label htmlFor="unidad_inventario_id" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Unidad de Inventario</label>
         <Select
-          id="unidad_medida_id"
-          {...register("unidad_medida_id", { required: "Debe seleccionar una unidad", valueAsNumber: true })}
-          className={`mt-1 block w-full ${errors.unidad_medida_id ? 'border-red-500' : 'border-gray-400'}`}
+          id="unidad_inventario_id"
+          {...register("unidad_inventario_id", { required: "Debe seleccionar una unidad", valueAsNumber: true })}
+          className={`mt-1 block w-full ${errors.unidad_inventario_id ? 'border-red-500' : 'border-gray-400'}`}
         >
           <option value="">-- Seleccionar Unidad --</option>
           {availableUnidadesMedida.map((unidad) => (
@@ -312,7 +393,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
             </option>
           ))}
         </Select>
-        {errors.unidad_medida_id && <span className="text-red-500 text-xs">{errors.unidad_medida_id.message}</span>}
+        {errors.unidad_inventario_id && <span className="text-red-500 text-xs">{errors.unidad_inventario_id.message}</span>}
       </div>
 
       <div>
@@ -332,71 +413,97 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
         {errors.marca_id && <span className="text-red-500 text-xs">{errors.marca_id.message}</span>}
       </div>
 
-      {availableUnidadesMedida.find((u) => u.unidad_id === watchedUnidadMedidaId)?.nombre_unidad.toLowerCase().trim() === "metro" && (
-        <div>
-          <label htmlFor="metros_por_rollo" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Metros por Rollo</label>
-          <Input
-            id="metros_por_rollo"
-            type="number"
-            step="0.01"
-            {...register("metros_por_rollo", {
-              required: "Este campo es requerido para la unidad 'metro'",
-              valueAsNumber: true,
-              min: { value: 0.01, message: "Debe ser un número positivo" }
-            })}
-            className={`mt-1 block w-full ${errors.metros_por_rollo ? 'border-red-500' : 'border-gray-400'}`}
-          />
-          {errors.metros_por_rollo && <span className="text-red-500 text-xs">{errors.metros_por_rollo.message}</span>}
-        </div>
-      )}
+      <div>
+        <label htmlFor="unidad_compra_predeterminada" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Unidad de Compra Predeterminada</label>
+        <Input
+          id="unidad_compra_predeterminada"
+          type="text"
+          {...register("unidad_compra_predeterminada")}
+          className={`mt-1 block w-full border-gray-400'}`}
+        />
+      </div>
 
       <div className="md:col-span-2">
-        <label htmlFor="product_image" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Imagen del Producto</label>
-        <Input
+        <label htmlFor="product_image" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium mb-2`}>Imagen del Producto</label>
+        <input
           id="product_image"
           type="file"
           accept="image/*"
           onChange={handleImageSelect}
-          className="mt-1 block w-full"
+          className={`block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 ${selectedImageFile || existingImageUrl ? '' : ''}`}
         />
-        {selectedImageFile && <p className="mt-1 text-sm text-gray-500">Archivo: {selectedImageFile.name}</p>}
-        {isEditing && existingImageUrl && !selectedImageFile && !removeExistingImage && (
-          <div className="mt-2">
-            <img src={existingImageUrl} alt="Imagen actual" className="h-32 w-auto rounded-md" />
-            <Button type="button" onClick={handleRemoveExistingImage} className="mt-2 bg-red-500 text-white text-xs py-1 px-2 rounded">
-              Eliminar Imagen
-            </Button>
+        {existingImageUrl && !removeExistingImage && (
+          <div className="mt-4 relative w-32 h-32 group">
+            <img src={existingImageUrl} alt="Imagen actual" className="w-full h-full object-cover rounded-lg border border-gray-300 dark:border-gray-600" />
+            <button
+              type="button"
+              onClick={handleRemoveExistingImage}
+              className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Eliminar imagen actual"
+            >
+              X
+            </button>
           </div>
         )}
+        {selectedImageFile && (
+          <div className="mt-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Nueva imagen seleccionada: {selectedImageFile.name}</p>
+          </div>
+        )}
+        {removeExistingImage && (
+          <p className="mt-4 text-sm text-red-500">La imagen actual será eliminada.</p>
+        )}
+      </div>
+      </div>
+
+      {/* La sección de conversiones ahora es siempre visible */}
+      <div className="md:col-span-2 mt-6 pt-6 border-t border-gray-300 dark:border-gray-700">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">Presentaciones de Compra/Venta</h3>
+        <div className="space-y-4">
+          {conversions.map(conv => (
+            <div key={conv.conversion_id || conv.tempId} className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded">
+              <span className="text-gray-800 dark:text-gray-200">{conv.nombre_presentacion} = {conv.unidad_inventario_por_presentacion} Unidades</span>
+              <div className="flex space-x-2">
+                <Button type="button" onClick={() => handleEditConversion(conv)} variant="secondary" size="sm">Editar</Button>
+                <Button type="button" onClick={() => handleDeleteConversion(conv)} variant="danger" size="sm">Eliminar</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex items-end gap-4">
+          <div className="flex-grow">
+            <label className="text-sm text-gray-700 dark:text-gray-300">Nombre Presentación</label>
+            <Input type="text" value={newConversion.nombre_presentacion} onChange={e => setNewConversion({...newConversion, nombre_presentacion: e.target.value})} placeholder="Ej: Caja" />
+          </div>
+          <div className="flex-grow">
+            <label className="text-sm text-gray-700 dark:text-gray-300">Unidades por Presentación</label>
+            <Input type="number" value={newConversion.unidad_inventario_por_presentacion} onChange={e => setNewConversion({...newConversion, unidad_inventario_por_presentacion: e.target.value})} placeholder="Ej: 24" />
+          </div>
+          {(editingConversionId || editingTempId) ? (
+            <div className="flex space-x-2">
+              <Button type="button" onClick={handleAddOrUpdateConversion} variant="primary">Guardar Cambios</Button>
+              <Button type="button" onClick={handleCancelEditConversion} variant="secondary">Cancelar</Button>
+            </div>
+          ) : (
+            <Button type="button" onClick={handleAddOrUpdateConversion} variant="secondary">Añadir</Button>
+          )}
+        </div>
       </div>
 
       {formSubmitError && (
-        <div className="md:col-span-2">
+        <div className="md:col-span-2 mt-4">
           <ErrorMessage message={formSubmitError} />
         </div>
       )}
 
-      <div className="md:col-span-2 flex justify-end space-x-4">
-        <Button 
-          type="button" 
-          onClick={onCancel} 
-          className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded shadow"
-        >
-          Cancelar
-        </Button>
-        <Button
-          type="submit"
-          disabled={loading}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow disabled:opacity-50"
-        >
-          {loading ? <LoadingSpinner /> : isEditing ? "ActualizaR Producto" : "Crear Producto"}
+      <div className="md:col-span-2 flex justify-end space-x-4 mt-6">
+        <Button type="button" onClick={onCancel} variant="secondary">Cancelar</Button>
+        <Button type="submit" disabled={loading} variant="primary">
+          {loading ? <LoadingSpinner /> : isEditing ? "Actualizar Producto" : "Crear Producto"}
         </Button>
       </div>
     </form>
   );
 };
 
-
 export default ProductoForm;
-
-

@@ -1,6 +1,6 @@
 // src/services/productoService.ts
 import axiosInstance from '../api/axiosInstance';
-import { Producto, ProductoCreate, ProductoUpdate, ProductoPagination } from '../types/producto'; // Importar ProductoPagination
+import { Producto, ProductoCreate, ProductoUpdate, ProductoPagination, ConversionCompra, ConversionCompraCreate } from '../types/producto';
 import { EstadoEnum } from '../types/enums';
 
 export interface GetProductosParams {
@@ -14,10 +14,47 @@ export interface GetProductosParams {
     limit?: number; // Añadido para paginación
 }
 
-export const getProductos = async (params?: GetProductosParams): Promise<ProductoPagination> => { // Cambiado el tipo de retorno
+
+export interface GetProductosParams {
+    estado?: EstadoEnum;
+    search?: string; 
+    categoria_id?: number; 
+    unidad_inventario_id?: number; // Renombrado
+    marca_id?: number; 
+    min_stock?: number; 
+    skip?: number;
+    limit?: number;
+}
+
+export const getProductos = async (params?: GetProductosParams): Promise<ProductoPagination> => {
     const response = await axiosInstance.get('/productos/', { params });
     return response.data;
 };
+
+
+export const searchProductSuggestions = async (query: string): Promise<Producto[]> => {
+    const response = await axiosInstance.get('/productos/search/suggestions', {
+        params: { q: query }
+    });
+    return response.data;
+};
+
+// --- Nuevos servicios para Conversiones ---
+
+export const createConversion = async (productoId: number, conversionData: ConversionCompraCreate): Promise<ConversionCompra> => {
+    const response = await axiosInstance.post(`/productos/conversiones/?producto_id=${productoId}`, conversionData);
+    return response.data;
+};
+
+export const updateConversion = async (conversionId: number, conversionData: ConversionCompraCreate): Promise<ConversionCompra> => {
+    const response = await axiosInstance.put(`/productos/conversiones/${conversionId}`, conversionData);
+    return response.data;
+};
+
+export const deleteConversion = async (conversionId: number): Promise<void> => {
+    await axiosInstance.delete(`/productos/conversiones/${conversionId}`);
+};
+
 
 export const getProductoById = async (id: number): Promise<Producto> => {
     const response = await axiosInstance.get(`/productos/${id}`);
