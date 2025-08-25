@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getVentas, anularVenta } from '../../services/ventasService';
+import { getVentas, anularVenta, descargarFacturaPdf } from '../../services/ventasService';
 import { Venta, VentaPagination } from '../../types/venta';
 import { EstadoVentaEnum } from '../../types/enums';
 
@@ -103,6 +103,19 @@ const VentasListPage: React.FC = () => {
         navigate('/ventas/new');
     };
 
+    const handleDescargarFactura = async (facturaId: number) => {
+        setNotification(null);
+        setError(null);
+        try {
+            await descargarFacturaPdf(facturaId);
+            setNotification({ message: 'Factura descargada exitosamente.', type: 'success' });
+        } catch (err: any) {
+            const errorMessage = err.message || 'Error al descargar la factura.';
+            setError(errorMessage);
+            setNotification({ message: errorMessage, type: 'error' });
+        }
+    };
+
     const totalPages = Math.ceil(totalVentas / pageSize);
 
     const columns = useMemo(() => [
@@ -121,11 +134,16 @@ const VentasListPage: React.FC = () => {
             }
         },
         {
-            Header: 'Método Pago',
-            accessor: 'metodo_pago_id',
+            Header: 'Factura',
+            id: 'factura_estado',
             Cell: ({ row }: { row: { original: Venta } }) => {
-                return row.original.metodo_pago ? row.original.metodo_pago.nombre_metodo : 'N/A';
-            },
+                if (!row.original.factura_electronica) {
+                    return <span className="text-xs text-gray-500">No Solicitada</span>;
+                }
+                const estado = row.original.factura_electronica.estado;
+                const color = estado === 'VALIDADA' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+                return <span className={`font-semibold ${color}`}>{estado}</span>;
+            }
         },
         {
             Header: 'Total',
@@ -133,7 +151,7 @@ const VentasListPage: React.FC = () => {
             Cell: ({ row }: { row: { original: Venta } }) => <span className="text-green-700 dark:text-green-400 font-semibold">{`${Number(row.original.total).toFixed(2)} Bs.`}</span>,
         },
         { 
-            Header: 'Estado', 
+            Header: 'Estado Venta', 
             accessor: 'estado',
             Cell: ({ row }: { row: { original: Venta } }) => (
                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -145,10 +163,9 @@ const VentasListPage: React.FC = () => {
         },
         {
             Header: 'Acciones',
-            accessor: 'venta_id',
             id: 'acciones',
             Cell: ({ row }: { row: { original: Venta } }) => (
-                <div className="flex space-x-2">
+                <div className="flex items-center space-x-2">
                     <Link
                         to={`/ventas/${row.original.venta_id}`}
                         className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
@@ -164,10 +181,22 @@ const VentasListPage: React.FC = () => {
                             Anular
                         </Button>
                     )}
+                    {row.original.factura_electronica && row.original.factura_electronica.estado === 'VALIDADA' && (
+                        <Button
+                            onClick={() => handleDescargarFactura(row.original.factura_electronica!.factura_id)}
+                            size="sm"
+                            variant="secondary"
+                            title="Descargar Factura PDF"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                        </Button>
+                    )}
                 </div>
             ),
         },
-    ], []);
+    ], [handleAnularVentaClick, handleDescargarFactura]);
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">

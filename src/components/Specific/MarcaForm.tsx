@@ -135,7 +135,7 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
             <div className="flex justify-end space-x-3">
                 <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>Cancelar</Button>
                 <Button type="submit" variant="primary" disabled={loading}>
-                    {loading ? <LoadingSpinner size="sm" /> : (marcaId ? 'Actualizar Marca' : 'Crear Marca')}
+                    {loading ? <LoadingSpinner size="small" /> : (marcaId ? 'Actualizar Marca' : 'Crear Marca')}
                 </Button>
             </div>
         </form>

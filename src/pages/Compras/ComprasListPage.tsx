@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { getCompras, anularCompra, completarCompra } from '../../services/compraService';
 import { getProveedores } from '../../services/proveedorService';
 

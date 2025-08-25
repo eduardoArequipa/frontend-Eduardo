@@ -1,6 +1,6 @@
 // src/types/proveedor.ts
 import { EstadoEnum } from "./enums"; 
-import { PersonaNested, PersonaCreate,PersonaUpdate } from "./persona";
+import { IPersonaNested, IPersonaCreate, IPersonaUpdate } from "./persona";
 import { EmpresaNested, EmpresaCreate, EmpresaUpdate } from "./empresa";
 
 export interface ProveedorBase {
@@ -10,26 +10,26 @@ export interface ProveedorBase {
 export interface ProveedorCreate extends ProveedorBase {
     persona_id?: number | null;
     empresa_id?: number | null;
-    persona_data?: PersonaCreate | null;
+    persona_data?: IPersonaCreate | null;
     empresa_data?: EmpresaCreate | null;
 }
 
 export interface ProveedorUpdate {
     estado?: EstadoEnum; 
-    persona_data?: PersonaUpdate | null; 
+    persona_data?: IPersonaUpdate | null; 
     empresa_data?: EmpresaUpdate | null; 
 }
 
 export interface Proveedor extends ProveedorBase {
     proveedor_id: number; 
-    persona?: PersonaNested | null; 
+    persona?: IPersonaNested | null; 
     empresa?: EmpresaNested | null; 
 
 }
 
 export interface ProveedorNested {
     proveedor_id: number;
-    persona?: PersonaNested | null; 
+    persona?: IPersonaNested | null; 
     empresa?: EmpresaNested | null; 
 }
 

@@ -6,7 +6,6 @@ import { Venta } from '../../types/venta';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Button from '../../components/Common/Button';
 import { EstadoVentaEnum } from '../../types/enums';
-import ErrorMessage from '../../components/Common/ErrorMessage';
 
 const VentaDetailPage: React.FC = () => {
     const { ventaId } = useParams<{ ventaId: string }>();

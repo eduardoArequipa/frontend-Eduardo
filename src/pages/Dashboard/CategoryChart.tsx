@@ -22,7 +22,7 @@ export const CategoryChart = ({ data }: CategoryChartProps) => {
           dataKey="valor_inventario"
           nameKey="categoria"
         >
-          {data.map((entry, index) => (
+          {data.map((_, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>

@@ -1,7 +1,7 @@
 // src/components/Common/PersonaAutocomplete.tsx
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPersonas, getPersonaById } from '../../services/personaService';
+import { getPersonas } from '../../services/personaService';
 import { IPersonaInDB, PersonaPagination } from '../../types/persona';
 import Input from './Input';
 import LoadingSpinner from './LoadingSpinner';
@@ -12,7 +12,6 @@ interface Props {
     initialPersonaId?: number | null;
     rolFilterName?: string;
     excludeRolName?: string; 
-    onlyWithoutUser?: boolean;
 }
 
 const PersonaAutocomplete: React.FC<Props> = ({
@@ -20,7 +19,6 @@ const PersonaAutocomplete: React.FC<Props> = ({
     initialPersonaId,
     rolFilterName,
     excludeRolName,
-    onlyWithoutUser = false
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [suggestions, setSuggestions] = useState<IPersonaInDB[]>([]);

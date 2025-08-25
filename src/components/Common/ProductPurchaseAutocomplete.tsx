@@ -21,8 +21,8 @@ const ProductPurchaseAutocomplete: React.FC<Props> = ({ onProductSelect }) => {
         const fetchSuggestions = async () => {
             setLoading(true);
             try {
-                const productos = await getProductos({ search: searchTerm, limit: 10 });
-                setSuggestions(productos);
+                const response = await getProductos({ search: searchTerm, limit: 10 });
+                setSuggestions(response.items);
             } catch (error) {
                 console.error('Error al buscar productos:', error);
             }
@@ -53,7 +53,7 @@ const ProductPurchaseAutocomplete: React.FC<Props> = ({ onProductSelect }) => {
                 <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto">
                     {suggestions.map((producto) => (
                         <li
-                            key={producto.id}
+                            key={producto.producto_id}
                             onClick={() => handleSelect(producto)}
                             className="p-2 hover:bg-gray-100 cursor-pointer"
                         >

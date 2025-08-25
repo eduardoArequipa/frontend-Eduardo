@@ -1,7 +1,7 @@
 
 // src/pages/Usuarios/UsuariosFormPage.tsx
 import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { getUserById, updateUser, createUser } from '../../services/userService';
 import { getPersonasWithoutUser } from '../../services/personaService';
 import { uploadImage } from '../../services/uploadService';
@@ -66,7 +66,7 @@ const UsuariosFormPage: React.FC = () => {
                      }
                     setLoading(false);
                 })
-                .catch(err => {
+                .catch(_err => {
                     setError("No se pudo cargar el usuario para editar.");
                     setLoading(false);
                 });
@@ -81,7 +81,7 @@ const UsuariosFormPage: React.FC = () => {
                     setAvailablePersonas(data);
                     setPersonasLoaded(true);
                 })
-                .catch(err => {
+                .catch(_err => {
                     setError("Error al cargar la lista de personas disponibles.");
                 })
                 .finally(() => setLoadingPersonas(false));

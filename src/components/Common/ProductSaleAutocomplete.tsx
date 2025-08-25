@@ -18,8 +18,9 @@ const ProductSaleAutocomplete: React.FC<Props> = ({ onProductSelect }) => {
         const fetchProducts = async () => {
             setLoading(true);
             try {
-                const productos = await getProductosParaVenta();
-                setAllProducts(productos.filter(p => p.stock > 0)); // Solo productos con stock
+                // La respuesta es un objeto de paginación, los productos están en .items
+                const response = await getProductosParaVenta(); 
+                setAllProducts(response.items); // Accedemos a la propiedad .items
             } catch (error) {
                 console.error('Error al cargar productos para la venta:', error);
             }

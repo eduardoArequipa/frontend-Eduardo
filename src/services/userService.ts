@@ -1,8 +1,11 @@
 // src/services/userService.ts
 
 import axiosInstance from '../api/axiosInstance';
-import { IUsuarioReadAudit, IUsuarioCreate, IUsuarioUpdate, UsuarioPagination } from '../types/usuario'; // Importar UsuarioPagination
+import type { IUsuarioReadAudit, IUsuarioCreate, IUsuarioUpdate, UsuarioPagination } from '../types/usuario';
 import { EstadoEnum } from '../types/enums';
+
+// Re-exporting the type to be available for other modules
+export type { UsuarioPagination };
 
 interface IGetUsersParams {
     estado?: EstadoEnum;

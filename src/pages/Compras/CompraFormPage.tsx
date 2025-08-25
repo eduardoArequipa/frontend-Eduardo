@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Input from "../../components/Common/Input";
 import Button from "../../components/Common/Button";
@@ -12,12 +12,11 @@ import {
   updateCompra,
 } from "../../services/compraService";
 import { getProveedores } from "../../services/proveedorService";
-import { getProductos, getProductoByCode} from "../../services/productoService";
+import { getProductos } from "../../services/productoService";
 import { getCategorias } from "../../services/categoriaService";
 import { getUnidadesMedida } from "../../services/unidadMedidaService";
 import { getMarcas } from "../../services/marcaService";
 import {
-  Compra,
   CompraCreate,
   CompraUpdate,
   DetalleCompraCreate,
@@ -78,7 +77,7 @@ const ComprasFormPage: React.FC = () => {
   const [availableMarcas, setAvailableMarcas] = useState<MarcaNested[]>([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(true);
 
-    const { websocketStatus, scannerError, lastScannedProduct, lastScannedType } = useScannerWebSocket();
+    const { websocketStatus, lastScannedProduct, lastScannedType } = useScannerWebSocket();
 
   const filteredProducts = useMemo(() => {
     if (!productoSearchTerm) {

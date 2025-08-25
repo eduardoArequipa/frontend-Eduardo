@@ -10,6 +10,7 @@ export interface DetalleVentaCreate {
     producto_id: number;
     cantidad: number;
     precio_unitario: number;
+    presentacion_venta: string;
 }
 
 // Interfaz completa para un detalle de venta, tal como se recibe de la API.
@@ -27,6 +28,13 @@ export interface VentaCreate {
     estado: EstadoVentaEnum;
     total: number;
     detalles: DetalleVentaCreate[];
+    solicitar_factura?: boolean;
+}
+
+export interface FacturaElectronica {
+    factura_id: number;
+    cuf: string | null;
+    estado: string;
 }
 
 // Interfaz completa para una Venta, tal como se recibe de la API.
@@ -46,6 +54,7 @@ export interface Venta {
     modificador?: IUsuarioAudit;
     fecha_creacion?: string;
     fecha_actualizacion?: string;
+    factura_electronica?: FacturaElectronica;
 }
 
 export interface VentaPagination {

@@ -1,7 +1,7 @@
 
 // src/pages/Proveedores/ProveedoresFormPage.tsx
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { getProveedorById, createProveedor, updateProveedor } from '../../services/proveedorService';
 import { getPersonasWithoutUser } from '../../services/personaService'; 
 import { getEmpresas } from '../../services/empresaService';
@@ -12,7 +12,6 @@ import {
 } from '../../types/proveedor';
 import { EstadoEnum, GeneroEnum } from '../../types/enums';
 import { IPersonaCreate, IPersonaUpdate, IPersonaNested } from '../../types/persona'; 
-import { IRolInDB } from '../../types/rol';
 import { EmpresaCreate, EmpresaUpdate, EmpresaNested } from '../../types/empresa';
 import Input from '../../components/Common/Input';
 import Button from '../../components/Common/Button';
@@ -38,7 +37,6 @@ const ProveedoresFormPage: React.FC = () => {
 
     const [personaFormData, setPersonaFormData] = useState<IPersonaCreate | IPersonaUpdate | null>(null);
     const [empresaFormData, setEmpresaFormData] = useState<EmpresaCreate | EmpresaUpdate | null>(null);
-
     const [, setAvailablePersonas] = useState<IPersonaNested[]>([]);
     const [, setAvailableEmpresas] = useState<EmpresaNested[]>([]);
     
@@ -54,10 +52,12 @@ const ProveedoresFormPage: React.FC = () => {
             setErrorAssociationData(null);
             try {
                 const roles = await getRoles({ search: 'Proveedor' });
-                if (roles.length > 0) {
-                    setProveedorRoleId(roles[0].rol_id);
+                console.log("Rol encontrado por la API:", roles);
+                const proveedorRole = roles.find(role => role.nombre_rol === 'Proveedor');
+                if (proveedorRole) {
+                    setProveedorRoleId(proveedorRole.rol_id);
                 } else {
-                    console.error("El rol 'Proveedor' no fue encontrado. Asegúrate de que exista en la base de datos.");
+                    console.error("El rol 'Proveedor' no fue encontrado en la respuesta de la API. Asegúrate de que exista en la base de datos.");
                     setErrorAssociationData("Error crítico: El rol 'Proveedor' no está configurado en el sistema.");
                 }
 

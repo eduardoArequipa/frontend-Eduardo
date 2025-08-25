@@ -1,5 +1,5 @@
 // src/components/Common/ActionsDropdown.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Button from './Button';
 import { ButtonVariant } from './Button';
 
@@ -21,25 +21,41 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
     isLoading,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
     const closeDropdown = () => setIsOpen(false);
-    const openDropdown = () => setIsOpen(true);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                closeDropdown();
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [wrapperRef]);
+
+    const visibleActions = actions.filter(a => a.isVisible);
+
+    if (visibleActions.length === 0) {
+        return null;
+    }
 
     return (
-        <div 
-            className="relative inline-block text-left flex items-center justify-center"
-            onMouseEnter={openDropdown}
-            onMouseLeave={closeDropdown}
-        >
+        <div ref={wrapperRef} className="relative inline-block text-left">
             <div>
                 <Button 
-                    className="flex items-center justify-center p-1 rounded-full bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-gray-500"
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="flex items-center justify-center p-1.5 rounded-full bg-gray-100/50 dark:bg-gray-700/50 hover:bg-gray-200/70 dark:hover:bg-gray-600/70 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-indigo-500"
                     aria-expanded={isOpen}
                     aria-haspopup="true"
                     title="Más acciones"
                     disabled={isLoading}
                 >
-                    <svg className="h-5 w-5 text-gray-700 dark:text-gray-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <svg className="h-5 w-5 text-gray-600 dark:text-gray-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
                     </svg>
                 </Button>
@@ -47,26 +63,31 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
 
             {isOpen && (
                 <div 
-                    className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black dark:ring-gray-700 ring-opacity-5 z-20 border border-gray-200 dark:border-gray-700"
+                    className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black dark:ring-gray-700 ring-opacity-5 z-30 border border-gray-200 dark:border-gray-700"
                     role="menu" 
                     aria-orientation="vertical" 
                     aria-labelledby="menu-button"
                 >
                     <div className="py-1" role="none">
-                        {actions.map((action, index) => (
-                            action.isVisible && (
-                                <Button
+                        {visibleActions.map((action, index) => {
+                            const baseClasses = 'block w-full text-left px-4 py-2 text-sm transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700';
+                            const colorClasses = action.colorClass || 'text-gray-700 dark:text-gray-200';
+
+                            return (
+                                <button
                                     key={index}
-                                    onClick={() => { closeDropdown(); action.onClick(); }}
-                                    className={`block w-full text-left px-4 py-2 text-sm ${action.colorClass || 'text-gray-700 dark:text-gray-200'}`}
-                                    variant={action.buttonVariant || 'menuItem'}
+                                    onClick={() => {
+                                        action.onClick();
+                                        closeDropdown();
+                                    }}
+                                    className={`${baseClasses} ${colorClasses}`}
                                     role="menuitem"
                                     disabled={isLoading}
                                 >
                                     {action.label}
-                                </Button>
-                            )
-                        ))}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             )}

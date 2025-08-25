@@ -1,8 +1,8 @@
 // src/pages/Categorias/CategoriasListPage.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getCategorias, deleteCategoria, activateCategoria, CategoriaPagination } from '../../services/categoriaService';
-import { Categoria } from '../../types/categoria';
+import { getCategorias, deleteCategoria, activateCategoria } from '../../services/categoriaService';
+import { Categoria, CategoriaPagination } from '../../types/categoria';
 import { EstadoEnum } from '../../types/enums';
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';

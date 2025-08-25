@@ -1,5 +1,5 @@
 import { Producto } from './producto';
-import { Usuario } from './usuario';
+import { IUsuarioNested } from './usuario';
 
 export interface MovimientoBase {
     producto_id: number;
@@ -19,5 +19,5 @@ export interface MovimientoResponse extends MovimientoBase {
 
     // Opcional: Si el backend devuelve los objetos completos
     producto?: Producto;
-    usuario?: Usuario;
+    usuario?: IUsuarioNested;
 }

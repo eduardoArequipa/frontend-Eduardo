@@ -50,7 +50,7 @@ export const createVenta = async (ventaData: VentaCreate): Promise<Venta> => {
  * Obtiene una lista de productos activos y con stock para ser usados en ventas.
  * @returns Una promesa que resuelve en un objeto ProductoPagination.
  */
-export const getProductosParaVenta = async (p0: { limit: number; estado: EstadoEnum; }): Promise<ProductoPagination> => {
+export const getProductosParaVenta = async (): Promise<ProductoPagination> => {
     try {
         const response = await axiosInstance.get<ProductoPagination>('/productos/', {
             params: {
@@ -142,3 +142,44 @@ export const getMetodosPago = async (params?: { estado?: EstadoEnum }): Promise<
 //         throw error;
 //     }
 // };
+
+/**
+ * Descarga la representación PDF de una factura electrónica desde el backend.
+ * @param facturaId El ID de la factura a descargar.
+ */
+export const descargarFacturaPdf = async (facturaId: number): Promise<void> => {
+    try {
+        const response = await axiosInstance.get(`/facturas/${facturaId}/pdf`, {
+            responseType: 'blob', // Importante para manejar archivos binarios
+        });
+
+        // Crear una URL para el blob
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        
+        // Crear un enlace temporal para iniciar la descarga
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `factura-${facturaId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+
+        // Limpiar
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+    } catch (error: any) {
+        console.error('Error al descargar la factura PDF:', error);
+        // Intentar leer el error del blob si es posible
+        if (error.response && error.response.data) {
+            const errorBlob = error.response.data as Blob;
+            const errorText = await errorBlob.text();
+            try {
+                const errorJson = JSON.parse(errorText);
+                throw new Error(errorJson.detail || 'Ocurrió un error al descargar la factura.');
+            } catch (e) {
+                throw new Error('Ocurrió un error al descargar la factura y la respuesta de error no pudo ser procesada.');
+            }
+        }
+        throw new Error('Ocurrió un error al descargar la factura.');
+    }
+};
