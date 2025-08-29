@@ -6,16 +6,21 @@ import { UnidadMedidaNested } from "./unidad_medida";
 import { MarcaNested } from "./marca";
 
 // Interfaz para las conversiones de compra/venta
-export interface ConversionCompra {
-  conversion_id: number;
+export interface Conversion {
+  id: number;
   producto_id: number;
   nombre_presentacion: string;
-  unidad_inventario_por_presentacion: number;
+  unidades_por_presentacion: number;
+  es_para_compra: boolean;
+  es_para_venta: boolean;
+  es_activo?: boolean;
 }
 
-export interface ConversionCompraCreate {
+export interface ConversionCreate {
   nombre_presentacion: string;
-  unidad_inventario_por_presentacion: number;
+  unidades_por_presentacion: number;
+  es_para_compra: boolean;
+  es_para_venta: boolean;
 }
 
 // Corresponde a ProductoBase en el backend
@@ -40,7 +45,7 @@ export interface ProductoSchemaBase {
     precio_venta: number;
     stock: number;
     unidad_inventario: UnidadMedidaNested;
-    conversiones: ConversionCompra[];
+    conversiones: Conversion[];
     estado: EstadoEnum;
 }
 
@@ -77,7 +82,7 @@ export interface Producto extends ProductoBase {
     modificador?: IUsuarioAudit | null;
     unidad_inventario: UnidadMedidaNested;
     marca: MarcaNested;
-    conversiones: ConversionCompra[];
+    conversiones: Conversion[];
 }
 
 export interface ProductoPagination {

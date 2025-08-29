@@ -23,7 +23,7 @@ import {
 } from "../../types/compra";
 import { EstadoEnum, EstadoCompraEnum } from "../../types/enums";
 import { Proveedor } from "../../types/proveedor";
-import { ConversionCompra, Producto } from "../../types/producto";
+import { Conversion, Producto } from "../../types/producto";
 import { CategoriaNested } from "../../types/categoria";
 import { UnidadMedidaNested } from "../../types/unidad_medida";
 import { MarcaNested } from "../../types/marca";
@@ -38,7 +38,7 @@ export interface CarritoItemCompra {
   stock_actual: number;
   selected_presentacion_nombre?: string; // Nombre de la presentación seleccionada
   selected_presentacion_id?: number; // ID de la presentación seleccionada
-  conversiones?: ConversionCompra[]; // Conversiones del producto
+  conversiones?: Conversion[]; // Conversiones del producto
 }
 
 
@@ -101,21 +101,24 @@ const ComprasFormPage: React.FC = () => {
         };
         return updatedDetalles;
       } else {
+        // Filtrar conversiones solo para compra
+        const purchaseConversions = producto.conversiones?.filter(c => c.es_para_compra) || [];
+
         // Determinar la presentación inicial y calcular el precio unitario para esa presentación
         let defaultPresentationName: string | undefined;
         let initialPricePerPresentation: number = producto.precio_compra || 0; // Precio por unidad de inventario
 
         if (producto.unidad_compra_predeterminada) {
           defaultPresentationName = producto.unidad_compra_predeterminada;
-        } else if (producto.conversiones && producto.conversiones.length > 0) {
-          defaultPresentationName = producto.conversiones[0].nombre_presentacion;
+        } else if (purchaseConversions.length > 0) { // Usar conversiones filtradas
+          defaultPresentationName = purchaseConversions[0].nombre_presentacion;
         }
 
         if (defaultPresentationName) {
-          const selectedConversion = producto.conversiones?.find(c => c.nombre_presentacion === defaultPresentationName);
+          const selectedConversion = purchaseConversions.find(c => c.nombre_presentacion === defaultPresentationName); // Usar conversiones filtradas
           if (selectedConversion) {
             // Precio por presentación = Precio por unidad de inventario * unidades de inventario por presentación
-            initialPricePerPresentation = (producto.precio_compra || 0) * selectedConversion.unidad_inventario_por_presentacion;
+            initialPricePerPresentation = (producto.precio_compra || 0) * Number(selectedConversion.unidades_por_presentacion); // Changed to unidades_por_presentacion and Number()
           }
         }
         
@@ -243,12 +246,14 @@ const ComprasFormPage: React.FC = () => {
 
         if (field === "presentacion_compra") {
           const producto = productosMap.get(Number(currentDetalle.producto_id));
-          const selectedConversion = producto?.conversiones?.find(c => c.nombre_presentacion === value);
+          // Filter conversions by es_para_compra
+          const purchaseConversions = producto?.conversiones?.filter(c => c.es_para_compra) || [];
+          const selectedConversion = purchaseConversions.find(c => c.nombre_presentacion === value);
 
           let newPrecioUnitario = currentDetalle.precio_unitario; // Mantener el precio actual si no hay conversión
           if (selectedConversion) {
             // Calcular el precio por la nueva presentación
-            newPrecioUnitario = (producto?.precio_compra || 0) * selectedConversion.unidad_inventario_por_presentacion;
+            newPrecioUnitario = (producto?.precio_compra || 0) * Number(selectedConversion.unidades_por_presentacion); // Changed to unidades_por_presentacion and Number()
           }
           
           newDetalles[index] = {
@@ -314,9 +319,11 @@ const ComprasFormPage: React.FC = () => {
           setLoading(false);
           return;
         }
-        const conversionExists = producto.conversiones.some(c => c.nombre_presentacion === presentacion);
+        // Filter conversions by es_para_compra for validation
+        const purchaseConversions = producto.conversiones.filter(c => c.es_para_compra);
+        const conversionExists = purchaseConversions.some(c => c.nombre_presentacion === presentacion);
         if (!conversionExists) {
-          setFormSubmitError(`La presentación seleccionada para el producto ${producto.nombre} en la línea ${index + 1} no es válida.`);
+          setFormSubmitError(`La presentación seleccionada para el producto ${producto.nombre} en la línea ${index + 1} no es válida o no está habilitada para compras.`);
           setLoading(false);
           return;
         }
@@ -492,7 +499,7 @@ const ComprasFormPage: React.FC = () => {
                             onChange={(e) => handleDetalleChange(index, "presentacion_compra", e.target.value)}
                             options={[
                               { value: '', label: 'Seleccione Presentación' }, // Opción por defecto
-                              ...(producto.conversiones || []).map(conv => ({ value: conv.nombre_presentacion, label: conv.nombre_presentacion }))
+                              ...(producto.conversiones.filter(c => c.es_para_compra) || []).map(conv => ({ value: conv.nombre_presentacion, label: conv.nombre_presentacion }))
                             ]}
                           />
                         </div>

@@ -19,7 +19,6 @@ const iconMap: { [key: string]: React.ElementType } = {
     '/reportes': FiBarChart2,
     '/movimientos': FiRepeat,
     '/marcas': FiTag,
-    '/conversiones-compra': FiRepeat,
 };
 
 interface SidebarProps {

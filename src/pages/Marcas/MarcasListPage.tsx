@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { getMarcas, createMarca, updateMarca, deleteMarca, activateMarca } from '../../services/marcaService';
+import { getMarcas, deleteMarca, activateMarca } from '../../services/marcaService';
 import { Marca } from '../../types/marca';
 import { EstadoEnum } from '../../types/enums';
 import Table from '../../components/Common/Table';
@@ -97,8 +97,6 @@ const MarcasListPage: React.FC = () => {
     };
 
     const columns = useMemo(() => {
-        type TableCellProps = { row: { original: RowData; }; };
-        type RowData = Marca;
         return [
             { Header: 'ID', accessor: 'marca_id' },
             { Header: 'Nombre', accessor: 'nombre_marca' },

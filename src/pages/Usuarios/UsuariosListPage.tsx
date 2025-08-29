@@ -1,7 +1,7 @@
 // src/pages/Usuarios/UsuariosListPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUsers, deactivateUser, activarUsuario, UsuarioPagination } from '../../services/userService';
+import { getUsers, deactivateUser, activarUsuario } from '../../services/userService';
 import UserAvatar from '../../components/Specific/UserAvatar';
 import { IUsuarioReadAudit } from '../../types/usuario';
 import { EstadoEnum } from '../../types/enums';

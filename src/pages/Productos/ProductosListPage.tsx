@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getProductos, deleteProducto, activateProducto, GetProductosParams } from '../../services/productoService';
 import { getCategorias } from '../../services/categoriaService';
 import { getUnidadesMedida } from '../../services/unidadMedidaService'; 

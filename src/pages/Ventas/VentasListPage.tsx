@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { getVentas, anularVenta, descargarFacturaPdf } from '../../services/ventasService';
 import { Venta, VentaPagination } from '../../types/venta';
@@ -10,7 +11,8 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorMessage from '../../components/Common/ErrorMessage';
 import Select from '../../components/Common/Select';
 import Modal from '../../components/Common/Modal';
-import { Link, useNavigate } from 'react-router-dom';
+import DetalleVentaModal from './DetalleVentaModal'; // Importar el nuevo modal
+import { useNavigate } from 'react-router-dom';
 
 interface Notification {
     message: string;
@@ -25,7 +27,8 @@ const VentasListPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     
-    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+    const [isAnularModalOpen, setIsAnularModalOpen] = useState<boolean>(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
     const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
     const [notification, setNotification] = useState<Notification | null>(null);
 
@@ -73,9 +76,10 @@ const VentasListPage: React.FC = () => {
         setCurrentPage(1);
     };
 
+    // --- Manejo del Modal de Anulación ---
     const handleAnularVentaClick = (venta: Venta) => {
         setSelectedVenta(venta);
-        setIsModalOpen(true);
+        setIsAnularModalOpen(true);
         setNotification(null);
     };
 
@@ -94,9 +98,20 @@ const VentasListPage: React.FC = () => {
             setNotification({ message: errorMessage, type: 'error' });
         } finally {
             setIsLoading(false);
-            setIsModalOpen(false);
+            setIsAnularModalOpen(false);
             setSelectedVenta(null);
         }
+    };
+
+    // --- Manejo del Modal de Detalles ---
+    const handleViewDetailsClick = (venta: Venta) => {
+        setSelectedVenta(venta);
+        setIsDetailModalOpen(true);
+    };
+
+    const handleCloseDetailModal = () => {
+        setIsDetailModalOpen(false);
+        setSelectedVenta(null);
     };
 
     const handleCreateNewSale = () => {
@@ -166,12 +181,13 @@ const VentasListPage: React.FC = () => {
             id: 'acciones',
             Cell: ({ row }: { row: { original: Venta } }) => (
                 <div className="flex items-center space-x-2">
-                    <Link
-                        to={`/ventas/${row.original.venta_id}`}
-                        className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                    <Button
+                        onClick={() => handleViewDetailsClick(row.original)}
+                        size="sm"
+                        variant="primary"
                     >
                         Ver
-                    </Link>
+                    </Button>
                     {row.original.estado === EstadoVentaEnum.activa && (
                         <Button
                             onClick={() => handleAnularVentaClick(row.original)}
@@ -196,7 +212,7 @@ const VentasListPage: React.FC = () => {
                 </div>
             ),
         },
-    ], [handleAnularVentaClick, handleDescargarFactura]);
+    ], [handleAnularVentaClick, handleDescargarFactura, handleViewDetailsClick]);
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
@@ -257,7 +273,7 @@ const VentasListPage: React.FC = () => {
                 <div>
                     <label htmlFor="fecha_hasta" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Hasta</label>
                     <Input
-                        id="fecha_hasta" // Añadido ID
+                        id="fecha_hasta"
                         type="date"
                         name="fecha_hasta"
                         value={filters.fecha_hasta}
@@ -290,9 +306,10 @@ const VentasListPage: React.FC = () => {
                 </div>
             )}
 
+            {/* Modal de Anulación */}
             <Modal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                isOpen={isAnularModalOpen}
+                onClose={() => setIsAnularModalOpen(false)}
                 onConfirm={handleConfirmAnularVenta}
                 title="Confirmar Anulación de Venta"
                 confirmButtonText="Sí, Anular Venta"
@@ -309,6 +326,13 @@ const VentasListPage: React.FC = () => {
                     </div>
                 )}
             </Modal>
+
+            {/* Modal de Detalles de Venta */}
+            <DetalleVentaModal
+                isOpen={isDetailModalOpen}
+                onClose={handleCloseDetailModal}
+                venta={selectedVenta}
+            />
         </div>
     );
 };

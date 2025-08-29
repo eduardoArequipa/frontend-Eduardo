@@ -9,7 +9,7 @@ import {
   deleteConversion,
 } from "../../services/productoService";
 import { uploadImage } from "../../services/uploadService";
-import { ProductoCreate, ProductoUpdate, ConversionCompra, ConversionCompraCreate, Producto } from "../../types/producto";
+import { ProductoCreate, ProductoUpdate, Conversion, ConversionCreate, Producto } from "../../types/producto";
 import { CategoriaNested } from "../../types/categoria";
 import { UnidadMedidaNested } from "../../types/unidad_medida";
 import { MarcaNested } from "../../types/marca";
@@ -34,7 +34,7 @@ interface ProductoFormProps {
 type FormData = Omit<ProductoCreate, 'imagen_ruta'>;
 
 // Usamos un tipo local para manejar conversiones antes de que el producto se cree
-type LocalConversion = Omit<ConversionCompra, 'producto_id'> & { tempId?: number };
+type LocalConversion = Omit<Conversion, 'producto_id'> & { tempId?: number };
 
 const ProductoForm: React.FC<ProductoFormProps> = ({
   productoId,
@@ -50,8 +50,13 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<FormData>({ mode: "onBlur" });
+
+  const unidadInventarioId = watch('unidad_inventario_id');
+  const selectedUnidadInventario = availableUnidadesMedida.find(u => u.unidad_id === unidadInventarioId);
+  const unidadInventarioNombre = selectedUnidadInventario?.nombre_unidad;
 
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
@@ -59,13 +64,36 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
   
   // El estado ahora maneja tanto conversiones guardadas como locales
   const [conversions, setConversions] = useState<LocalConversion[]>([]);
-  const [newConversion, setNewConversion] = useState({ nombre_presentacion: '', unidad_inventario_por_presentacion: '' });
+  const [newConversion, setNewConversion] = useState({ nombre_presentacion: '', unidades_por_presentacion: '', es_para_compra: false, es_para_venta: false, rollsPerBox: '', metersPerRoll: '' });
   const [editingConversionId, setEditingConversionId] = useState<number | null | undefined>(null);
   const [editingTempId, setEditingTempId] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const calculateUnits = () => {
+      const rolls = parseFloat(newConversion.rollsPerBox);
+      const meters = parseFloat(newConversion.metersPerRoll);
+
+      if (!isNaN(rolls) && !isNaN(meters) && rolls > 0 && meters > 0) {
+        setNewConversion(prev => ({
+          ...prev,
+          unidades_por_presentacion: (rolls * meters).toString()
+        }));
+      } else if (!isNaN(parseFloat(newConversion.unidades_por_presentacion))) {
+        // If direct units are entered, clear intermediate fields
+        setNewConversion(prev => ({
+          ...prev,
+          rollsPerBox: '',
+          metersPerRoll: ''
+        }));
+      }
+    };
+
+    calculateUnits();
+  }, [newConversion.rollsPerBox, newConversion.metersPerRoll]);
 
   useEffect(() => {
     const loadEditData = async () => {
@@ -116,28 +144,30 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
   };
 
   const resetConversionForm = () => {
-    setNewConversion({ nombre_presentacion: '', unidad_inventario_por_presentacion: '' });
+    setNewConversion({ nombre_presentacion: '', unidades_por_presentacion: '', es_para_compra: false, es_para_venta: false, rollsPerBox: '', metersPerRoll: '' });
     setEditingConversionId(null);
     setEditingTempId(null);
   };
 
   const handleAddOrUpdateConversion = async () => {
-    if (!newConversion.nombre_presentacion || !newConversion.unidad_inventario_por_presentacion) {
+    if (!newConversion.nombre_presentacion || !newConversion.unidades_por_presentacion) {
       alert("Por favor, complete los campos de la presentación.");
       return;
     }
 
-    const conversionData: ConversionCompraCreate = {
+    const conversionData: ConversionCreate = {
         nombre_presentacion: newConversion.nombre_presentacion,
-        unidad_inventario_por_presentacion: parseFloat(newConversion.unidad_inventario_por_presentacion)
+        unidades_por_presentacion: parseFloat(newConversion.unidades_por_presentacion),
+        es_para_compra: newConversion.es_para_compra,
+        es_para_venta: newConversion.es_para_venta,
     };
 
     if (isEditing && productoId) { // --- MODO EDICIÓN (con API) ---
       try {
-        let resultConversion: ConversionCompra;
+        let resultConversion: Conversion;
         if (editingConversionId) {
           resultConversion = await updateConversion(editingConversionId, conversionData);
-          setConversions(conversions.map(c => c.conversion_id === editingConversionId ? resultConversion : c));
+          setConversions(conversions.map(c => c.id === editingConversionId ? resultConversion : c)); // Changed conversion_id to id
           alert("Presentación actualizada con éxito!");
         } else {
           resultConversion = await createConversion(productoId, conversionData);
@@ -156,7 +186,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
             // Añadir a la lista local con un ID temporal
             const newLocalConversion: LocalConversion = {
                 ...conversionData,
-                conversion_id: 0, // Placeholder
+                id: 0, // Changed conversion_id to id
                 tempId: Date.now() // ID temporal único
             };
             setConversions([...conversions, newLocalConversion]);
@@ -168,10 +198,14 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
   const handleEditConversion = (conversion: LocalConversion) => {
     setNewConversion({ 
       nombre_presentacion: conversion.nombre_presentacion,
-      unidad_inventario_por_presentacion: conversion.unidad_inventario_por_presentacion.toString()
+      unidades_por_presentacion: conversion.unidades_por_presentacion.toString(),
+      es_para_compra: conversion.es_para_compra,
+      es_para_venta: conversion.es_para_venta,
+      rollsPerBox: '',
+      metersPerRoll: '',
     });
     if (isEditing) {
-        setEditingConversionId(conversion.conversion_id);
+        setEditingConversionId(conversion.id); // Changed conversion_id to id
     } else {
         setEditingTempId(conversion.tempId || null);
     }
@@ -183,10 +217,10 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
 
   const handleDeleteConversion = async (conversion: LocalConversion) => {
     if (window.confirm("¿Está seguro de que desea eliminar esta presentación?")) {
-        if (isEditing && conversion.conversion_id) {
+        if (isEditing && conversion.id) {
             try {
-                await deleteConversion(conversion.conversion_id);
-                setConversions(conversions.filter(c => c.conversion_id !== conversion.conversion_id));
+                await deleteConversion(conversion.id);
+                setConversions(conversions.filter(c => c.id !== conversion.id));
                 alert("Presentación eliminada con éxito!");
             } catch (err: any) {
                 alert(`Error al eliminar presentación: ${err.response?.data?.detail || err.message}`);
@@ -235,9 +269,11 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
         
         // Después de crear el producto, crear cada conversión
         for (const conv of conversions) {
-            const conversionData: ConversionCompraCreate = {
+            const conversionData: ConversionCreate = {
                 nombre_presentacion: conv.nombre_presentacion,
-                unidad_inventario_por_presentacion: conv.unidad_inventario_por_presentacion
+                unidades_por_presentacion: conv.unidades_por_presentacion,
+                es_para_compra: conv.es_para_compra,
+                es_para_venta: conv.es_para_venta,
             };
             await createConversion(newProduct.producto_id, conversionData);
         }
@@ -461,8 +497,12 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
         <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">Presentaciones de Compra/Venta</h3>
         <div className="space-y-4">
           {conversions.map(conv => (
-            <div key={conv.conversion_id || conv.tempId} className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded">
-              <span className="text-gray-800 dark:text-gray-200">{conv.nombre_presentacion} = {conv.unidad_inventario_por_presentacion} Unidades</span>
+            <div key={conv.id || conv.tempId} className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded">
+              <span className="text-gray-800 dark:text-gray-200">{conv.nombre_presentacion} = {conv.unidades_por_presentacion} Unidades</span>
+              <div className="flex text-xs space-x-2">
+                {conv.es_para_compra && <span className="px-2 py-1 bg-blue-200 text-blue-800 rounded-full">Compra</span>}
+                {conv.es_para_venta && <span className="px-2 py-1 bg-green-200 text-green-800 rounded-full">Venta</span>}
+              </div>
               <div className="flex space-x-2">
                 <Button type="button" onClick={() => handleEditConversion(conv)} variant="secondary" size="sm">Editar</Button>
                 <Button type="button" onClick={() => handleDeleteConversion(conv)} variant="danger" size="sm">Eliminar</Button>
@@ -470,23 +510,73 @@ const ProductoForm: React.FC<ProductoFormProps> = ({
             </div>
           ))}
         </div>
-        <div className="mt-4 flex items-end gap-4">
-          <div className="flex-grow">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div>
             <label className="text-sm text-gray-700 dark:text-gray-300">Nombre Presentación</label>
-            <Input type="text" value={newConversion.nombre_presentacion} onChange={e => setNewConversion({...newConversion, nombre_presentacion: e.target.value})} placeholder="Ej: Caja" />
+            <Select
+              value={newConversion.nombre_presentacion}
+              onChange={e => setNewConversion({...newConversion, nombre_presentacion: e.target.value})}
+              options={[
+                { value: '', label: '-- Seleccionar --' },
+                { value: 'Unidad', label: 'Unidad' },
+                { value: 'Caja', label: 'Caja' },
+                { value: 'Rollo', label: 'Rollo' },
+                { value: 'Metro', label: 'Metro' },
+                ]
+                // Add more common presentations as needed
+              }
+              
+            />
           </div>
-          <div className="flex-grow">
-            <label className="text-sm text-gray-700 dark:text-gray-300">Unidades por Presentación</label>
-            <Input type="number" value={newConversion.unidad_inventario_por_presentacion} onChange={e => setNewConversion({...newConversion, unidad_inventario_por_presentacion: e.target.value})} placeholder="Ej: 24" />
+          <div>
+            <label className="text-sm text-gray-700 dark:text-gray-300">Unidades por Presentación (Total)</label>
+            <Input type="number" value={newConversion.unidades_por_presentacion} onChange={e => setNewConversion({...newConversion, unidades_por_presentacion: e.target.value})} placeholder="Ej: 24" />
           </div>
-          {(editingConversionId || editingTempId) ? (
-            <div className="flex space-x-2">
-              <Button type="button" onClick={handleAddOrUpdateConversion} variant="primary">Guardar Cambios</Button>
-              <Button type="button" onClick={handleCancelEditConversion} variant="secondary">Cancelar</Button>
-            </div>
-          ) : (
-            <Button type="button" onClick={handleAddOrUpdateConversion} variant="secondary">Añadir</Button>
+          {/* Conditional fields for multi-level calculation */}
+          {(unidadInventarioNombre === 'Metro' && (newConversion.nombre_presentacion.toLowerCase().includes('caja') || newConversion.nombre_presentacion.toLowerCase().includes('rollo'))) && (
+            <>
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Rollos por Caja</label>
+                <Input type="number" value={newConversion.rollsPerBox} onChange={e => setNewConversion({...newConversion, rollsPerBox: e.target.value})} placeholder="Ej: 50" />
+              </div>
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Metros por Rollo</label>
+                <Input type="number" value={newConversion.metersPerRoll} onChange={e => setNewConversion({...newConversion, metersPerRoll: e.target.value})} placeholder="Ej: 10" />
+              </div>
+            </>
           )}
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center">
+              <input
+                id="es_para_compra"
+                type="checkbox"
+                checked={newConversion.es_para_compra}
+                onChange={e => setNewConversion({...newConversion, es_para_compra: e.target.checked})}
+                className="form-checkbox h-5 w-5 text-blue-600"
+              />
+              <label htmlFor="es_para_compra" className="ml-2 text-sm text-gray-700 dark:text-gray-300">Para Compra</label>
+            </div>
+            <div className="flex items-center">
+              <input
+                id="es_para_venta"
+                type="checkbox"
+                checked={newConversion.es_para_venta}
+                onChange={e => setNewConversion({...newConversion, es_para_venta: e.target.checked})}
+                className="form-checkbox h-5 w-5 text-green-600"
+              />
+              <label htmlFor="es_para_venta" className="ml-2 text-sm text-gray-700 dark:text-gray-300">Para Venta</label>
+            </div>
+          </div>
+          <div className="md:col-span-3 flex justify-end space-x-2">
+            {(editingConversionId || editingTempId) ? (
+              <>
+                <Button type="button" onClick={handleAddOrUpdateConversion} variant="primary">Guardar Cambios</Button>
+                <Button type="button" onClick={handleCancelEditConversion} variant="secondary">Cancelar</Button>
+              </>
+            ) : (
+              <Button type="button" onClick={handleAddOrUpdateConversion} variant="secondary">Añadir</Button>
+            )}
+          </div>
         </div>
       </div>
 

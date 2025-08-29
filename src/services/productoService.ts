@@ -1,6 +1,6 @@
 // src/services/productoService.ts
 import axiosInstance from '../api/axiosInstance';
-import { Producto, ProductoCreate, ProductoUpdate, ProductoPagination, ConversionCompra, ConversionCompraCreate } from '../types/producto';
+import { Producto, ProductoCreate, ProductoUpdate, ProductoPagination,  Conversion,  ConversionCreate } from '../types/producto';
 import { EstadoEnum } from '../types/enums';
 
 export interface GetProductosParams {
@@ -41,12 +41,12 @@ export const searchProductSuggestions = async (query: string): Promise<Producto[
 
 // --- Nuevos servicios para Conversiones ---
 
-export const createConversion = async (productoId: number, conversionData: ConversionCompraCreate): Promise<ConversionCompra> => {
+export const createConversion = async (productoId: number, conversionData: ConversionCreate): Promise<Conversion> => {
     const response = await axiosInstance.post(`/productos/conversiones/?producto_id=${productoId}`, conversionData);
     return response.data;
 };
 
-export const updateConversion = async (conversionId: number, conversionData: ConversionCompraCreate): Promise<ConversionCompra> => {
+export const updateConversion = async (conversionId: number, conversionData: ConversionCreate): Promise<Conversion> => {
     const response = await axiosInstance.put(`/productos/conversiones/${conversionId}`, conversionData);
     return response.data;
 };

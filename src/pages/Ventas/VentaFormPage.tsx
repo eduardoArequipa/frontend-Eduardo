@@ -26,7 +26,7 @@ import ProductSaleAutocomplete from '../../components/Common/ProductSaleAutocomp
 import { Venta, VentaCreate, DetalleVentaCreate } from '../../types/venta';
 import { MetodoPagoNested } from '../../types/metodoPago';
 import { IPersonaNested } from '../../types/persona';
-import { Producto, ConversionCompra, ProductoSchemaBase } from '../../types/producto';
+import { Producto, Conversion, ProductoSchemaBase } from '../../types/producto';
 import { EstadoVentaEnum, EstadoEnum } from '../../types/enums';
 import { CategoriaNested } from "../../types/categoria";
 import { UnidadMedidaNested } from "../../types/unidad_medida";
@@ -43,7 +43,7 @@ export interface CarritoItem {
     stock_disponible_base: number;
     unidad_base: string;
     presentacion_seleccionada: string; // Ej: "Unidad", "Caja"
-    conversiones: ConversionCompra[];
+        conversiones: Conversion[]; // Changed from ConversionCompra to Conversion // Changed from ConversionCompra to Conversion
 }
 
 const VentasFormPage: React.FC = () => {
@@ -85,6 +85,9 @@ const VentasFormPage: React.FC = () => {
                 return prev;
             }
 
+            // Filter conversions for sales only
+            const salesConversions = producto.conversiones?.filter(c => c.es_para_venta) || [];
+
             const newItem: CarritoItem = {
                 producto_id: producto.producto_id,
                 codigo: producto.codigo,
@@ -94,7 +97,7 @@ const VentasFormPage: React.FC = () => {
                 stock_disponible_base: producto.stock,
                 unidad_base: producto.unidad_inventario.nombre_unidad,
                 presentacion_seleccionada: 'Unidad', // Default
-                conversiones: producto.conversiones,
+                conversiones: salesConversions, // Use filtered conversions
             };
             return [...prev, newItem];
         });
@@ -195,22 +198,25 @@ const VentasFormPage: React.FC = () => {
 
                     const updatedItem = { ...item, ...updates };
 
+                    // Filter conversions for sales only
+                    const salesConversions = originalProduct.conversiones.filter(c => c.es_para_venta);
+
                     if (updates.presentacion_seleccionada) {
                         if (updates.presentacion_seleccionada === 'Unidad') {
                             updatedItem.precio_unitario_presentacion = originalProduct.precio_venta;
                         } else {
-                            const conversion = originalProduct.conversiones.find(c => c.nombre_presentacion === updates.presentacion_seleccionada);
+                            const conversion = salesConversions.find(c => c.nombre_presentacion === updates.presentacion_seleccionada);
                             updatedItem.precio_unitario_presentacion = conversion
-                                ? originalProduct.precio_venta * conversion.unidad_inventario_por_presentacion
+                                ? originalProduct.precio_venta * Number(conversion.unidades_por_presentacion) // Changed to unidades_por_presentacion and Number()
                                 : originalProduct.precio_venta;
                         }
                     }
 
                     const conversionFactor = updatedItem.presentacion_seleccionada === 'Unidad'
                         ? 1
-                        : originalProduct.conversiones.find(c => c.nombre_presentacion === updatedItem.presentacion_seleccionada)?.unidad_inventario_por_presentacion || 1;
+                        : salesConversions.find(c => c.nombre_presentacion === updatedItem.presentacion_seleccionada)?.unidades_por_presentacion || 1; // Changed to unidades_por_presentacion
                     
-                    const cantidadEnUnidadBase = updatedItem.cantidad * conversionFactor;
+                    const cantidadEnUnidadBase = updatedItem.cantidad * Number(conversionFactor); // Added Number()
 
                     if (cantidadEnUnidadBase > updatedItem.stock_disponible_base) {
                         setError(`Stock insuficiente para "${updatedItem.nombre}". Disponible: ${updatedItem.stock_disponible_base} ${updatedItem.unidad_base}(s).`);
@@ -272,7 +278,7 @@ const VentasFormPage: React.FC = () => {
             Cell: ({ row }: { row: { original: CarritoItem } }) => (
                 <Select value={row.original.presentacion_seleccionada} onChange={(e) => updateCartItem(row.original.producto_id, { presentacion_seleccionada: e.target.value })}>
                     <option value="Unidad">Unidad ({row.original.unidad_base})</option>
-                    {row.original.conversiones.map(c => <option key={c.conversion_id} value={c.nombre_presentacion}>{c.nombre_presentacion}</option>)}
+                    {row.original.conversiones.filter(c => c.es_para_venta).map(c => <option key={c.id} value={c.nombre_presentacion}>{c.nombre_presentacion}</option>)}
                 </Select>
             ),
         },
