@@ -1,14 +1,16 @@
-// src/pages/Categorias/CategoriasListPage.tsx
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { getCategorias, deleteCategoria, activateCategoria } from '../../services/categoriaService';
 import { Categoria, CategoriaPagination } from '../../types/categoria';
 import { EstadoEnum } from '../../types/enums';
+import { useCatalogs } from '../../context/CatalogContext';
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Select from '../../components/Common/Select';
+import Modal from '../../components/Common/Modal';
+import CategoriaForm from '../../components/Specific/CategoriaForm';
+import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDropdown';
 
 const CategoriasListPage: React.FC = () => {
     const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -21,6 +23,11 @@ const CategoriasListPage: React.FC = () => {
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(null);
+
+    const { refetchCatalogs } = useCatalogs();
 
     const fetchCategorias = async () => { 
         setLoading(true);
@@ -47,16 +54,32 @@ const CategoriasListPage: React.FC = () => {
         fetchCategorias();
     }, [search, estadoFilter, currentPage, itemsPerPage]);
 
-     const handleFilterValueChange = (setter: React.Dispatch<any>) => (value: any) => {
+    const handleFilterValueChange = (setter: React.Dispatch<any>) => (value: any) => {
          setter(value);
          setCurrentPage(1);
-     };
+    };
+
+    const handleOpenModal = (categoria: Categoria | null = null) => {
+        setEditingCategoria(categoria);
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingCategoria(null);
+    };
+
+    const handleSuccess = () => {
+        fetchCategorias();
+        handleCloseModal();
+    };
 
     const handleDelete = async (id: number, nombreCategoria: string) => {
         if (window.confirm(`¿Estás seguro de desactivar la categoría "${nombreCategoria}"?`)) {
             try {
                 await deleteCategoria(id);
                 fetchCategorias();
+                refetchCatalogs();
                 alert(`Categoría "${nombreCategoria}" desactivada con éxito!`);
             } catch (err: any) {
                  alert(`Error al desactivar la categoría: ${err.response?.data?.detail || err.message}`);
@@ -64,11 +87,12 @@ const CategoriasListPage: React.FC = () => {
         }
     };
 
-     const handleActivateCategoria = async (id: number, nombreCategoria: string) => {
+    const handleActivateCategoria = async (id: number, nombreCategoria: string) => {
          if (window.confirm(`¿Estás seguro de activar la categoría "${nombreCategoria}"?`)) {
              try {
                  await activateCategoria(id); 
                  fetchCategorias();
+                 refetchCatalogs();
                  alert(`Categoría "${nombreCategoria}" activada con éxito!`);
              } catch (err: any) {
                  alert(`Error al activar la categoría: ${err.response?.data?.detail || err.message}`);
@@ -82,22 +106,28 @@ const CategoriasListPage: React.FC = () => {
         return [
             { Header: 'ID', accessor: 'categoria_id' },
             { Header: 'Nombre de Categoría', accessor: 'nombre_categoria' },
-            { Header: 'Estado', accessor: 'estado' },
+            {
+                Header: 'Estado',
+                accessor: 'estado',
+                Cell: ({ row }: { row: { original: Categoria } }) => (
+                    <span className={`relative inline-block px-3 py-1 font-semibold leading-tight ${row.original.estado === EstadoEnum.Activo ? 'text-green-900 dark:text-green-200' : 'text-red-900 dark:text-red-200'}`}>
+                        <span aria-hidden className={`absolute inset-0 opacity-50 rounded-full ${row.original.estado === EstadoEnum.Activo ? 'bg-green-200 dark:bg-green-800' : 'bg-red-200 dark:bg-red-800'}`}></span>
+                        <span className="relative">{row.original.estado.charAt(0).toUpperCase() + row.original.estado.slice(1)}</span>
+                    </span>
+                ),
+            },
             {
                 Header: 'Acciones',
                 accessor: 'acciones',
-                Cell: ({ row }: { row: { original: Categoria } }) => (
-                    <div className="flex space-x-2">
-                        <Link to={`/categorias/edit/${row.original.categoria_id}`}>
-                            <Button variant="primary" size="sm">Editar</Button>
-                        </Link>
-                         {row.original.estado === EstadoEnum.Activo ? (
-                             <Button onClick={() => handleDelete(row.original.categoria_id, row.original.nombre_categoria)} variant="danger" size="sm" disabled={loading}>Desactivar</Button>
-                         ) : (
-                             <Button onClick={() => handleActivateCategoria(row.original.categoria_id, row.original.nombre_categoria)} variant="success" size="sm" disabled={loading}>Activar</Button>
-                         )}
-                    </div>
-                ),
+                Cell: ({ row }: { row: { original: Categoria } }) => {
+                    const categoria = row.original;
+                    const actions: ActionConfig[] = [
+                        { label: 'Editar', onClick: () => handleOpenModal(categoria), isVisible: true, buttonVariant: 'menuItem' },
+                        { label: 'Desactivar', onClick: () => handleDelete(categoria.categoria_id, categoria.nombre_categoria), isVisible: categoria.estado === EstadoEnum.Activo, buttonVariant: 'menuItem', colorClass: 'text-red-700 dark:text-red-400' },
+                        { label: 'Activar', onClick: () => handleActivateCategoria(categoria.categoria_id, categoria.nombre_categoria), isVisible: categoria.estado === EstadoEnum.Inactivo, buttonVariant: 'menuItem', colorClass: 'text-green-700 dark:text-green-400' },
+                    ];
+                    return <ActionsDropdown actions={actions} isLoading={loading} />;
+                },
             },
         ];
     }, [loading]);
@@ -141,9 +171,7 @@ const CategoriasListPage: React.FC = () => {
                     />
                  </div>
                  <div className="flex-grow md:flex-none flex justify-end">
-                     <Link to="/categorias/new">
-                         <Button variant="success">Crear Nueva Categoría</Button>
-                     </Link>
+                     <Button onClick={() => handleOpenModal()} variant="success">Crear Nueva Categoría</Button>
                  </div>
             </div>
 
@@ -166,6 +194,19 @@ const CategoriasListPage: React.FC = () => {
                  <span className="text-gray-700 dark:text-gray-300">Página {currentPage} de {totalPages} (Total: {totalCategorias} categorías)</span>
                  <Button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || loading} variant="secondary">Siguiente</Button>
              </div>
+
+            <Modal 
+                isOpen={isModalOpen} 
+                onClose={handleCloseModal} 
+                title={editingCategoria ? 'Editar Categoría' : 'Crear Nueva Categoría'}
+                showCancelButton={false} // <-- AÑADIDO
+            >
+                <CategoriaForm 
+                    onSuccess={handleSuccess}
+                    onCancel={handleCloseModal}
+                    categoriaId={editingCategoria?.categoria_id}
+                />
+            </Modal>
         </div>
     );
 };

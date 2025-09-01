@@ -107,7 +107,6 @@ const PersonasListPage: React.FC = () => {
     const totalPages = Math.ceil(totalPersonas / itemsPerPage);
 
     const columns = useMemo(() => [
-        { Header: 'ID', accessor: 'persona_id' },
         {
             Header: 'Nombre Completo',
             accessor: 'nombre',

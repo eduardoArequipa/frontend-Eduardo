@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getVentas, anularVenta, descargarFacturaPdf } from '../../services/ventasService';
 import { Venta, VentaPagination } from '../../types/venta';
 import { EstadoVentaEnum } from '../../types/enums';
+import { useNotification } from '../../context/NotificationContext'; // 1. Importar hook
 
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
@@ -11,13 +12,8 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorMessage from '../../components/Common/ErrorMessage';
 import Select from '../../components/Common/Select';
 import Modal from '../../components/Common/Modal';
-import DetalleVentaModal from './DetalleVentaModal'; // Importar el nuevo modal
+import DetalleVentaModal from './DetalleVentaModal';
 import { useNavigate } from 'react-router-dom';
-
-interface Notification {
-    message: string;
-    type: 'success' | 'error';
-}
 
 const VentasListPage: React.FC = () => {
     const [ventas, setVentas] = useState<Venta[]>([]);
@@ -30,7 +26,8 @@ const VentasListPage: React.FC = () => {
     const [isAnularModalOpen, setIsAnularModalOpen] = useState<boolean>(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
     const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
-    const [notification, setNotification] = useState<Notification | null>(null);
+    
+    const { addNotification } = useNotification(); // 2. Usar el hook
 
     const [filters, setFilters] = useState({
         estado: '' as EstadoVentaEnum | '',
@@ -57,7 +54,9 @@ const VentasListPage: React.FC = () => {
             setVentas(fetchedData.items);
             setTotalVentas(fetchedData.total);
         } catch (err: any) {
-            setError(err.response?.data?.detail || 'Error al cargar las ventas.');
+            const errorMessage = err.response?.data?.detail || 'Error al cargar las ventas.';
+            setError(errorMessage);
+            addNotification(errorMessage, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -76,11 +75,9 @@ const VentasListPage: React.FC = () => {
         setCurrentPage(1);
     };
 
-    // --- Manejo del Modal de Anulación ---
     const handleAnularVentaClick = (venta: Venta) => {
         setSelectedVenta(venta);
         setIsAnularModalOpen(true);
-        setNotification(null);
     };
 
     const handleConfirmAnularVenta = async () => {
@@ -90,12 +87,12 @@ const VentasListPage: React.FC = () => {
         setError(null);
         try {
             await anularVenta(selectedVenta.venta_id);
-            setNotification({ message: 'Venta anulada con éxito y stock revertido.', type: 'success' });
+            addNotification('Venta anulada con éxito y stock revertido.', 'success'); // 3. Reemplazar
             fetchVentas();
         } catch (err: any) {
             const errorMessage = err.response?.data?.detail || 'Error al anular la venta.';
+            addNotification(errorMessage, 'error'); // 3. Reemplazar
             setError(errorMessage);
-            setNotification({ message: errorMessage, type: 'error' });
         } finally {
             setIsLoading(false);
             setIsAnularModalOpen(false);
@@ -103,7 +100,6 @@ const VentasListPage: React.FC = () => {
         }
     };
 
-    // --- Manejo del Modal de Detalles ---
     const handleViewDetailsClick = (venta: Venta) => {
         setSelectedVenta(venta);
         setIsDetailModalOpen(true);
@@ -119,15 +115,14 @@ const VentasListPage: React.FC = () => {
     };
 
     const handleDescargarFactura = async (facturaId: number) => {
-        setNotification(null);
         setError(null);
         try {
             await descargarFacturaPdf(facturaId);
-            setNotification({ message: 'Factura descargada exitosamente.', type: 'success' });
+            addNotification('Factura descargada exitosamente.', 'success'); // 3. Reemplazar
         } catch (err: any) {
             const errorMessage = err.message || 'Error al descargar la factura.';
+            addNotification(errorMessage, 'error'); // 3. Reemplazar
             setError(errorMessage);
-            setNotification({ message: errorMessage, type: 'error' });
         }
     };
 
@@ -223,16 +218,8 @@ const VentasListPage: React.FC = () => {
                 </Button>
             </div>
 
-            {notification && (
-                <div className={`mb-4 p-4 rounded-md ${
-                    notification.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                }`}>
-                    {notification.message}
-                </div>
-            )}
-            
             {isLoading && ventas.length === 0 && <LoadingSpinner />}
-            {error && !notification && <ErrorMessage message={error} />}
+            {error && <ErrorMessage message={error} />}
 
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
@@ -314,6 +301,11 @@ const VentasListPage: React.FC = () => {
                 title="Confirmar Anulación de Venta"
                 confirmButtonText="Sí, Anular Venta"
                 cancelButtonText="Cancelar"
+                showConfirmButton={true}
+                confirmButtonVariant="danger"
+                isConfirmButtonDisabled={isLoading}
+                isCancelButtonDisabled={isLoading}
+
             >
                 {selectedVenta && (
                     <div>

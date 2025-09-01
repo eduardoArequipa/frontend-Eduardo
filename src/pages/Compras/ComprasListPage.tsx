@@ -127,6 +127,8 @@ const ComprasListPage: React.FC = () => {
 
     const handleViewCompra = useCallback((id: number) => {
         navigate(`/compras/view/${id}`);
+              
+
     }, [navigate]);
 
     const handleEditCompra = useCallback((id: number) => {

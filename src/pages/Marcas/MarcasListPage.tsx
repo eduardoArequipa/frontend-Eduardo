@@ -1,8 +1,8 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { getMarcas, deleteMarca, activateMarca } from '../../services/marcaService';
 import { Marca } from '../../types/marca';
 import { EstadoEnum } from '../../types/enums';
+import { useCatalogs } from '../../context/CatalogContext'; // LÓGICA AÑADIDA
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
@@ -24,6 +24,8 @@ const MarcasListPage: React.FC = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [editingMarca, setEditingMarca] = useState<Marca | null>(null);
+
+    const { refetchCatalogs } = useCatalogs(); // LÓGICA AÑADIDA
 
     const fetchMarcas = async () => {
         setLoading(true);
@@ -57,6 +59,7 @@ const MarcasListPage: React.FC = () => {
             try {
                 await deleteMarca(id);
                 fetchMarcas();
+                refetchCatalogs(); // LÓGICA AÑADIDA
                 alert(`Marca "${nombreMarca}" desactivada con éxito!`);
             } catch (err: any) {
                 alert(`Error al desactivar: ${err.response?.data?.detail || err.message}`);
@@ -69,6 +72,7 @@ const MarcasListPage: React.FC = () => {
             try {
                 await activateMarca(id);
                 fetchMarcas();
+                refetchCatalogs(); // LÓGICA AÑADIDA
                 alert(`Marca "${nombreMarca}" activada con éxito!`);
             } catch (err: any) {
                 alert(`Error al activar: ${err.response?.data?.detail || err.message}`);
@@ -81,6 +85,7 @@ const MarcasListPage: React.FC = () => {
     const handleAddSuccess = () => {
         handleCloseAddModal();
         fetchMarcas();
+        refetchCatalogs(); // LÓGICA AÑADIDA
     };
 
     const handleOpenEditModal = (marca: Marca) => {
@@ -94,6 +99,7 @@ const MarcasListPage: React.FC = () => {
     const handleEditSuccess = () => {
         handleCloseEditModal();
         fetchMarcas();
+        refetchCatalogs(); // LÓGICA AÑADIDA
     };
 
     const columns = useMemo(() => {
@@ -161,12 +167,12 @@ const MarcasListPage: React.FC = () => {
                 </div>
             )}
 
-            <Modal isOpen={isAddModalOpen} onClose={handleCloseAddModal} title="Crear Nueva Marca" widthClass="max-w-lg">
+            <Modal isOpen={isAddModalOpen} onClose={handleCloseAddModal} title="Crear Nueva Marca" widthClass="max-w-lg" showCancelButton={false}>
                 <MarcaForm onSuccess={handleAddSuccess} onCancel={handleCloseAddModal} />
             </Modal>
 
             {editingMarca && (
-                <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} title={`Editar Marca: ${editingMarca.nombre_marca}`} widthClass="max-w-lg">
+                <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} title={`Editar Marca: ${editingMarca.nombre_marca}`} widthClass="max-w-lg" showCancelButton={false}>
                     <MarcaForm marcaId={editingMarca.marca_id} onSuccess={handleEditSuccess} onCancel={handleCloseEditModal} />
                 </Modal>
             )}

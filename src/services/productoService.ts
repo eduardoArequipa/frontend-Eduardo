@@ -39,6 +39,13 @@ export const searchProductSuggestions = async (query: string): Promise<Producto[
     return response.data;
 };
 
+export const getConversiones = async (params?: { skip?: number; limit?: number }): Promise<Conversion[]> => {
+    const response = await axiosInstance.get('/productos/conversiones/', { params });
+    return response.data;
+};
+
+
+
 // --- Nuevos servicios para Conversiones ---
 
 export const createConversion = async (productoId: number, conversionData: ConversionCreate): Promise<Conversion> => {

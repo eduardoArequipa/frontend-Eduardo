@@ -1,17 +1,18 @@
 // src/components/Common/Modal.tsx
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import Button from './Button';
+import Button, { ButtonVariant } from './Button'; // Importar ButtonVariant
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  widthClass?: string; // Clases de Tailwind para el ancho (ej. 'max-w-md', 'max-w-3xl')
+  widthClass?: string;
   showConfirmButton?: boolean;
   onConfirm?: () => void;
   confirmButtonText?: string;
+  confirmButtonVariant?: ButtonVariant; // 1. Añadir prop opcional
   showCancelButton?: boolean;
   cancelButtonText?: string;
   isConfirmButtonDisabled?: boolean;
@@ -27,6 +28,7 @@ const Modal: React.FC<ModalProps> = ({
   showConfirmButton = false,
   onConfirm,
   confirmButtonText = 'Confirmar',
+  confirmButtonVariant = 'primary', // 2. Añadir a la desestructuración con valor por defecto
   showCancelButton = true,
   cancelButtonText = 'Cancelar',
   isConfirmButtonDisabled = false,
@@ -34,7 +36,6 @@ const Modal: React.FC<ModalProps> = ({
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Cerrar modal al presionar ESC
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -53,18 +54,15 @@ const Modal: React.FC<ModalProps> = ({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Overlay */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 transition-opacity"
         onClick={onClose}
       ></div>
 
-      {/* Contenido del Modal */}
       <div
         ref={modalRef}
         className={`relative bg-white dark:bg-gray-800 rounded-lg shadow-xl transform transition-all sm:w-full ${widthClass}`}
       >
-        {/* Header del Modal */}
         <div className="flex justify-between items-center p-5 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
           <button
@@ -79,12 +77,10 @@ const Modal: React.FC<ModalProps> = ({
           </button>
         </div>
 
-        {/* Body del Modal */}
         <div className="p-6 text-gray-800 dark:text-gray-200">
           {children}
         </div>
 
-        {/* Footer del Modal (Botones de acción) */}
         {(showConfirmButton || showCancelButton) && (
           <div className="flex justify-end p-4 border-t border-gray-200 dark:border-gray-700 space-x-3">
             {showCancelButton && (
@@ -100,7 +96,7 @@ const Modal: React.FC<ModalProps> = ({
             {showConfirmButton && (
               <Button
                 type="button"
-                variant="primary"
+                variant={confirmButtonVariant} // 3. Usar la prop
                 onClick={onConfirm}
                 disabled={isConfirmButtonDisabled}
               >

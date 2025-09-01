@@ -5,13 +5,11 @@ import useScannerWebSocket from '../../hooks/useScannerWebSocket';
 import PersonaForm from '../../components/Common/PersonaForm';
 import {
     createVenta,
-    getMetodosPago,
-    descargarFacturaPdf, // Importar la nueva función
+    descargarFacturaPdf,
 } from '../../services/ventasService';
-import { getProductos, getProductoById } from '../../services/productoService';
-import { getCategorias } from "../../services/categoriaService";
-import { getUnidadesMedida } from "../../services/unidadMedidaService";
-import { getMarcas } from "../../services/marcaService";
+import { getProductoById } from '../../services/productoService';
+import { useVentaContext } from '../../context/VentaContext';
+import { useCatalogs } from '../../context/CatalogContext';
 
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
@@ -24,96 +22,97 @@ import ErrorMessage from '../../components/Common/ErrorMessage';
 import ProductSaleAutocomplete from '../../components/Common/ProductSaleAutocomplete';
 
 import { Venta, VentaCreate, DetalleVentaCreate } from '../../types/venta';
-import { MetodoPagoNested } from '../../types/metodoPago';
 import { IPersonaNested } from '../../types/persona';
 import { Producto, Conversion, ProductoSchemaBase } from '../../types/producto';
-import { EstadoVentaEnum, EstadoEnum } from '../../types/enums';
-import { CategoriaNested } from "../../types/categoria";
-import { UnidadMedidaNested } from "../../types/unidad_medida";
-import { MarcaNested } from "../../types/marca";
+import { EstadoVentaEnum } from '../../types/enums';
 import Select from '../../components/Common/Select';
 
-// Interfaz unificada para el carrito
 export interface CarritoItem {
     producto_id: number;
     codigo: string;
     nombre: string;
     cantidad: number;
-    precio_unitario_presentacion: number; // Precio de la presentación seleccionada
+    precio_unitario_presentacion: number;
     stock_disponible_base: number;
     unidad_base: string;
-    presentacion_seleccionada: string; // Ej: "Unidad", "Caja"
-        conversiones: Conversion[]; // Changed from ConversionCompra to Conversion // Changed from ConversionCompra to Conversion
+    presentacion_seleccionada: string;
+    conversiones: Conversion[];
 }
 
 const VentasFormPage: React.FC = () => {
     const navigate = useNavigate();
 
-    // Estados
-    const [productosDisponibles, setProductosDisponibles] = useState<Producto[]>([]);
+    // Contexts
+    const { metodosPago, isLoading: isLoadingVenta, error: errorVenta, refetchData: refetchVentaData } = useVentaContext();
+    const { productos, conversiones: allConversions, isLoading: isLoadingCatalogs, error: errorCatalogs, refetchCatalogs } = useCatalogs();
+
+    // Estados locales
     const [carrito, setCarrito] = useState<CarritoItem[]>([]);
-    const [metodosPago, setMetodosPago] = useState<MetodoPagoNested[]>([]);
     const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] = useState<number | null>(null);
     const [clienteSeleccionado, setClienteSeleccionado] = useState<number | null>(null);
     const [solicitarFactura, setSolicitarFactura] = useState<boolean>(true);
-
-    const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
+    
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [localError, setLocalError] = useState<string | null>(null);
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
     const [ventaExitosa, setVentaExitosa] = useState<Venta | null>(null);
 
     const [isAddProductModalOpen, setIsAddProductModalOpen] = useState<boolean>(false);
-    const [availableCategorias, setAvailableCategorias] = useState<CategoriaNested[]>([]);
-    const [availableUnidadesMedida, setAvailableUnidadesMedida] = useState<UnidadMedidaNested[]>([]);
-    const [availableMarcas, setAvailableMarcas] = useState<MarcaNested[]>([]);
-    const [loadingCatalogs, setLoadingCatalogs] = useState(true);
     const [isClienteModalOpen, setIsClienteModalOpen] = useState<boolean>(false);
 
     const { websocketStatus, scannerError, lastScannedProduct } = useScannerWebSocket();
+    useEffect(() => {
+        refetchCatalogs();
+    }, [refetchCatalogs]);
+    useEffect(() => {
+        if (metodosPago.length > 0 && !metodoPagoSeleccionado) {
+            setMetodoPagoSeleccionado(metodosPago[0].metodo_pago_id);
+        }
+    }, [metodosPago, metodoPagoSeleccionado]);
+
 
     const addProductToCart = useCallback((producto: Producto) => {
-        setError(null);
+        setLocalError(null);
         setCarrito(prev => {
             const existingItem = prev.find(item => item.producto_id === producto.producto_id);
             if (existingItem) {
-                setError(`El producto "${producto.nombre}" ya está en el carrito.`);
+                setLocalError(`El producto "${producto.nombre}" ya está en el carrito.`);
                 return prev;
             }
 
             if (producto.stock <= 0) {
-                setError(`Stock insuficiente para "${producto.nombre}".`);
+                setLocalError(`Stock insuficiente para "${producto.nombre}".`);
                 return prev;
             }
 
-            // Filter conversions for sales only
-            const salesConversions = producto.conversiones?.filter(c => c.es_para_venta) || [];
+            const salesConversions = allConversions.filter((c: Conversion) => c.producto_id === producto.producto_id && c.es_para_venta);
 
             const newItem: CarritoItem = {
                 producto_id: producto.producto_id,
                 codigo: producto.codigo,
                 nombre: producto.nombre,
                 cantidad: 1,
-                precio_unitario_presentacion: producto.precio_venta, // Precio base inicial
+                precio_unitario_presentacion: producto.precio_venta,
                 stock_disponible_base: producto.stock,
                 unidad_base: producto.unidad_inventario.nombre_unidad,
-                presentacion_seleccionada: 'Unidad', // Default
-                conversiones: salesConversions, // Use filtered conversions
+                presentacion_seleccionada: 'Unidad',
+                conversiones: salesConversions,
             };
             return [...prev, newItem];
         });
-    }, []);
+    }, [allConversions]);
 
     const handleSelectAndAddToCart = async (productoBase: ProductoSchemaBase) => {
-        setIsLoading(true);
-        setError(null);
+        setIsSubmitting(true);
+        setLocalError(null);
         try {
             const productoCompleto = await getProductoById(productoBase.producto_id);
             addProductToCart(productoCompleto);
         } catch (err) {
-            setError('No se pudieron obtener los detalles del producto.');
+            setLocalError('No se pudieron obtener los detalles del producto.');
             console.error(err);
         } finally {
-            setIsLoading(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -122,66 +121,41 @@ const VentasFormPage: React.FC = () => {
             addProductToCart(lastScannedProduct);
         }
         if (scannerError) {
-            setError(`Error del escáner: ${scannerError}`);
+            setLocalError(`Error del escáner: ${scannerError}`);
         }
     }, [lastScannedProduct, scannerError, addProductToCart]);
 
-    const fetchProductsForSale = async () => {
-        try {
-            const productosData = await getProductos({ limit: 1000, estado: EstadoEnum.Activo });
-            setProductosDisponibles(productosData.items.filter(p => p.estado === EstadoEnum.Activo));
-        } catch (err) {
-            setError('Error al recargar los productos disponibles.');
-        }
-    };
-
-    useEffect(() => {
-        const loadInitialData = async () => {
-            setIsLoading(true);
-            try {
-                const [metodosData] = await Promise.all([
-                    getMetodosPago({ estado: EstadoEnum.Activo }),
-                ]);
-                setMetodosPago(metodosData);
-                if (metodosData.length > 0) {
-                    setMetodoPagoSeleccionado(metodosData[0].metodo_pago_id);
-                }
-                await fetchProductsForSale();
-            } catch (err) {
-                setError('Error al cargar datos iniciales.');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        const loadCatalogs = async () => {
-            setLoadingCatalogs(true);
-            try {
-                const [categoriasData, unidadesMedidaData, marcasData] = await Promise.all([
-                    getCategorias({ limit: 100 }),
-                    getUnidadesMedida({ limit: 100 }),
-                    getMarcas({ limit: 100 }),
-                ]);
-                setAvailableCategorias(categoriasData.items);
-                setAvailableUnidadesMedida(unidadesMedidaData);
-                setAvailableMarcas(marcasData);
-            } catch (err) {
-                setError("Error al cargar catálogos.");
-            } finally {
-                setLoadingCatalogs(false);
-            }
-        };
-
-        loadInitialData();
-        loadCatalogs();
-    }, []);
-
     const handleOpenAddProductModal = () => setIsAddProductModalOpen(true);
     const handleCloseAddProductModal = () => setIsAddProductModalOpen(false);
-    const handleProductFormSuccess = () => {
-        handleCloseAddProductModal();
-        fetchProductsForSale();
-    };
+const [isUpdatingAfterProductCreate, setIsUpdatingAfterProductCreate] = useState(false);
+
+const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
+    console.log('🔄 Iniciando actualización después de crear producto:', producto.nombre);
+    
+    setIsUpdatingAfterProductCreate(true);
+    
+    try {
+        // 1. Actualizar catálogos primero
+        console.log('📡 Actualizando catálogos...');
+        await refetchCatalogs();
+        
+        // 2. Actualizar datos específicos de venta
+        console.log('📊 Actualizando datos de venta...');
+        await refetchVentaData();
+        
+        // 3. Esperar un momento para asegurar propagación
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        console.log('✅ Actualización completada');
+        
+    } catch (error) {
+        console.error('❌ Error durante actualización:', error);
+        setLocalError('Error al actualizar los datos después de crear el producto.');
+    } finally {
+        setIsUpdatingAfterProductCreate(false);
+        handleCloseAddProductModal(); // ✅ Cerrar modal DESPUÉS de actualizar
+    }
+};
 
     const handleClienteFormSuccess = (newPersona: IPersonaNested) => {
         setIsClienteModalOpen(false);
@@ -189,17 +163,16 @@ const VentasFormPage: React.FC = () => {
     };
 
     const updateCartItem = useCallback((producto_id: number, updates: Partial<Omit<CarritoItem, 'conversiones' | 'stock_disponible_base'>>) => {
-        setError(null);
+        setLocalError(null);
         setCarrito(prevCart => {
             const newCart = prevCart.map(item => {
                 if (item.producto_id === producto_id) {
-                    const originalProduct = productosDisponibles.find(p => p.producto_id === producto_id);
+                    const originalProduct = productos.find(p => p.producto_id === producto_id);
                     if (!originalProduct) return item; 
 
                     const updatedItem = { ...item, ...updates };
 
-                    // Filter conversions for sales only
-                    const salesConversions = originalProduct.conversiones.filter(c => c.es_para_venta);
+                    const salesConversions = allConversions.filter((c: Conversion) => c.producto_id === originalProduct.producto_id && c.es_para_venta);
 
                     if (updates.presentacion_seleccionada) {
                         if (updates.presentacion_seleccionada === 'Unidad') {
@@ -207,19 +180,19 @@ const VentasFormPage: React.FC = () => {
                         } else {
                             const conversion = salesConversions.find(c => c.nombre_presentacion === updates.presentacion_seleccionada);
                             updatedItem.precio_unitario_presentacion = conversion
-                                ? originalProduct.precio_venta * Number(conversion.unidades_por_presentacion) // Changed to unidades_por_presentacion and Number()
+                                ? originalProduct.precio_venta * Number(conversion.unidades_por_presentacion)
                                 : originalProduct.precio_venta;
                         }
                     }
 
                     const conversionFactor = updatedItem.presentacion_seleccionada === 'Unidad'
                         ? 1
-                        : salesConversions.find(c => c.nombre_presentacion === updatedItem.presentacion_seleccionada)?.unidades_por_presentacion || 1; // Changed to unidades_por_presentacion
+                        : salesConversions.find(c => c.nombre_presentacion === updatedItem.presentacion_seleccionada)?.unidades_por_presentacion || 1;
                     
-                    const cantidadEnUnidadBase = updatedItem.cantidad * Number(conversionFactor); // Added Number()
+                    const cantidadEnUnidadBase = updatedItem.cantidad * Number(conversionFactor);
 
                     if (cantidadEnUnidadBase > updatedItem.stock_disponible_base) {
-                        setError(`Stock insuficiente para "${updatedItem.nombre}". Disponible: ${updatedItem.stock_disponible_base} ${updatedItem.unidad_base}(s).`);
+                        setLocalError(`Stock insuficiente para "${updatedItem.nombre}". Disponible: ${updatedItem.stock_disponible_base} ${updatedItem.unidad_base}(s).`);
                         return item; 
                     }
 
@@ -229,7 +202,7 @@ const VentasFormPage: React.FC = () => {
             });
             return newCart.filter(item => item.cantidad > 0); 
         });
-    }, [productosDisponibles]);
+    }, [productos, allConversions]);
 
 
     const totalVenta = useMemo(() => {
@@ -238,10 +211,10 @@ const VentasFormPage: React.FC = () => {
 
     const handleFinalizarVenta = async () => {
         if (carrito.length === 0 || !metodoPagoSeleccionado) {
-            setError('El carrito está vacío o falta el método de pago.');
+            setLocalError('El carrito está vacío o falta el método de pago.');
             return;
         }
-        setIsLoading(true);
+        setIsSubmitting(true);
         const detallesVenta: DetalleVentaCreate[] = carrito.map(item => ({
             producto_id: item.producto_id,
             cantidad: item.cantidad,
@@ -255,15 +228,14 @@ const VentasFormPage: React.FC = () => {
             setVentaExitosa(nuevaVenta);
             setShowSuccessModal(true);
             setCarrito([]);
-            fetchProductsForSale();
+            refetchVentaData();
+            refetchCatalogs();
         } catch (err: any) {
-            setError(err.response?.data?.detail || 'Error al finalizar la venta.');
+            setLocalError(err.response?.data?.detail || 'Error al finalizar la venta.');
         } finally {
-            setIsLoading(false);
+            setIsSubmitting(false);
         }
     };
-
-    
 
     const carritoColumns = useMemo(() => [
         { Header: 'Producto', accessor: 'nombre' },
@@ -278,7 +250,7 @@ const VentasFormPage: React.FC = () => {
             Cell: ({ row }: { row: { original: CarritoItem } }) => (
                 <Select value={row.original.presentacion_seleccionada} onChange={(e) => updateCartItem(row.original.producto_id, { presentacion_seleccionada: e.target.value })}>
                     <option value="Unidad">Unidad ({row.original.unidad_base})</option>
-                    {row.original.conversiones.filter(c => c.es_para_venta).map(c => <option key={c.id} value={c.nombre_presentacion}>{c.nombre_presentacion}</option>)}
+                    {row.original.conversiones.filter((c: Conversion) => c.es_para_venta).map(c => <option key={c.id} value={c.nombre_presentacion}>{c.nombre_presentacion}</option>)}
                 </Select>
             ),
         },
@@ -287,9 +259,11 @@ const VentasFormPage: React.FC = () => {
         { Header: 'Acciones', Cell: ({ row }: { row: { original: CarritoItem } }) => <Button onClick={() => setCarrito(prev => prev.filter(item => item.producto_id !== row.original.producto_id))} variant="danger" size="sm">X</Button> },
     ], [updateCartItem]);
 
+const globalIsLoading = isLoadingVenta || isLoadingCatalogs || isSubmitting || isUpdatingAfterProductCreate;
+    const globalError = errorVenta || errorCatalogs || localError;
+
     return (
         <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen font-sans">
-            {/* Encabezado y Notificaciones */}
             <div className="flex justify-between items-center mb-4">
                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Nueva Venta</h1>
                 <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
@@ -300,13 +274,11 @@ const VentasFormPage: React.FC = () => {
                 </div>
             </div>
 
-            {isLoading && <LoadingSpinner />}
-            {error && <ErrorMessage message={error} onClose={() => setError(null)} />}
+            {globalIsLoading && <LoadingSpinner />}
+            {globalError && <ErrorMessage message={globalError} onClose={() => setLocalError(null)} />}
 
-            {/* Contenido Principal */}
             <div className="flex flex-col gap-8">
                 
-                {/* Card 1: Datos del Cliente y Pago */}
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
                     <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4 border-b pb-2">Paso 1: Datos Generales</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -326,23 +298,20 @@ const VentasFormPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Card 2: Carrito de Compras */}
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg flex flex-col">
                     <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4 border-b pb-2">Paso 2: Carrito de Compras ({carrito.length} items)</h2>
                     
-                    {/* Sección para añadir productos */}
                     <div className="flex items-center gap-4 mb-6">
                         <div className="flex-grow">
                             <ProductSaleAutocomplete
                                 onProductSelect={handleSelectAndAddToCart}
                             />
                         </div>
-                        <Button type="button" onClick={handleOpenAddProductModal} variant="secondary" size="sm" disabled={loadingCatalogs}>
+                        <Button type="button" onClick={handleOpenAddProductModal} variant="secondary" size="sm" disabled={isLoadingCatalogs}>
                             + Nuevo Producto
                         </Button>
                     </div>
 
-                    {/* Tabla de productos en el carrito */}
                     <div className="flex-grow min-h-[250px]">
                         {carrito.length === 0 
                             ? <div className="flex items-center justify-center h-full text-gray-500">El carrito está vacío. Añade productos para empezar.</div> 
@@ -350,7 +319,6 @@ const VentasFormPage: React.FC = () => {
                         }
                     </div>
 
-                    {/* Total de la venta */}
                     {carrito.length > 0 && (
                         <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <div className="flex justify-end items-center">
@@ -363,7 +331,6 @@ const VentasFormPage: React.FC = () => {
                     )}
                 </div>
 
-                {/* Acciones Finales y Factura */}
                 <div className="mt-6 flex justify-between items-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
                     <div>
                         <label htmlFor="solicitar-factura" className="flex items-center cursor-pointer">
@@ -381,16 +348,15 @@ const VentasFormPage: React.FC = () => {
                     </div>
                     <div className="flex space-x-4">
                         <Button onClick={() => navigate("/ventas")} variant="secondary" size="lg">Cancelar Venta</Button>
-                        <Button onClick={handleFinalizarVenta} variant="primary" size="lg" disabled={isLoading || carrito.length === 0}>
+                        <Button onClick={handleFinalizarVenta} variant="primary" size="lg" disabled={globalIsLoading || carrito.length === 0}>
                             Finalizar Venta
                         </Button>
                     </div>
                 </div>
             </div>
 
-            {/* Modales */}
             <Modal isOpen={isAddProductModalOpen} onClose={handleCloseAddProductModal} title="Crear Nuevo Producto">
-                <ProductoForm onSuccess={handleProductFormSuccess} onCancel={handleCloseAddProductModal} availableCategorias={availableCategorias} availableUnidadesMedida={availableUnidadesMedida} availableMarcas={availableMarcas} />
+                <ProductoForm onSuccess={handleProductFormSuccess} onCancel={handleCloseAddProductModal} />
             </Modal>
             <Modal isOpen={isClienteModalOpen} onClose={() => setIsClienteModalOpen(false)} title="Añadir Nuevo Cliente">
                 <PersonaForm mode="assign-role" roleToAssign="Cliente" onSuccess={handleClienteFormSuccess} onCancel={() => setIsClienteModalOpen(false)} />

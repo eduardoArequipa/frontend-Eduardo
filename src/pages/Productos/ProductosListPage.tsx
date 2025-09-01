@@ -1,13 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getProductos, deleteProducto, activateProducto, GetProductosParams } from '../../services/productoService';
-import { getCategorias } from '../../services/categoriaService';
-import { getUnidadesMedida } from '../../services/unidadMedidaService'; 
-import { getMarcas } from '../../services/marcaService';            
 import { Producto, ProductoPagination } from '../../types/producto';
 import { EstadoEnum } from '../../types/enums';
-import { CategoriaNested } from '../../types/categoria';
-import { UnidadMedidaNested } from '../../types/unidad_medida'; 
-import { MarcaNested } from '../../types/marca';                 
+import { useCatalogs } from '../../context/CatalogContext';
+import { useNotification } from '../../context/NotificationContext'; // 1. Importar hook de notificación
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
@@ -36,14 +32,23 @@ const ProductosListPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
 
-    const [availableCategoriasFilter, setAvailableCategoriasFilter] = useState<CategoriaNested[]>([]);
-    const [availableUnidadesMedidaFilter, setAvailableUnidadesMedidaFilter] = useState<UnidadMedidaNested[]>([]);
-    const [availableMarcasFilter, setAvailableMarcasFilter] = useState<MarcaNested[]>([]);
-    const [loadingFilterData, setLoadingFilterData] = useState(true);
+    const { 
+        categorias,
+        marcas,
+        unidadesMedida,
+        isLoading: isLoadingCatalogs,
+        error: catalogError 
+    } = useCatalogs();
+    const { addNotification } = useNotification(); // 2. Instanciar hook
 
     const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [editingProduct, setEditingProduct] = useState<Producto | null>(null);
+
+    // State for confirmation modal
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState<boolean>(false);
+    const [productToConfirm, setProductToConfirm] = useState<Producto | null>(null);
+    const [actionToConfirm, setActionToConfirm] = useState<'activate' | 'deactivate' | null>(null);
 
     const fetchProductos = async () => {
         setLoading(true);
@@ -62,55 +67,19 @@ const ProductosListPage: React.FC = () => {
             setProductos(fetchedData.items);
             setTotalProductos(fetchedData.total);
         } catch (err: any) {
-            setError(err.response?.data?.detail || "Error al cargar los productos.");
-            setProductos([]);
+            const errorMessage = err.response?.data?.detail || "Error al cargar los productos.";
+            setError(errorMessage);
+            addNotification(errorMessage, 'error');
         } finally {
             setLoading(false);
         }
     };
 
-     useEffect(() => {
-          const loadFilterData = async () => {
-               setLoadingFilterData(true);
-
-               const results = await Promise.allSettled([
-                   getCategorias({ limit: 1000, estado: EstadoEnum.Activo }),
-                   getUnidadesMedida({ limit: 1000 }),
-                   getMarcas({ limit: 1000, estado: EstadoEnum.Activo })
-               ]);
-
-               if (results[0].status === 'fulfilled') {
-                   setAvailableCategoriasFilter(results[0].value.items || []);
-               } else {
-                   console.warn("Filtro de categorías no disponible.", results[0].reason);
-                   setAvailableCategoriasFilter([]);
-               }
-
-               if (results[1].status === 'fulfilled') {
-                   setAvailableUnidadesMedidaFilter(results[1].value || []);
-               } else {
-                   console.warn("Filtro de unidades de medida no disponible.", results[1].reason);
-                   setAvailableUnidadesMedidaFilter([]);
-               }
-
-               if (results[2].status === 'fulfilled') {
-                   setAvailableMarcasFilter(results[2].value || []);
-               } else {
-                   console.warn("Filtro de marcas no disponible.", results[2].reason);
-                   setAvailableMarcasFilter([]);
-               }
-
-               setLoadingFilterData(false);
-          };
-
-          loadFilterData();
-     }, []);
-
     useEffect(() => {
-        if (!loadingFilterData) {
+        if (!isLoadingCatalogs) {
              fetchProductos();
         }
-    }, [search, estadoFilter, categoriaFilter, unidadMedidaFilter, marcaFilter, currentPage, itemsPerPage, loadingFilterData]);
+    }, [search, estadoFilter, categoriaFilter, unidadMedidaFilter, marcaFilter, currentPage, itemsPerPage, isLoadingCatalogs]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -129,35 +98,42 @@ const ProductosListPage: React.FC = () => {
          setCurrentPage(1);
      };
 
-    const handleDelete = async (id: number, nombreProducto: string) => {
-        if (window.confirm(`¿Estás seguro de desactivar el producto "${nombreProducto}"?`)) {
-            try {
-                await deleteProducto(id);
-                fetchProductos();
-                alert(`Producto "${nombreProducto}" desactivado con éxito!`);
-            } catch (err: any) {
-                 alert(`Error al desactivar: ${err.response?.data?.detail || err.message}`);
+    const openConfirmationModal = (producto: Producto, action: 'activate' | 'deactivate') => {
+        setProductToConfirm(producto);
+        setActionToConfirm(action);
+        setIsConfirmModalOpen(true);
+    };
+
+    const handleConfirmAction = async () => {
+        if (!productToConfirm || !actionToConfirm) return;
+
+        const { producto_id, nombre } = productToConfirm;
+
+        try {
+            if (actionToConfirm === 'deactivate') {
+                await deleteProducto(producto_id);
+                addNotification(`Producto "${nombre}" desactivado con éxito!`, 'success');
+            } else if (actionToConfirm === 'activate') {
+                await activateProducto(producto_id);
+                addNotification(`Producto "${nombre}" activado con éxito!`, 'success');
             }
+            fetchProductos();
+        } catch (err: any) {
+            const errorMessage = err.response?.data?.detail || err.message;
+            addNotification(`Error al ${actionToConfirm === 'activate' ? 'activar' : 'desactivar'}: ${errorMessage}`, 'error');
+        } finally {
+            setIsConfirmModalOpen(false);
+            setProductToConfirm(null);
+            setActionToConfirm(null);
         }
     };
 
-     const handleActivate = async (id: number, nombreProducto: string) => {
-         if (window.confirm(`¿Estás seguro de activar el producto "${nombreProducto}"?`)) {
-             try {
-                 await activateProducto(id);
-                 fetchProductos();
-                 alert(`Producto "${nombreProducto}" activado con éxito!`);
-             } catch (err: any) {
-                 alert(`Error al activar: ${err.response?.data?.detail || err.message}`);
-             }
-         }
-     };
-
     const handleOpenAddModal = () => setIsAddModalOpen(true);
     const handleCloseAddModal = () => setIsAddModalOpen(false);
-    const handleAddSuccess = () => {
+    const handleAddSuccess = async () => {
         handleCloseAddModal();
-        fetchProductos();
+        addNotification('Producto creado con éxito.', 'success'); // 4. Añadir notificación
+        await fetchProductos();
     };
 
     const handleOpenEditModal = (producto: Producto) => {
@@ -168,19 +144,20 @@ const ProductosListPage: React.FC = () => {
         setIsEditModalOpen(false);
         setEditingProduct(null);
     };
-    const handleEditSuccess = () => {
+    const handleEditSuccess = async () => {
         handleCloseEditModal();
-        fetchProductos();
+        addNotification('Producto actualizado con éxito.', 'success'); // 4. Añadir notificación
+        await fetchProductos();
     };
 
     const totalPages = Math.ceil(totalProductos / itemsPerPage);
 
-    if ((loading || loadingFilterData) && productos.length === 0) {
-        return <div className="flex justify-center items-center min-h-[calc(100vh-200px)] text-gray-800 dark:text-gray-200"><LoadingSpinner /> Cargando productos...</div>;
+    if ((loading || isLoadingCatalogs) && productos.length === 0) {
+        return <div className="flex justify-center items-center min-h-[calc(100vh-200px)] text-gray-800 dark:text-gray-200"><LoadingSpinner /> Cargando...</div>;
     }
 
-    if (error) {
-        return <ErrorMessage message={error} />;
+    if (error || catalogError) {
+        return <ErrorMessage message={error || catalogError || "Ocurrió un error"} />;
     }
 
     return (
@@ -188,7 +165,7 @@ const ProductosListPage: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Gestión de Productos</h1>
                 <Button onClick={handleOpenAddModal} variant="success" className="mt-4 md:mt-0">
-                    Crear Nuevo Producto
+                    Registrar Producto
                 </Button>
             </div>
 
@@ -208,28 +185,29 @@ const ProductosListPage: React.FC = () => {
                         onChange={(e) => handleFilterValueChange(setEstadoFilter)(e.target.value as EstadoEnum | '')} 
                         options={[{ value: '', label: 'Todos los estados' }, { value: EstadoEnum.Activo, label: 'Activo' }, { value: EstadoEnum.Inactivo, label: 'Inactivo' }]} 
                     />
-                    {!loadingFilterData && availableCategoriasFilter.length > 0 && (
+                    {/* 4. Usar datos del contexto para los filtros */}
+                    {!isLoadingCatalogs && categorias.length > 0 && (
                         <Select 
                             id="categoriaFilter" 
                             value={categoriaFilter || ''} 
                             onChange={(e) => handleFilterValueChange(setCategoriaFilter)(e.target.value === '' ? '' : parseInt(e.target.value, 10))} 
-                            options={[{ value: '', label: 'Todas las categorías' }, ...availableCategoriasFilter.map(c => ({ value: c.categoria_id, label: c.nombre_categoria }))]} 
+                            options={[{ value: '', label: 'Todas las categorías' }, ...categorias.map(c => ({ value: c.categoria_id, label: c.nombre_categoria }))]} 
                         />
                     )}
-                    {!loadingFilterData && availableMarcasFilter.length > 0 && (
+                    {!isLoadingCatalogs && marcas.length > 0 && (
                         <Select 
                             id="marcaFilter" 
                             value={marcaFilter || ''} 
                             onChange={(e) => handleFilterValueChange(setMarcaFilter)(e.target.value === '' ? '' : parseInt(e.target.value, 10))} 
-                            options={[{ value: '', label: 'Todas las marcas' }, ...availableMarcasFilter.map(m => ({ value: m.marca_id, label: m.nombre_marca }))]} 
+                            options={[{ value: '', label: 'Todas las marcas' }, ...marcas.map(m => ({ value: m.marca_id, label: m.nombre_marca }))]} 
                         />
                     )}
-                    {!loadingFilterData && availableUnidadesMedidaFilter.length > 0 && (
+                    {!isLoadingCatalogs && unidadesMedida.length > 0 && (
                         <Select 
                             id="unidadMedidaFilter" 
                             value={unidadMedidaFilter || ''} 
                             onChange={(e) => handleFilterValueChange(setUnidadMedidaFilter)(e.target.value === '' ? '' : parseInt(e.target.value, 10))} 
-                            options={[{ value: '', label: 'Todas las unidades' }, ...availableUnidadesMedidaFilter.map(u => ({ value: u.unidad_id, label: `${u.nombre_unidad} (${u.abreviatura})` }))]} 
+                            options={[{ value: '', label: 'Todas las unidades' }, ...unidadesMedida.map(u => ({ value: u.unidad_id, label: `${u.nombre_unidad} (${u.abreviatura})` }))]} 
                         />
                     )}
                 </div>
@@ -260,8 +238,8 @@ const ProductosListPage: React.FC = () => {
 
                         const productActions: ActionConfig[] = [
                             { label: 'Editar', onClick: () => handleOpenEditModal(producto), isVisible: true },
-                            { label: 'Desactivar', onClick: () => handleDelete(producto.producto_id, producto.nombre), isVisible: producto.estado === EstadoEnum.Activo, colorClass: 'text-red-700 dark:text-red-400' },
-                            { label: 'Activar', onClick: () => handleActivate(producto.producto_id, producto.nombre), isVisible: producto.estado === EstadoEnum.Inactivo, colorClass: 'text-green-700 dark:text-green-400' },
+                            { label: 'Desactivar', onClick: () => openConfirmationModal(producto, 'deactivate'), isVisible: producto.estado === EstadoEnum.Activo, colorClass: 'text-red-700 dark:text-red-400' },
+                            { label: 'Activar', onClick: () => openConfirmationModal(producto, 'activate'), isVisible: producto.estado === EstadoEnum.Inactivo, colorClass: 'text-green-700 dark:text-green-400' },
                         ];
 
                         return (
@@ -319,15 +297,32 @@ const ProductosListPage: React.FC = () => {
                 )}
             </div>
 
-            <Modal isOpen={isAddModalOpen} onClose={handleCloseAddModal} title="Crear Nuevo Producto" widthClass="max-w-3xl">
-                <ProductoForm onSuccess={handleAddSuccess} onCancel={handleCloseAddModal} availableCategorias={availableCategoriasFilter} availableUnidadesMedida={availableUnidadesMedidaFilter} availableMarcas={availableMarcasFilter} />
+            <Modal isOpen={isAddModalOpen} onClose={handleCloseAddModal} title="Registrar Nuevo Producto" widthClass="max-w-3xl" showCancelButton={false}>
+                <ProductoForm onSuccess={handleAddSuccess} onCancel={handleCloseAddModal} />
             </Modal>
 
             {editingProduct && (
-                <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} title={`Editar Producto: ${editingProduct.nombre}`} widthClass="max-w-3xl">
-                    <ProductoForm productoId={editingProduct.producto_id} onSuccess={handleEditSuccess} onCancel={handleCloseEditModal} availableCategorias={availableCategoriasFilter} availableUnidadesMedida={availableUnidadesMedidaFilter} availableMarcas={availableMarcasFilter} />
+                <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} title={`Editar Producto: ${editingProduct.nombre}`} widthClass="max-w-3xl" showCancelButton={false}>
+                    <ProductoForm productoId={editingProduct.producto_id} onSuccess={handleEditSuccess} onCancel={handleCloseEditModal} />
                 </Modal>
             )}
+
+            {/* Confirmation Modal */}
+            <Modal
+                isOpen={isConfirmModalOpen}
+                onClose={() => setIsConfirmModalOpen(false)}
+                onConfirm={handleConfirmAction}
+                title={`Confirmar ${actionToConfirm === 'activate' ? 'Activación' : 'Desactivación'}`}
+                confirmButtonText={actionToConfirm === 'activate' ? 'Sí, Activar' : 'Sí, Desactivar'}
+                confirmButtonVariant={actionToConfirm === 'activate' ? 'success' : 'danger'}
+            >
+                {productToConfirm && (
+                    <p>
+                        ¿Estás seguro de que quieres {actionToConfirm === 'activate' ? 'activar' : 'desactivar'} el producto 
+                        <strong className="mx-1">{productToConfirm.nombre}</strong>?
+                    </p>
+                )}
+            </Modal>
         </div>
     );
 };

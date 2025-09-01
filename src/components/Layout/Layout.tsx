@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import Footer from './Footer';
 import { LowStockProvider } from '../../context/LowStockContext';
 import LowStockNotification from '../Common/LowStockNotification';
+import NotificationToast from '../Common/NotificationToast';
 
 const Layout: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -26,6 +27,7 @@ const Layout: React.FC = () => {
                     <Footer />
                 </div>
                 <LowStockNotification />
+                <NotificationToast />
             </div>
         </LowStockProvider>
     );
