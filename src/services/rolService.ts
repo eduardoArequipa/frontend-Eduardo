@@ -1,7 +1,7 @@
 // src/services/rolService.ts
 
 import axiosInstance from '../api/axiosInstance';
-import { IRolInDB } from '../types/rol';
+import { IRolInDB, IRolCreate, IRolUpdate } from '../types/rol';
 import { EstadoEnum } from '../types/enums';
 import { IMenuInDB } from '../types/menu';
 
@@ -30,7 +30,6 @@ export const getRoles = async (params?: IGetRolesParams): Promise<IRolInDB[]> =>
  */
 export const getRoleById = async (id: number): Promise<IRolInDB> => {
     const response = await axiosInstance.get(`/roles/${id}`);
-    console.log("[DEBUG FRONTEND - rolService] Respuesta cruda de getRoleById:", response.data);
     return response.data;
 };
 
@@ -52,4 +51,34 @@ export const getMenusForRole = async (roleId: number): Promise<IMenuInDB[]> => {
  */
 export const updateMenusForRole = async (roleId: number, menuIds: number[]): Promise<void> => {
     await axiosInstance.put(`/roles/${roleId}/menus`, { menu_ids: menuIds });
+};
+
+/**
+ * Crea un nuevo rol.
+ * @param rolData Los datos del rol a crear.
+ * @returns Una promesa que resuelve en el IRolInDB creado.
+ */
+export const createRol = async (rolData: IRolCreate): Promise<IRolInDB> => {
+    const response = await axiosInstance.post('/roles/', rolData);
+    return response.data;
+};
+
+/**
+ * Actualiza un rol existente.
+ * @param roleId El ID del rol a actualizar.
+ * @param rolData Los datos del rol a actualizar.
+ * @returns Una promesa que resuelve en el IRolInDB actualizado.
+ */
+export const updateRol = async (roleId: number, rolData: IRolUpdate): Promise<IRolInDB> => {
+    const response = await axiosInstance.put(`/roles/${roleId}`, rolData);
+    return response.data;
+};
+
+/**
+ * Elimina un rol por su ID.
+ * @param roleId El ID del rol a eliminar.
+ * @returns Una promesa que resuelve cuando el rol es eliminado.
+ */
+export const deleteRol = async (roleId: number): Promise<void> => {
+    await axiosInstance.delete(`/roles/${roleId}`);
 };

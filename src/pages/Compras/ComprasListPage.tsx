@@ -19,6 +19,7 @@ import ActionsDropdown from '../../components/Common/ActionsDropdown';
 import { ActionConfig } from '../../components/Common/ActionsDropdown';
 import Select from '../../components/Common/Select';
 import ErrorMessage from '../../components/Common/ErrorMessage';
+import DetalleCompraModal from './DetalleCompraModal';
 
 const ComprasListPage: React.FC = () => {
     const navigate = useNavigate();
@@ -40,6 +41,9 @@ const ComprasListPage: React.FC = () => {
     const [availableProveedores, setAvailableProveedores] = useState<Proveedor[]>([]);
     const [loadingFiltersData, setLoadingFiltersData] = useState(true);
     const [errorFiltersData, setErrorFiltersData] = useState<string | null>(null);
+
+    const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
+    const [modalOpen, setModalOpen] = useState(false);
 
     const fetchCompras = async () => {
         setLoading(true);
@@ -100,7 +104,12 @@ const ComprasListPage: React.FC = () => {
      };
 
     const handleAnularCompra = async (id: number) => {
-        if (window.confirm(`¿Estás seguro de anular la compra #${id}? Esto revertirá el stock asociado.`)) {
+        const compra = compras.find(c => c.compra_id === id);
+        const mensaje = compra?.estado === EstadoCompraEnum.completada 
+            ? `¿Estás seguro de anular la compra #${id}? Esto revertirá el stock asociado.`
+            : `¿Estás seguro de anular la compra #${id}? Esta compra aún no ha modificado el stock.`;
+        
+        if (window.confirm(mensaje)) {
             try {
                 const updatedCompra = await anularCompra(id);
                 setCompras(compras.map(c => c.compra_id === id ? updatedCompra : c));
@@ -125,11 +134,11 @@ const ComprasListPage: React.FC = () => {
         }
     };
 
-    const handleViewCompra = useCallback((id: number) => {
-        navigate(`/compras/view/${id}`);
-              
 
-    }, [navigate]);
+    const handleViewModal = useCallback((compra: Compra) => {
+        setSelectedCompra(compra);
+        setModalOpen(true);
+    }, []);
 
     const handleEditCompra = useCallback((id: number) => {
         navigate(`/compras/edit/${id}`);
@@ -228,7 +237,7 @@ const ComprasListPage: React.FC = () => {
                     const isPendiente = compra.estado === EstadoCompraEnum.pendiente;
 
                     const compraActions: ActionConfig[] = [
-                        { label: 'Ver', onClick: () => handleViewCompra(compra.compra_id), isVisible: true, buttonVariant: 'menuItem' },
+                        { label: 'Ver', onClick: () => handleViewModal(compra), isVisible: true, buttonVariant: 'menuItem', colorClass: 'text-blue-700 dark:text-blue-400' },
                         { label: 'Editar', onClick: () => handleEditCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem' },
                         { label: 'Completar', onClick: () => handleCompletarCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem', colorClass: 'text-green-700 dark:text-green-400' },
                         { label: 'Anular', onClick: () => handleAnularCompra(compra.compra_id), isVisible: !isAnulada && !isCompletada, buttonVariant: 'menuItem', colorClass: 'text-red-700 dark:text-red-400' },
@@ -240,7 +249,7 @@ const ComprasListPage: React.FC = () => {
                 },
             },
         ];
-    }, [handleAnularCompra, handleCompletarCompra, handleViewCompra, handleEditCompra, loading]);
+    }, [handleAnularCompra, handleCompletarCompra, handleViewModal, handleEditCompra, loading]);
 
     if (loading && compras.length === 0) {
         return (
@@ -319,6 +328,12 @@ const ComprasListPage: React.FC = () => {
                     </div>
                  </div>
             )}
+            
+            <DetalleCompraModal
+                compra={selectedCompra}
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+            />
         </div>
     );
 };

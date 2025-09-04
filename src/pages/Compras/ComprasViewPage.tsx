@@ -1,7 +1,7 @@
 // src/pages/Compras/ComprasViewPage.tsx
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getCompraById } from '../../services/compraService';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { getCompraById, anularCompra, completarCompra } from '../../services/compraService';
 
 import { Compra } from '../../types/compra';
 import { EstadoCompraEnum } from '../../types/enums';
@@ -9,14 +9,18 @@ import { EstadoCompraEnum } from '../../types/enums';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Button from '../../components/Common/Button';
 import ErrorMessage from '../../components/Common/ErrorMessage';
+import DetalleCompraModal from './DetalleCompraModal';
 
 const ComprasViewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
     const compraId = id ? parseInt(id, 10) : null;
 
     const [compra, setCompra] = useState<Compra | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [modalOpen, setModalOpen] = useState(false);
 
     useEffect(() => {
         if (compraId === null) {
@@ -38,6 +42,48 @@ const ComprasViewPage: React.FC = () => {
                 setLoading(false);
             });
     }, [compraId]);
+
+    const handleAnularCompra = async () => {
+        if (!compra || !compraId) return;
+        
+        const mensaje = compra.estado === EstadoCompraEnum.completada 
+            ? `¿Estás seguro de anular la compra #${compraId}? Esto revertirá el stock asociado.`
+            : `¿Estás seguro de anular la compra #${compraId}? Esta compra aún no ha modificado el stock.`;
+        
+        if (window.confirm(mensaje)) {
+            setActionLoading(true);
+            try {
+                const updatedCompra = await anularCompra(compraId);
+                setCompra(updatedCompra);
+                alert(`Compra #${compraId} anulada con éxito!`);
+            } catch (err: any) {
+                alert(`Error al anular la compra: ${err.response?.data?.detail || err.message}`);
+            } finally {
+                setActionLoading(false);
+            }
+        }
+    };
+
+    const handleCompletarCompra = async () => {
+        if (!compraId) return;
+        
+        if (window.confirm(`¿Estás seguro de marcar la compra #${compraId} como completada? Esto actualizará el stock de los productos.`)) {
+            setActionLoading(true);
+            try {
+                const updatedCompra = await completarCompra(compraId);
+                setCompra(updatedCompra);
+                alert(`Compra #${compraId} marcada como completada!`);
+            } catch (err: any) {
+                alert(`Error al completar la compra: ${err.response?.data?.detail || err.message}`);
+            } finally {
+                setActionLoading(false);
+            }
+        }
+    };
+
+    const handleEditCompra = () => {
+        navigate(`/compras/edit/${compraId}`);
+    };
 
     if (loading) {
         return (
@@ -112,29 +158,45 @@ const ComprasViewPage: React.FC = () => {
 
                 <div className="lg:col-span-2">
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Productos Comprados</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200">Resumen de Productos</h2>
+                            <Button 
+                                onClick={() => setModalOpen(true)}
+                                variant="primary"
+                                className="flex items-center gap-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Ver Detalles
+                            </Button>
+                        </div>
                         {compra.detalles && compra.detalles.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                                        <tr>
-                                            <th scope="col" className="px-6 py-3">Producto</th>
-                                            <th scope="col" className="px-6 py-3">Cantidad</th>
-                                            <th scope="col" className="px-6 py-3">Precio Unitario</th>
-                                            <th scope="col" className="px-6 py-3">Subtotal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {compra.detalles.map(detalle => (
-                                            <tr key={detalle.detalle_id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                                <td className="px-6 py-4 text-gray-900 dark:text-gray-100">{detalle.producto ? detalle.producto.nombre : 'Producto Desconocido'}</td>
-                                                <td className="px-6 py-4 text-gray-900 dark:text-gray-100">{detalle.cantidad}</td>
-                                                <td className="px-6 py-4 text-gray-900 dark:text-gray-100">{Number(detalle.precio_unitario).toFixed(2)} bs</td>
-                                                <td className="px-6 py-4 text-gray-900 dark:text-gray-100">{(detalle.cantidad * detalle.precio_unitario).toFixed(2)} bs</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="space-y-3">
+                                <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    <span className="font-medium">{compra.detalles.length}</span> productos comprados
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {compra.detalles.slice(0, 6).map(detalle => (
+                                        <div key={detalle.detalle_id} className="p-3 border rounded-lg border-gray-200 dark:border-gray-600">
+                                            <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                                                {detalle.producto ? detalle.producto.nombre : 'Producto Desconocido'}
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                {detalle.cantidad} {detalle.presentacion_compra || 'unidades'}
+                                            </p>
+                                            <p className="text-sm text-gray-900 dark:text-gray-100">
+                                                {(detalle.cantidad * detalle.precio_unitario).toFixed(2)} bs
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                                {compra.detalles.length > 6 && (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                                        Y {compra.detalles.length - 6} productos más...
+                                    </p>
+                                )}
                             </div>
                         ) : (
                             <p className="text-gray-500 dark:text-gray-400">No hay detalles de productos para esta compra.</p>
@@ -143,11 +205,50 @@ const ComprasViewPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-between items-center">
                 <Link to="/compras">
                     <Button variant="secondary">Volver al Listado</Button>
                 </Link>
+                
+                {compra && (
+                    <div className="flex space-x-4">
+                        {compra.estado === EstadoCompraEnum.pendiente && (
+                            <>
+                                <Button 
+                                    onClick={handleEditCompra}
+                                    variant="primary"
+                                    disabled={actionLoading}
+                                >
+                                    Editar
+                                </Button>
+                                <Button 
+                                    onClick={handleCompletarCompra}
+                                    variant="success"
+                                    disabled={actionLoading}
+                                >
+                                    {actionLoading ? <LoadingSpinner className="w-4 h-4" /> : 'Completar'}
+                                </Button>
+                            </>
+                        )}
+                        
+                        {(compra.estado === EstadoCompraEnum.pendiente || compra.estado === EstadoCompraEnum.completada) && (
+                            <Button 
+                                onClick={handleAnularCompra}
+                                variant="danger"
+                                disabled={actionLoading}
+                            >
+                                {actionLoading ? <LoadingSpinner className="w-4 h-4" /> : 'Anular'}
+                            </Button>
+                        )}
+                    </div>
+                )}
             </div>
+
+            <DetalleCompraModal
+                compra={compra}
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+            />
         </div>
     );
 };

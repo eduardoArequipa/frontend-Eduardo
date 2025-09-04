@@ -23,3 +23,21 @@ export interface IRolNestedSimple {
     rol_id: number;
     nombre_rol: string;
 }
+
+/**
+ * Interfaz para crear un nuevo rol.
+ */
+export interface IRolCreate {
+    nombre_rol: string;
+    descripcion?: string;
+    estado?: EstadoEnum;
+}
+
+/**
+ * Interfaz para actualizar un rol existente.
+ */
+export interface IRolUpdate {
+    nombre_rol?: string;
+    descripcion?: string;
+    estado?: EstadoEnum;
+}

@@ -58,7 +58,7 @@ const ProductosListPage: React.FC = () => {
                  ...(search && { search }),
                  ...(estadoFilter && { estado: estadoFilter }),
                  ...(categoriaFilter !== '' && { categoria: categoriaFilter }),
-                 ...(unidadMedidaFilter !== '' && { unidad_medida: unidadMedidaFilter }),
+                 ...(unidadMedidaFilter !== '' && { unidad_inventario: unidadMedidaFilter }),
                  ...(marcaFilter !== '' && { marca: marcaFilter }),
                  skip: (currentPage - 1) * itemsPerPage,
                  limit: itemsPerPage,
@@ -315,6 +315,8 @@ const ProductosListPage: React.FC = () => {
                 title={`Confirmar ${actionToConfirm === 'activate' ? 'Activación' : 'Desactivación'}`}
                 confirmButtonText={actionToConfirm === 'activate' ? 'Sí, Activar' : 'Sí, Desactivar'}
                 confirmButtonVariant={actionToConfirm === 'activate' ? 'success' : 'danger'}
+                showConfirmButton={true}
+
             >
                 {productToConfirm && (
                     <p>

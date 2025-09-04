@@ -6,21 +6,9 @@ import { EstadoEnum } from '../types/enums';
 export interface GetProductosParams {
     estado?: EstadoEnum;
     search?: string; 
-    categoria_id?: number; 
-    unidad_medida_id?: number; 
-    marca_id?: number; 
-    min_stock?: number; 
-    skip?: number; // Añadido para paginación
-    limit?: number; // Añadido para paginación
-}
-
-
-export interface GetProductosParams {
-    estado?: EstadoEnum;
-    search?: string; 
-    categoria_id?: number; 
-    unidad_inventario_id?: number; // Renombrado
-    marca_id?: number; 
+    categoria?: number; // Para el frontend será 'categoria'
+    unidad_inventario?: number; // Para el frontend será 'unidad_inventario'
+    marca?: number; // Para el frontend será 'marca'
     min_stock?: number; 
     skip?: number;
     limit?: number;

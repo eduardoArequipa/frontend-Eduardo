@@ -76,30 +76,9 @@ const handleSaveChanges = async () => {
     setIsSaving(true);
     setError(null);
     try {
-        // 1. Enviar la petición PUT para guardar los cambios
         await updateMenusForRole(role.rol_id, Array.from(selectedMenuIds));
-        
-        // 2. Si el guardado fue exitoso, hacer una nueva petición GET para obtener los datos actualizados
         const updatedRoleData = await getRoleById(role.rol_id);
         
-        // --- INICIO: CÓDIGO DE DEPURACIÓN MEJORADO ---
-        console.log("Datos del rol actualizados recibidos del GET:", updatedRoleData);
-        
-        // Validar que updatedRoleData existe
-        if (!updatedRoleData) {
-            console.error("updatedRoleData es null o undefined");
-            throw new Error("No se recibieron datos del servidor.");
-        }
-        
-        // Manejar el caso donde menus no existe o no es un array
-        if (!updatedRoleData.menus || !Array.isArray(updatedRoleData.menus)) {
-            console.warn("updatedRoleData.menus no existe o no es un array. Usando array vacío.");
-            // Asignar array vacío si menus no existe
-            updatedRoleData.menus = [];
-        }
-        // --- FIN: CÓDIGO DE DEPURACIÓN ---
-        
-        // 3. Actualizar el estado del componente con los datos frescos
         setRole(updatedRoleData);
         setSelectedMenuIds(new Set(updatedRoleData.menus.map(menu => menu.menu_id)));
         
@@ -122,7 +101,7 @@ const handleSaveChanges = async () => {
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-gray-100">
-                Gestionar Permisos para el Rol: <span className='text-indigo-600 dark:text-indigo-400'>{role?.nombre_rol}</span>
+                Asignar permisos para el Rol: <span className='text-indigo-600 dark:text-indigo-400'>{role?.nombre_rol}</span>
             </h1>
             <p className="mb-6 text-gray-600 dark:text-gray-400">Selecciona los módulos a los que este rol tendrá acceso.</p>
 

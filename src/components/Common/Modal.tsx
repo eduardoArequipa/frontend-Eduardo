@@ -61,9 +61,9 @@ const Modal: React.FC<ModalProps> = ({
 
       <div
         ref={modalRef}
-        className={`relative bg-white dark:bg-gray-800 rounded-lg shadow-xl transform transition-all sm:w-full ${widthClass}`}
+        className={`relative bg-white dark:bg-gray-800 rounded-lg shadow-xl transform transition-all sm:w-full ${widthClass} max-h-[90vh] flex flex-col`}
       >
-        <div className="flex justify-between items-center p-5 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center p-5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
           <button
             type="button"
@@ -77,12 +77,12 @@ const Modal: React.FC<ModalProps> = ({
           </button>
         </div>
 
-        <div className="p-6 text-gray-800 dark:text-gray-200">
+        <div className="p-6 text-gray-800 dark:text-gray-200 overflow-y-auto flex-grow">
           {children}
         </div>
 
         {(showConfirmButton || showCancelButton) && (
-          <div className="flex justify-end p-4 border-t border-gray-200 dark:border-gray-700 space-x-3">
+          <div className="flex justify-end p-4 border-t border-gray-200 dark:border-gray-700 space-x-3 flex-shrink-0">
             {showCancelButton && (
               <Button
                 type="button"
