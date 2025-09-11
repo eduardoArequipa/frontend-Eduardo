@@ -38,7 +38,14 @@ const ComprasFormPage: React.FC = () => {
 
   // Get data from contexts
   const { proveedores, isLoading: isLoadingProveedores ,refetchProveedores} = useCompraContext();
-  const { productos, conversiones: allConversions, isLoading: isLoadingCatalogs, refetchCatalogs } = useCatalogs();
+  const { 
+    productos, 
+    conversiones: allConversions, 
+    isLoading: isLoadingCatalogs, 
+    ensureProductos, 
+    ensureConversiones,
+    notifyProductoCreated
+  } = useCatalogs();
   const { addNotification } = useNotification();
 
   // Form state
@@ -69,8 +76,9 @@ const ComprasFormPage: React.FC = () => {
   }, [productos, productoSearchTerm]);
     useEffect(() => {
         refetchProveedores();
-        refetchCatalogs();
-    }, [refetchProveedores, refetchCatalogs]); // Ambas funciones son dependencias
+        ensureProductos();
+        ensureConversiones();
+    }, [refetchProveedores, ensureProductos, ensureConversiones]);
 
   useEffect(() => {
     setDetallesCompra(prevDetalles => {
@@ -155,7 +163,7 @@ const ComprasFormPage: React.FC = () => {
         );
 
         let defaultPresentationName: string | undefined;
-        let initialPricePerPresentation = producto.precio_compra || 0;
+        let initialPricePerPresentation = parseFloat(String(producto.precio_compra)) || 0;
 
         if (producto.unidad_compra_predeterminada) {
           defaultPresentationName = producto.unidad_compra_predeterminada;
@@ -168,7 +176,8 @@ const ComprasFormPage: React.FC = () => {
             c => c.nombre_presentacion === defaultPresentationName
           );
           if (selectedConversion) {
-            initialPricePerPresentation = (producto.precio_compra || 0) * selectedConversion.unidades_por_presentacion;
+            const precioBase = parseFloat(String(producto.precio_compra)) || 0;
+            initialPricePerPresentation = precioBase * selectedConversion.unidades_por_presentacion;
           }
         }
 
@@ -206,7 +215,8 @@ const ComprasFormPage: React.FC = () => {
         const selectedConversion = purchaseConversions.find(c => c.nombre_presentacion === value);
         let newPrecioUnitario = currentDetalle.precio_unitario;
         if (selectedConversion && producto) {
-          newPrecioUnitario = (producto.precio_compra || 0) * Number(selectedConversion.unidades_por_presentacion);
+          const precioBase = parseFloat(String(producto.precio_compra)) || 0;
+          newPrecioUnitario = precioBase * Number(selectedConversion.unidades_por_presentacion);
         }
         newDetalles[index] = {
           ...currentDetalle,
@@ -296,7 +306,7 @@ const ComprasFormPage: React.FC = () => {
         await createCompra(purchaseData as CompraCreate);
         addNotification("Compra creada exitosamente!", 'success');
       }
-      refetchCatalogs();
+      // Los productos ya se actualizaron automáticamente con el stock
       setTimeout(() => navigate("/compras"), 1500);
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || err.message || "Ocurrió un error al guardar la compra.";
@@ -311,9 +321,9 @@ const ComprasFormPage: React.FC = () => {
 
   const handleProductFormSuccess = async (newProduct: Producto) => {
     try {
-      // 1. Refresca los catálogos para obtener todos los datos nuevos (incluyendo conversiones)
-      await refetchCatalogs();
-      // 2. Agrega el producto recién creado al carrito
+      // 🚀 OPTIMIZACIÓN: Notificar producto creado sin recargar todo
+      notifyProductoCreated(newProduct);
+      // Agregar el producto recién creado al carrito
       addOrUpdateProductInCart(newProduct.producto_id);
       addNotification("Producto creado y añadido al carrito exitosamente!", "success");
     } catch (error) {

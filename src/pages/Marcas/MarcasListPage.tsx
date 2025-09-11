@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { getMarcas, deleteMarca, activateMarca } from '../../services/marcaService';
 import { Marca } from '../../types/marca';
 import { EstadoEnum } from '../../types/enums';
-import { useCatalogs } from '../../context/CatalogContext'; // LÓGICA AÑADIDA
+// Ya no necesitamos useCatalogs aquí
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
@@ -25,7 +25,7 @@ const MarcasListPage: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [editingMarca, setEditingMarca] = useState<Marca | null>(null);
 
-    const { refetchCatalogs } = useCatalogs(); // LÓGICA AÑADIDA
+    // Ya no necesitamos invalidateMarcas porque MarcaForm notifica directamente
 
     const fetchMarcas = async () => {
         setLoading(true);
@@ -58,8 +58,7 @@ const MarcasListPage: React.FC = () => {
         if (window.confirm(`¿Estás seguro de desactivar la marca "${nombreMarca}"?`)) {
             try {
                 await deleteMarca(id);
-                fetchMarcas();
-                refetchCatalogs(); // LÓGICA AÑADIDA
+                fetchMarcas(); // Solo recargar la lista local
                 alert(`Marca "${nombreMarca}" desactivada con éxito!`);
             } catch (err: any) {
                 alert(`Error al desactivar: ${err.response?.data?.detail || err.message}`);
@@ -71,8 +70,7 @@ const MarcasListPage: React.FC = () => {
         if (window.confirm(`¿Estás seguro de activar la marca "${nombreMarca}"?`)) {
             try {
                 await activateMarca(id);
-                fetchMarcas();
-                refetchCatalogs(); // LÓGICA AÑADIDA
+                fetchMarcas(); // Solo recargar la lista local
                 alert(`Marca "${nombreMarca}" activada con éxito!`);
             } catch (err: any) {
                 alert(`Error al activar: ${err.response?.data?.detail || err.message}`);
@@ -84,8 +82,8 @@ const MarcasListPage: React.FC = () => {
     const handleCloseAddModal = () => setIsAddModalOpen(false);
     const handleAddSuccess = () => {
         handleCloseAddModal();
-        fetchMarcas();
-        refetchCatalogs(); // LÓGICA AÑADIDA
+        fetchMarcas(); // Solo recargar la lista local para paginación
+        // No necesitamos invalidar porque MarcaForm ya notifica al cache global
     };
 
     const handleOpenEditModal = (marca: Marca) => {
@@ -98,8 +96,8 @@ const MarcasListPage: React.FC = () => {
     };
     const handleEditSuccess = () => {
         handleCloseEditModal();
-        fetchMarcas();
-        refetchCatalogs(); // LÓGICA AÑADIDA
+        fetchMarcas(); // Solo recargar la lista local para paginación
+        // No necesitamos invalidar porque MarcaForm ya notifica al cache global
     };
 
     const columns = useMemo(() => {

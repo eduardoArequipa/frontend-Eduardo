@@ -4,12 +4,15 @@ import { useForm } from "react-hook-form";
 import { getProductoById, createProducto, updateProducto, createConversion, updateConversion, deleteConversion } from "../../services/productoService";
 import { uploadImage } from "../../services/uploadService";
 import { ProductoCreate, ProductoUpdate, Conversion, ConversionCreate, Producto } from "../../types/producto";
+import { TipoMargenEnum } from "../../types/enums";
 import { useCatalogs } from "../../context/CatalogContext";
 import Input from "../Common/Input";
 import Button from "../Common/Button";
 import LoadingSpinner from "../Common/LoadingSpinner";
 import Select from "../Common/Select";
 import ErrorMessage from "../Common/ErrorMessage";
+import MargenConfigForm from "./MargenConfigForm";
+import ConversionesManager from "./ConversionesManager";
 import { useTheme } from "../../context/ThemeContext";
 import { useNotification } from "../../context/NotificationContext";
 
@@ -21,7 +24,11 @@ interface ProductoFormProps {
   onCancel: () => void;
 }
 
-type FormData = Omit<ProductoCreate, 'imagen_ruta'>;
+type FormData = Omit<ProductoCreate, 'imagen_ruta'> & {
+  tipo_margen: TipoMargenEnum;
+  margen_valor: string; // String para precisión decimal
+  precio_manual_activo: boolean;
+};
 
 type LocalConversion = Omit<Conversion, 'producto_id'> & { tempId?: number };
 
@@ -32,6 +39,9 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
     categorias: availableCategorias,
     unidadesMedida: availableUnidadesMedida,
     marcas: availableMarcas,
+    ensureCategorias,
+    ensureMarcas,
+    invalidateConversiones
   } = useCatalogs();
 
   const isEditing = !!productoId;
@@ -45,41 +55,35 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
 
   const unidadInventarioId = watch('unidad_inventario_id');
   const selectedUnidadInventario = availableUnidadesMedida.find(u => u.unidad_id === unidadInventarioId);
-  const unidadInventarioNombre = selectedUnidadInventario?.nombre_unidad;
 
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
 
   const [conversions, setConversions] = useState<LocalConversion[]>([]);
-  const [newConversion, setNewConversion] = useState({ nombre_presentacion: '', unidades_por_presentacion: '', es_para_compra: false, es_para_venta: false, rollsPerBox: '', metersPerRoll: '' });
-  const [editingConversionId, setEditingConversionId] = useState<number | null | undefined>(null);
-  const [editingTempId, setEditingTempId] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Establecer valores por defecto para nuevos productos
   useEffect(() => {
-    const calculateUnits = () => {
-      const rolls = parseFloat(newConversion.rollsPerBox);
-      const meters = parseFloat(newConversion.metersPerRoll);
+    if (!isEditing) {
+      setValue("tipo_margen", TipoMargenEnum.Porcentaje);
+      setValue("margen_valor", "30.00");
+      setValue("precio_manual_activo", false);
+      setValue("precio_compra", "0.00");
+      setValue("precio_venta", "0.00");
+      setValue("stock", 0);
+      setValue("stock_minimo", 0);
+    }
+  }, [isEditing, setValue]);
 
-      if (!isNaN(rolls) && !isNaN(meters) && rolls > 0 && meters > 0) {
-        setNewConversion(prev => ({
-          ...prev,
-          unidades_por_presentacion: (rolls * meters).toString()
-        }));
-      } else if (!isNaN(parseFloat(newConversion.unidades_por_presentacion))) {
-        setNewConversion(prev => ({
-          ...prev,
-          rollsPerBox: '',
-          metersPerRoll: ''
-        }));
-      }
-    };
-
-    calculateUnits();
-  }, [newConversion.rollsPerBox, newConversion.metersPerRoll]);
+  // ⚡ CARGA OPTIMIZADA - Asegurar que categorías y marcas estén cargadas para el ProductoForm
+  useEffect(() => {
+    console.log("📝 ProductoForm: Asegurando que categorías y marcas estén cargadas");
+    ensureCategorias();
+    ensureMarcas();
+  }, [ensureCategorias, ensureMarcas]);
 
   useEffect(() => {
     const loadEditData = async () => {
@@ -89,14 +93,18 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           const data = await getProductoById(productoId);
           setValue("codigo", data.codigo);
           setValue("nombre", data.nombre);
-          setValue("precio_compra", parseFloat(data.precio_compra.toString()));
-          setValue("precio_venta", parseFloat(data.precio_venta.toString()));
-          setValue("stock", parseFloat(data.stock.toString()));
-          setValue("stock_minimo", parseFloat(data.stock_minimo.toString()));
+          setValue("precio_compra", data.precio_compra.toString());
+          setValue("precio_venta", data.precio_venta.toString());
+          setValue("stock", parseInt(data.stock.toString()));
+          setValue("stock_minimo", data.stock_minimo);
           setValue("categoria_id", data.categoria.categoria_id);
           setValue("unidad_inventario_id", data.unidad_inventario?.unidad_id);
           setValue("marca_id", data.marca?.marca_id);
           setValue("unidad_compra_predeterminada", data.unidad_compra_predeterminada || '');
+          // Nuevos campos de margen
+          setValue("tipo_margen", data.tipo_margen || TipoMargenEnum.Porcentaje);
+          setValue("margen_valor", data.margen_valor?.toString() || '30.00');
+          setValue("precio_manual_activo", data.precio_manual_activo || false);
           setConversions(data.conversiones || []);
 
           setExistingImageUrl(
@@ -129,91 +137,6 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
     if (fileInput) fileInput.value = "";
   };
 
-  const resetConversionForm = () => {
-    setNewConversion({ nombre_presentacion: '', unidades_por_presentacion: '', es_para_compra: false, es_para_venta: false, rollsPerBox: '', metersPerRoll: '' });
-    setEditingConversionId(null);
-    setEditingTempId(null);
-  };
-
-  const handleAddOrUpdateConversion = async () => {
-    if (!newConversion.nombre_presentacion || !newConversion.unidades_por_presentacion) {
-      addNotification("Por favor, complete los campos de la presentación.", 'warning');
-      return;
-    }
-
-    const conversionData: ConversionCreate = {
-      nombre_presentacion: newConversion.nombre_presentacion,
-      unidades_por_presentacion: parseFloat(newConversion.unidades_por_presentacion),
-      es_para_compra: newConversion.es_para_compra,
-      es_para_venta: newConversion.es_para_venta,
-    };
-
-    if (isEditing && productoId) {
-      try {
-        let resultConversion: Conversion;
-        if (editingConversionId) {
-          resultConversion = await updateConversion(editingConversionId, conversionData);
-          setConversions(conversions.map(c => c.id === editingConversionId ? resultConversion : c));
-          addNotification("Presentación actualizada con éxito!", 'success');
-        } else {
-          resultConversion = await createConversion(productoId, conversionData);
-          setConversions([...conversions, resultConversion]);
-          addNotification("Presentación añadida con éxito!", 'success');
-        }
-        resetConversionForm();
-      } catch (err: any) {
-        addNotification(`Error al guardar presentación: ${err.response?.data?.detail || err.message}`, 'error');
-      }
-    } else {
-      if (editingTempId) {
-        setConversions(conversions.map(c => c.tempId === editingTempId ? { ...c, ...conversionData } : c));
-      } else {
-        const newLocalConversion: LocalConversion = {
-          ...conversionData,
-          id: 0,
-          tempId: Date.now()
-        };
-        setConversions([...conversions, newLocalConversion]);
-      }
-      resetConversionForm();
-    }
-  };
-
-  const handleEditConversion = (conversion: LocalConversion) => {
-    setNewConversion({
-      nombre_presentacion: conversion.nombre_presentacion,
-      unidades_por_presentacion: conversion.unidades_por_presentacion.toString(),
-      es_para_compra: conversion.es_para_compra,
-      es_para_venta: conversion.es_para_venta,
-      rollsPerBox: '',
-      metersPerRoll: '',
-    });
-    if (isEditing) {
-      setEditingConversionId(conversion.id);
-    } else {
-      setEditingTempId(conversion.tempId || null);
-    }
-  };
-
-  const handleCancelEditConversion = () => {
-    resetConversionForm();
-  };
-  const handleDeleteConversion = async (conversion: LocalConversion) => {
-    if (window.confirm("¿Está seguro de que desea eliminar esta presentación?")) {
-      if (isEditing && conversion.id) {
-        try {
-          await deleteConversion(conversion.id);
-          setConversions(conversions.filter(c => c.id !== conversion.id));
-          addNotification("Presentación eliminada con éxito!", 'success');
-        } catch (err: any) {
-          addNotification(`Error al eliminar presentación: ${err.response?.data?.detail || err.message}`, 'error');
-        }
-      } else {
-        setConversions(conversions.filter(c => c.tempId !== conversion.tempId));
-      }
-    }
-  };
-
   const onSubmit = async (formData: FormData) => {
     setLoading(true);
 
@@ -242,6 +165,11 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
     try {
       if (isEditing && productoId) {
         await updateProducto(productoId, dataToSend as ProductoUpdate);
+        
+        // 🔄 INVALIDAR CONVERSIONES - Las presentaciones pueden haber cambiado
+        console.log("🔄 Producto actualizado, refrescando conversiones...");
+        await invalidateConversiones();
+        
         const productoActualizado = await getProductoById(productoId);
         addNotification("Producto actualizado con éxito!", 'success');
         await onSuccess(productoActualizado);
@@ -256,6 +184,11 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           };
           await createConversion(newProduct.producto_id, conversionData);
         }
+        
+        // 🔄 INVALIDAR CONVERSIONES - Se crearon nuevas presentaciones
+        console.log("🔄 Producto creado con conversiones, refrescando cache...");
+        await invalidateConversiones();
+        
         addNotification("Producto y sus presentaciones creados con éxito!", 'success');
         const finalProduct = await getProductoById(newProduct.producto_id);
         await onSuccess(finalProduct);
@@ -311,69 +244,125 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           {errors.nombre && <span className="text-red-500 text-xs">{errors.nombre.message}</span>}
         </div>
 
-        <div>
-          <label htmlFor="precio_compra" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Precio de Compra</label>
-          <Input
-            id="precio_compra"
-            type="number"
-            step="0.01"
+      </div>
+
+      {/* Configuración de márgenes y precios - Solo mostrar en modo edición */}
+      {isEditing && (
+        <div className="col-span-1 md:col-span-2 mt-6">
+          <MargenConfigForm
+            precio_compra={watch('precio_compra') || '0.00'}
+            tipo_margen={watch('tipo_margen') || TipoMargenEnum.Porcentaje}
+            margen_valor={watch('margen_valor') || '30.00'}
+            precio_manual_activo={watch('precio_manual_activo') || false}
+            precio_venta={watch('precio_venta') || '0.00'}
+            onChange={(field, value) => setValue(field as keyof FormData, value)}
+            onPrecioVentaChange={(precio) => setValue('precio_venta', precio)}
+            disabled={loading}
+          />
+          
+          {/* Campos ocultos para validación de react-hook-form */}
+          <input
+            type="hidden"
             {...register("precio_compra", {
-              required: "El precio de compra es requerido",
-              valueAsNumber: true,
-              min: { value: 0, message: "El precio no puede ser negativo" }
+              required: "El precio de compra es requerido"
             })}
-            className={`mt-1 block w-full ${errors.precio_compra ? 'border-red-500' : 'border-gray-400'}`}
           />
-          {errors.precio_compra && <span className="text-red-500 text-xs">{errors.precio_compra.message}</span>}
-        </div>
-
-        <div>
-          <label htmlFor="precio_venta" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Precio de Venta</label>
-          <Input
-            id="precio_venta"
-            type="number"
-            step="0.01"
+          <input
+            type="hidden"
             {...register("precio_venta", {
-              required: "El precio de venta es requerido",
-              valueAsNumber: true,
-              min: { value: 0, message: "El precio no puede ser negativo" }
+              required: "El precio de venta es requerido"
             })}
-            className={`mt-1 block w-full ${errors.precio_venta ? 'border-red-500' : 'border-gray-400'}`}
           />
-          {errors.precio_venta && <span className="text-red-500 text-xs">{errors.precio_venta.message}</span>}
+          <input
+            type="hidden"
+            {...register("tipo_margen", { required: true })}
+          />
+          <input
+            type="hidden"
+            {...register("margen_valor", { 
+              required: true
+            })}
+          />
+          <input
+            type="hidden"
+            {...register("precio_manual_activo")}
+          />
+          
+          {/* Mostrar errores de validación */}
+          {errors.precio_compra && <div className="text-red-500 text-sm mt-2">{errors.precio_compra.message}</div>}
+          {errors.precio_venta && <div className="text-red-500 text-sm mt-2">{errors.precio_venta.message}</div>}
+          {errors.margen_valor && <div className="text-red-500 text-sm mt-2">{errors.margen_valor.message}</div>}
         </div>
+      )}
 
-        <div>
-          <label htmlFor="stock_minimo" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Stock Mínimo</label>
-          <Input
-            id="stock_minimo"
-            type="number"
-            step="1"
-            {...register("stock_minimo", {
-              required: "El stock mínimo es requerido",
-              valueAsNumber: true,
-              min: { value: 0, message: "El stock no puede ser negativo" }
-            })}
-            className={`mt-1 block w-full ${errors.stock_minimo ? 'border-red-500' : 'border-gray-400'}`}
-          />
-          {errors.stock_minimo && <span className="text-red-500 text-xs">{errors.stock_minimo.message}</span>}
-        </div>
+      {/* Campos ocultos para modo creación */}
+      {!isEditing && (
+        <>
+          <input type="hidden" {...register("precio_compra")} />
+          <input type="hidden" {...register("precio_venta")} />
+          <input type="hidden" {...register("stock", { valueAsNumber: true })} />
+          <input type="hidden" {...register("stock_minimo", { valueAsNumber: true })} />
+          <input type="hidden" {...register("tipo_margen")} />
+          <input type="hidden" {...register("margen_valor")} />
+          <input type="hidden" {...register("precio_manual_activo")} />
+        </>
+      )}
 
-        <div>
-          <label htmlFor="stock" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Stock Actual</label>
-          <Input
-            id="stock"
-            type="number"
-            step="0.01"
-            {...register("stock", {
-              required: "El stock actual es requerido",
-              valueAsNumber: true,
-              min: { value: 0, message: "El stock no puede ser negativo" }
-            })}
-            className={`mt-1 block w-full ${errors.stock ? 'border-red-500' : 'border-gray-400'}`}
-          />
-          {errors.stock && <span className="text-red-500 text-xs">{errors.stock.message}</span>}
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* Campos de stock - Solo mostrar en modo edición */}
+        {isEditing && (
+          <>
+            <div>
+              <label htmlFor="stock_minimo" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Stock Mínimo</label>
+              <Input
+                id="stock_minimo"
+                type="number"
+                step="1"
+                {...register("stock_minimo", {
+                  required: "El stock mínimo es requerido",
+                  valueAsNumber: true,
+                  min: { value: 0, message: "El stock no puede ser negativo" }
+                })}
+                className={`mt-1 block w-full ${errors.stock_minimo ? 'border-red-500' : 'border-gray-400'}`}
+              />
+              {errors.stock_minimo && <span className="text-red-500 text-xs">{errors.stock_minimo.message}</span>}
+            </div>
+
+            <div>
+              <label htmlFor="stock" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Stock Actual</label>
+              <Input
+                id="stock"
+                type="number"
+                step="0"
+                {...register("stock", {
+                  required: "El stock actual es requerido",
+                  valueAsNumber: true,
+                  min: { value: 0, message: "El stock no puede ser negativo" }
+                })}
+                className={`mt-1 block w-full ${errors.stock ? 'border-red-500' : 'border-gray-400'}`}
+              />
+              {errors.stock && <span className="text-red-500 text-xs">{errors.stock.message}</span>}
+            </div>
+          </>
+        )}
+
+        {/* Configuración básica de márgenes en modo creación */}
+        {!isEditing && (
+          <div className="md:col-span-2">
+            <MargenConfigForm
+              precio_compra="0.00"
+              tipo_margen={watch('tipo_margen') || TipoMargenEnum.Porcentaje}
+              margen_valor={watch('margen_valor') || '30.00'}
+              precio_manual_activo={false}
+              precio_venta="0.00"
+              onChange={(field, value) => setValue(field as keyof FormData, value)}
+              onPrecioVentaChange={() => {}} // No-op en modo creación
+              disabled={loading}
+              isCreationMode={true}
+            />
+          </div>
+        )}
 
         <div>
           <label htmlFor="categoria_id" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Categoría</label>
@@ -470,86 +459,30 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
       </div>
 
       <div className="md:col-span-2 mt-6 pt-6 border-t border-gray-300 dark:border-gray-700">
-        <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">Presentaciones de Compra/Venta</h3>
-        <div className="space-y-4">
-          {conversions.map(conv => (
-            <div key={conv.id || conv.tempId} className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded">
-              <span className="text-gray-800 dark:text-gray-200">{conv.nombre_presentacion} = {conv.unidades_por_presentacion} Unidades</span>
-              <div className="flex text-xs space-x-2">
-                {conv.es_para_compra && <span className="px-2 py-1 bg-blue-200 text-blue-800 rounded-full">Compra</span>}
-                {conv.es_para_venta && <span className="px-2 py-1 bg-green-200 text-green-800 rounded-full">Venta</span>}
-              </div>
-              <div className="flex space-x-2">
-                <Button type="button" onClick={() => handleEditConversion(conv)} variant="secondary" size="sm">Editar</Button>
-                <Button type="button" onClick={() => handleDeleteConversion(conv)} variant="danger" size="sm">Eliminar</Button>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div>
-            <label className="text-sm text-gray-700 dark:text-gray-300">Nombre Presentación</label>
-            <Select
-              value={newConversion.nombre_presentacion}
-              onChange={e => setNewConversion({ ...newConversion, nombre_presentacion: e.target.value })}
-              options={[
-                { value: '', label: '-- Seleccionar --' },
-                { value: 'Caja', label: 'Caja' },
-                { value: 'Rollo', label: 'Rollo' },
-                { value: 'Blíster', label: 'Blíster' },
-              ]}
-
-            />
-          </div>
-          <div>
-            <label className="text-sm text-gray-700 dark:text-gray-300">Unidades por Presentación (Total)</label>
-            <Input type="number" value={newConversion.unidades_por_presentacion} onChange={e => setNewConversion({ ...newConversion, unidades_por_presentacion: e.target.value })} placeholder="Ej: 24" />
-          </div>
-          {(unidadInventarioNombre === 'Metro' && (newConversion.nombre_presentacion.toLowerCase().includes('caja') || newConversion.nombre_presentacion.toLowerCase().includes('rollo'))) && (
-            <>
-              <div>
-                <label className="text-sm text-gray-700 dark:text-gray-300">Rollos por Caja</label>
-                <Input type="number" value={newConversion.rollsPerBox} onChange={e => setNewConversion({ ...newConversion, rollsPerBox: e.target.value })} placeholder="Ej: 50" />
-              </div>
-              <div>
-                <label className="text-sm text-gray-700 dark:text-gray-300">Metros por Rollo</label>
-                <Input type="number" value={newConversion.metersPerRoll} onChange={e => setNewConversion({ ...newConversion, metersPerRoll: e.target.value })} placeholder="Ej: 10" />
-              </div>
-            </>
-          )}
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center">
-              <input
-                id="es_para_compra"
-                type="checkbox"
-                checked={newConversion.es_para_compra}
-                onChange={e => setNewConversion({ ...newConversion, es_para_compra: e.target.checked })}
-                className="form-checkbox h-5 w-5 text-blue-600"
-              />
-              <label htmlFor="es_para_compra" className="ml-2 text-sm text-gray-700 dark:text-gray-300">Para Compra</label>
-            </div>
-            <div className="flex items-center">
-              <input
-                id="es_para_venta"
-                type="checkbox"
-                checked={newConversion.es_para_venta}
-                onChange={e => setNewConversion({ ...newConversion, es_para_venta: e.target.checked })}
-                className="form-checkbox h-5 w-5 text-green-600"
-              />
-              <label htmlFor="es_para_venta" className="ml-2 text-sm text-gray-700 dark:text-gray-300">Para Venta</label>
-            </div>
-          </div>
-          <div className="md:col-span-3 flex justify-end space-x-2">
-            {(editingConversionId || editingTempId) ? (
-              <>
-                <Button type="button" onClick={handleAddOrUpdateConversion} variant="primary">Guardar Cambios</Button>
-                <Button type="button" onClick={handleCancelEditConversion} variant="secondary">Cancelar</Button>
-              </>
-            ) : (
-              <Button type="button" onClick={handleAddOrUpdateConversion} variant="secondary">Añadir</Button>
-            )}
-          </div>
-        </div>
+        <ConversionesManager
+          conversiones={conversions}
+          unidadInventarioNombre={selectedUnidadInventario?.nombre_unidad}
+          onAddConversion={isEditing ? 
+            async (conversion) => {
+              const result = await createConversion(productoId!, conversion);
+              setConversions([...conversions, result]);
+            } : 
+            async (conversion) => {
+              const newConversion = { ...conversion, id: 0, tempId: Date.now() };
+              setConversions([...conversions, newConversion as LocalConversion]);
+            }
+          }
+          onUpdateConversion={async (id, conversion) => {
+            const result = await updateConversion(id, conversion);
+            setConversions(conversions.map(c => c.id === id ? result : c));
+          }}
+          onDeleteConversion={async (id) => {
+            await deleteConversion(id);
+            setConversions(conversions.filter(c => c.id !== id));
+          }}
+          disabled={loading}
+          isCreationMode={!isEditing}
+        />
       </div>
 
       <div className="md:col-span-2 flex justify-end space-x-4 mt-6">

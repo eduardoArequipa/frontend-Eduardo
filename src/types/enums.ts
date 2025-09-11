@@ -19,3 +19,8 @@ export enum EstadoVentaEnum {
   completada = "completada",
   anulada = "anulada",
 }
+
+export enum TipoMargenEnum {
+  Porcentaje = "porcentaje",
+  Fijo = "fijo",
+}

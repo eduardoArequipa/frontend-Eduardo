@@ -8,14 +8,17 @@ import LoadingSpinner from '../Common/LoadingSpinner';
 import ErrorMessage from '../Common/ErrorMessage';
 import { EstadoEnum } from '../../types/enums';
 import Select from '../Common/Select';
+import { useCatalogs } from '../../context/CatalogContext';
 
 interface MarcaFormProps {
     marcaId?: number; // Opcional, si estamos editando una marca existente
-    onSuccess: () => void;
+    onSuccess: (marca?: any) => void; // Cambiar para recibir la marca creada/editada
     onCancel: () => void;
 }
 
 const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) => {
+    const { notifyMarcaCreated } = useCatalogs();
+    
     const [formData, setFormData] = useState<MarcaCreate>({
         nombre_marca: '',
         descripcion: '',
@@ -64,11 +67,17 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
         setError(null);
         try {
             if (marcaId) {
-                await updateMarca(marcaId, {...formData, estado});
+                const marcaActualizada = await updateMarca(marcaId, {...formData, estado});
+                onSuccess(marcaActualizada); // Pasar la marca actualizada
             } else {
-                await createMarca(formData);
+                const nuevaMarca = await createMarca(formData);
+                
+                // 🚀 OPTIMIZACIÓN: Notificar a otros módulos sin recargar todo
+                console.log('🏷️ Nueva marca creada, notificando a cache:', nuevaMarca.nombre_marca);
+                notifyMarcaCreated(nuevaMarca);
+                
+                onSuccess(nuevaMarca); // Pasar la nueva marca
             }
-            onSuccess();
         } catch (err: any) {
             setError(err.response?.data?.detail || "Error al guardar la marca.");
         } finally {

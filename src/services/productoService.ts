@@ -1,6 +1,6 @@
 // src/services/productoService.ts
 import axiosInstance from '../api/axiosInstance';
-import { Producto, ProductoCreate, ProductoUpdate, ProductoPagination,  Conversion,  ConversionCreate } from '../types/producto';
+import { Producto, ProductoCreate, ProductoUpdate, ProductoPagination,  Conversion,  ConversionCreate, PrecioSugeridoRequest, PrecioSugeridoResponse } from '../types/producto';
 import { EstadoEnum } from '../types/enums';
 
 export interface GetProductosParams {
@@ -86,6 +86,17 @@ export const getLowStockProducts = async (): Promise<Producto[]> => {
         return response.data;
     } catch (error) {
         console.error('Error fetching low stock products:', error);
+        throw error;
+    }
+};
+
+// Servicio para calcular precio sugerido
+export const calcularPrecioSugerido = async (request: PrecioSugeridoRequest): Promise<PrecioSugeridoResponse> => {
+    try {
+        const response = await axiosInstance.post('/productos/calcular-precio-sugerido', request);
+        return response.data;
+    } catch (error) {
+        console.error('Error calculando precio sugerido:', error);
         throw error;
     }
 };

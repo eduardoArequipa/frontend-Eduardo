@@ -29,7 +29,7 @@ const ComprasListPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const [estadoFilter, setEstadoFilter] = useState<EstadoCompraEnum | ''>(EstadoCompraEnum.pendiente);
+    const [estadoFilter, setEstadoFilter] = useState<EstadoCompraEnum | ''>();
     const [proveedorFilter, setProveedorFilter] = useState<number | ''>('');
     const [fechaDesdeFilter, setFechaDesdeFilter] = useState<string>('');
     const [fechaHastaFilter, setFechaHastaFilter] = useState<string>('');

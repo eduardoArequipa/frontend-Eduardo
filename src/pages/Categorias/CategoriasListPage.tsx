@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { getCategorias, deleteCategoria, activateCategoria } from '../../services/categoriaService';
 import { Categoria, CategoriaPagination } from '../../types/categoria';
 import { EstadoEnum } from '../../types/enums';
-import { useCatalogs } from '../../context/CatalogContext';
+// Ya no necesitamos useCatalogs aquí
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
@@ -27,7 +27,7 @@ const CategoriasListPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(null);
 
-    const { refetchCatalogs } = useCatalogs();
+    // Ya no necesitamos invalidateCategorias porque CategoriaForm notifica directamente
 
     const fetchCategorias = async () => { 
         setLoading(true);
@@ -70,16 +70,16 @@ const CategoriasListPage: React.FC = () => {
     };
 
     const handleSuccess = () => {
-        fetchCategorias();
+        fetchCategorias(); // Solo recargar la lista local para paginación
         handleCloseModal();
+        // No necesitamos invalidar porque CategoriaForm ya notifica al cache global
     };
 
     const handleDelete = async (id: number, nombreCategoria: string) => {
         if (window.confirm(`¿Estás seguro de desactivar la categoría "${nombreCategoria}"?`)) {
             try {
                 await deleteCategoria(id);
-                fetchCategorias();
-                refetchCatalogs();
+                fetchCategorias(); // Solo recargar la lista local
                 alert(`Categoría "${nombreCategoria}" desactivada con éxito!`);
             } catch (err: any) {
                  alert(`Error al desactivar la categoría: ${err.response?.data?.detail || err.message}`);
@@ -91,8 +91,7 @@ const CategoriasListPage: React.FC = () => {
          if (window.confirm(`¿Estás seguro de activar la categoría "${nombreCategoria}"?`)) {
              try {
                  await activateCategoria(id); 
-                 fetchCategorias();
-                 refetchCatalogs();
+                 fetchCategorias(); // Solo recargar la lista local
                  alert(`Categoría "${nombreCategoria}" activada con éxito!`);
              } catch (err: any) {
                  alert(`Error al activar la categoría: ${err.response?.data?.detail || err.message}`);

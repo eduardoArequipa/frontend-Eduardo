@@ -10,7 +10,7 @@ import ErrorMessage from '../Common/ErrorMessage';
 
 interface CategoriaFormProps {
     categoriaId?: number;
-    onSuccess: () => void;
+    onSuccess: (categoria?: any) => void; // Cambiar para recibir la categoría creada/editada
     onCancel: () => void;
 }
 
@@ -20,7 +20,7 @@ const CategoriaForm: React.FC<CategoriaFormProps> = ({ categoriaId, onSuccess, o
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const { refetchCatalogs } = useCatalogs();
+    const { notifyCategoriaCreated } = useCatalogs();
 
     useEffect(() => {
         if (isEditing && categoriaId) {
@@ -39,14 +39,19 @@ const CategoriaForm: React.FC<CategoriaFormProps> = ({ categoriaId, onSuccess, o
         setError(null);
         try {
             if (isEditing && categoriaId) {
-                await updateCategoria(categoriaId, data as CategoriaUpdate);
+                const categoriaActualizada = await updateCategoria(categoriaId, data as CategoriaUpdate);
                 alert('Categoría actualizada con éxito');
+                onSuccess(categoriaActualizada); // Pasar la categoría actualizada
             } else {
-                await createCategoria(data);
+                const nuevaCategoria = await createCategoria(data);
                 alert('Categoría creada con éxito');
+                
+                // 🚀 OPTIMIZACIÓN: Notificar a otros módulos sin recargar todo
+                console.log('📋 Nueva categoría creada, notificando a cache:', nuevaCategoria.nombre_categoria);
+                notifyCategoriaCreated(nuevaCategoria);
+                
+                onSuccess(nuevaCategoria); // Pasar la nueva categoría
             }
-            await refetchCatalogs();
-            onSuccess(); // Llamar al callback de éxito
         } catch (err: any) {
             setError(err.response?.data?.detail || 'Error al guardar la categoría');
         } finally {

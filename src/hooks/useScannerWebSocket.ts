@@ -1,12 +1,21 @@
 // src/hooks/useScannerWebSocket.ts
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Producto } from '../types/producto'; // Asegúrate de tener este tipo
+import { Producto } from '../types/producto';
+import { getProductoById } from '../services/productoService';
 
 interface ScannerMessage {
     event: string;
-    type: 'sales_scan' | 'purchase_scan'; // Define los tipos que esperas
-    product?: Producto; // El objeto completo del producto
-    product_code?: string; // Por si acaso, si el backend no siempre envía el objeto completo
+    type: 'sales_scan' | 'purchase_scan';
+    product?: {
+        producto_id: number;
+        codigo: string;
+        nombre: string;
+        precio_venta: number;
+        stock: number;
+        quantity: number;
+        unidad_inventario?: { nombre_unidad: string };
+    }; // Producto básico del WebSocket
+    product_code?: string;
 }
 
 interface UseScannerWebSocketResult {
@@ -14,6 +23,7 @@ interface UseScannerWebSocketResult {
     scannerError: string | null;
     lastScannedProduct: Producto | null;
     lastScannedType: 'sales_scan' | 'purchase_scan' | null;
+    isLoadingProduct: boolean;
 }
 
 const useScannerWebSocket = (): UseScannerWebSocketResult => {
@@ -21,12 +31,38 @@ const useScannerWebSocket = (): UseScannerWebSocketResult => {
     const [scannerError, setScannerError] = useState<string | null>(null);
     const [lastScannedProduct, setLastScannedProduct] = useState<Producto | null>(null);
     const [lastScannedType, setLastScannedType] = useState<'sales_scan' | 'purchase_scan' | null>(null);
+    const [isLoadingProduct, setIsLoadingProduct] = useState<boolean>(false);
 
     const reconnectAttempts = useRef(0);
     const maxReconnectAttempts = 5;
     const reconnectDelay = useRef(1000);
     const websocketRef = useRef<WebSocket | null>(null);
-    const isMounted = useRef(true); // Para evitar actualizaciones de estado en componentes desmontados
+    const isMounted = useRef(true);
+
+    // Nueva función para obtener producto completo
+    const fetchCompleteProduct = useCallback(async (productId: number, productName: string) => {
+        try {
+            setIsLoadingProduct(true);
+            setScannerError(null);
+            console.log(`🔄 Obteniendo producto completo para ID: ${productId}`);
+            
+            const productoCompleto = await getProductoById(productId);
+            
+            if (isMounted.current) {
+                setLastScannedProduct(productoCompleto);
+                console.log(`✅ Producto completo obtenido: ${productoCompleto.nombre}`);
+            }
+        } catch (error) {
+            console.error('❌ Error obteniendo producto completo:', error);
+            if (isMounted.current) {
+                setScannerError(`Error cargando detalles del producto: ${productName}`);
+            }
+        } finally {
+            if (isMounted.current) {
+                setIsLoadingProduct(false);
+            }
+        }
+    }, []);
 
     const connectWebSocket = useCallback(() => {
         if (!isMounted.current) return; // No conectar si el hook ya no está montado
@@ -57,8 +93,19 @@ const useScannerWebSocket = (): UseScannerWebSocketResult => {
             try {
                 const data: ScannerMessage = JSON.parse(event.data);
                 if (data.event === 'product_scanned' && data.product && (data.type === 'sales_scan' || data.type === 'purchase_scan')) {
-                    setLastScannedProduct(data.product);
                     setLastScannedType(data.type);
+                    
+                    // ✅ TEMPORAL: Usar producto básico del WebSocket con validación defensiva
+                    const productFromWS = {
+                        ...data.product,
+                        // Agregar campos faltantes con valores por defecto
+                        unidad_inventario: data.product.unidad_inventario || { nombre_unidad: 'Unidad' },
+                        categoria: { nombre: 'Sin categoría' },
+                        marca: { nombre: 'Sin marca' },
+                        conversiones: []
+                    } as any;
+                    
+                    setLastScannedProduct(productFromWS);
                     setScannerError(null);
                 } else {
                     console.log('WebSocket de escáner: Mensaje ignorado o formato incorrecto:', data);
@@ -93,7 +140,7 @@ const useScannerWebSocket = (): UseScannerWebSocketResult => {
             console.error('WebSocket de escáner: Error en la conexión:', errorEvent);
             setScannerError('Error en la conexión WebSocket. Revisa el servidor backend o la red.');
         };
-    }, []); // Sin dependencias para que solo se cree una vez
+    }, [fetchCompleteProduct]);
 
     useEffect(() => {
         isMounted.current = true;
@@ -113,7 +160,7 @@ const useScannerWebSocket = (): UseScannerWebSocketResult => {
         };
     }, [connectWebSocket]); // Dependencia del useCallback
 
-    return { websocketStatus, scannerError, lastScannedProduct, lastScannedType };
+    return { websocketStatus, scannerError, lastScannedProduct, lastScannedType, isLoadingProduct };
 };
 
 export default useScannerWebSocket;

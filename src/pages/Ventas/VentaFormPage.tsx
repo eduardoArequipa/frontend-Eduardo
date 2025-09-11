@@ -31,12 +31,14 @@ export interface CarritoItem {
     producto_id: number;
     codigo: string;
     nombre: string;
-    cantidad: number;
-    precio_unitario_presentacion: number;
     stock_disponible_base: number;
     unidad_base: string;
-    presentacion_seleccionada: string;
     conversiones: Conversion[];
+    precio_venta_unitario: number; // Precio base en unidad mínima
+    // Objeto que almacena cantidades por presentación
+    cantidades_por_presentacion: {
+        [presentacion: string]: number; // Incluye 'Unidad' y otras presentaciones
+    };
 }
 
 const VentasFormPage: React.FC = () => {
@@ -44,7 +46,14 @@ const VentasFormPage: React.FC = () => {
 
     // Contexts
     const { metodosPago, isLoading: isLoadingVenta, error: errorVenta, refetchData: refetchVentaData } = useVentaContext();
-    const { productos, conversiones: allConversions, isLoading: isLoadingCatalogs, error: errorCatalogs, refetchCatalogs } = useCatalogs();
+    const { 
+        conversiones: allConversions, 
+        isLoading: isLoadingCatalogs, 
+        error: errorCatalogs,
+        ensureProductos,
+        ensureConversiones,
+        notifyProductoCreated
+    } = useCatalogs();
 
     // Estados locales
     const [carrito, setCarrito] = useState<CarritoItem[]>([]);
@@ -60,10 +69,14 @@ const VentasFormPage: React.FC = () => {
     const [isAddProductModalOpen, setIsAddProductModalOpen] = useState<boolean>(false);
     const [isClienteModalOpen, setIsClienteModalOpen] = useState<boolean>(false);
 
-    const { websocketStatus, scannerError, lastScannedProduct } = useScannerWebSocket();
+    const { websocketStatus, scannerError, lastScannedProduct, isLoadingProduct } = useScannerWebSocket();
+    
+    // ⚡ CARGA OPTIMIZADA - Solo cargar lo que necesitamos cuando lo necesitamos
     useEffect(() => {
-        refetchCatalogs();
-    }, [refetchCatalogs]);
+        console.log("🏪 VentaFormPage: Asegurando que productos y conversiones estén cargados");
+        ensureProductos();
+        ensureConversiones();
+    }, [ensureProductos, ensureConversiones]);
     useEffect(() => {
         if (metodosPago.length > 0 && !metodoPagoSeleccionado) {
             setMetodoPagoSeleccionado(metodosPago[0].metodo_pago_id);
@@ -87,16 +100,25 @@ const VentasFormPage: React.FC = () => {
 
             const salesConversions = allConversions.filter((c: Conversion) => c.producto_id === producto.producto_id && c.es_para_venta);
 
+            // Inicializar cantidades en 0 para todas las presentaciones
+            const cantidadesPorPresentacion: { [key: string]: number } = {
+                'Unidad': 1 // Por defecto, agregar 1 unidad
+            };
+            
+            // Agregar las demás presentaciones en 0
+            salesConversions.forEach(conversion => {
+                cantidadesPorPresentacion[conversion.nombre_presentacion] = 0;
+            });
+
             const newItem: CarritoItem = {
                 producto_id: producto.producto_id,
                 codigo: producto.codigo,
                 nombre: producto.nombre,
-                cantidad: 1,
-                precio_unitario_presentacion: producto.precio_venta,
+                precio_venta_unitario: parseFloat(String(producto.precio_venta)) || 0,
                 stock_disponible_base: producto.stock,
                 unidad_base: producto.unidad_inventario.nombre_unidad,
-                presentacion_seleccionada: 'Unidad',
                 conversiones: salesConversions,
+                cantidades_por_presentacion: cantidadesPorPresentacion,
             };
             return [...prev, newItem];
         });
@@ -130,30 +152,25 @@ const VentasFormPage: React.FC = () => {
 const [isUpdatingAfterProductCreate, setIsUpdatingAfterProductCreate] = useState(false);
 
 const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
-    console.log('🔄 Iniciando actualización después de crear producto:', producto.nombre);
+    console.log('⚡ Producto creado exitosamente:', producto.nombre);
     
     setIsUpdatingAfterProductCreate(true);
     
     try {
-        // 1. Actualizar catálogos primero
-        console.log('📡 Actualizando catálogos...');
-        await refetchCatalogs();
+        // 🚀 OPTIMIZACIÓN: En lugar de recargar todo, solo notificar el nuevo producto
+        notifyProductoCreated(producto);
         
-        // 2. Actualizar datos específicos de venta
-        console.log('📊 Actualizando datos de venta...');
-        await refetchVentaData();
+        console.log('✅ Producto agregado al cache instantáneamente');
         
-        // 3. Esperar un momento para asegurar propagación
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        console.log('✅ Actualización completada');
+        // Pequeña pausa para UX
+        await new Promise(resolve => setTimeout(resolve, 100));
         
     } catch (error) {
-        console.error('❌ Error durante actualización:', error);
-        setLocalError('Error al actualizar los datos después de crear el producto.');
+        console.error('❌ Error notificando producto creado:', error);
+        setLocalError('Error al actualizar la lista de productos.');
     } finally {
         setIsUpdatingAfterProductCreate(false);
-        handleCloseAddProductModal(); // ✅ Cerrar modal DESPUÉS de actualizar
+        handleCloseAddProductModal();
     }
 };
 
@@ -162,51 +179,59 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
         setClienteSeleccionado(newPersona.persona_id);
     };
 
-    const updateCartItem = useCallback((producto_id: number, updates: Partial<Omit<CarritoItem, 'conversiones' | 'stock_disponible_base'>>) => {
+    const updateCartItemQuantity = useCallback((producto_id: number, presentacion: string, nuevaCantidad: number) => {
         setLocalError(null);
         setCarrito(prevCart => {
-            const newCart = prevCart.map(item => {
+            return prevCart.map(item => {
                 if (item.producto_id === producto_id) {
-                    const originalProduct = productos.find(p => p.producto_id === producto_id);
-                    if (!originalProduct) return item; 
+                    const updatedCantidades = {
+                        ...item.cantidades_por_presentacion,
+                        [presentacion]: Math.max(0, nuevaCantidad)
+                    };
 
-                    const updatedItem = { ...item, ...updates };
+                    // Calcular total en unidad base para validar stock
+                    let totalEnUnidadBase = updatedCantidades['Unidad'];
+                    item.conversiones.forEach(conversion => {
+                        const cantidadPresentacion = updatedCantidades[conversion.nombre_presentacion] || 0;
+                        totalEnUnidadBase += cantidadPresentacion * Number(conversion.unidades_por_presentacion);
+                    });
 
-                    const salesConversions = allConversions.filter((c: Conversion) => c.producto_id === originalProduct.producto_id && c.es_para_venta);
-
-                    if (updates.presentacion_seleccionada) {
-                        if (updates.presentacion_seleccionada === 'Unidad') {
-                            updatedItem.precio_unitario_presentacion = originalProduct.precio_venta;
-                        } else {
-                            const conversion = salesConversions.find(c => c.nombre_presentacion === updates.presentacion_seleccionada);
-                            updatedItem.precio_unitario_presentacion = conversion
-                                ? originalProduct.precio_venta * Number(conversion.unidades_por_presentacion)
-                                : originalProduct.precio_venta;
-                        }
+                    if (totalEnUnidadBase > item.stock_disponible_base) {
+                        setLocalError(`Stock insuficiente para "${item.nombre}". Disponible: ${item.stock_disponible_base} ${item.unidad_base}(s).`);
+                        return item;
                     }
 
-                    const conversionFactor = updatedItem.presentacion_seleccionada === 'Unidad'
-                        ? 1
-                        : salesConversions.find(c => c.nombre_presentacion === updatedItem.presentacion_seleccionada)?.unidades_por_presentacion || 1;
-                    
-                    const cantidadEnUnidadBase = updatedItem.cantidad * Number(conversionFactor);
-
-                    if (cantidadEnUnidadBase > updatedItem.stock_disponible_base) {
-                        setLocalError(`Stock insuficiente para "${updatedItem.nombre}". Disponible: ${updatedItem.stock_disponible_base} ${updatedItem.unidad_base}(s).`);
-                        return item; 
-                    }
-
-                    return updatedItem; 
+                    return {
+                        ...item,
+                        cantidades_por_presentacion: updatedCantidades
+                    };
                 }
                 return item;
+            }).filter(item => {
+                // Mantener el item solo si tiene al menos una cantidad > 0
+                return Object.values(item.cantidades_por_presentacion).some(cantidad => cantidad > 0);
             });
-            return newCart.filter(item => item.cantidad > 0); 
         });
-    }, [productos, allConversions]);
+    }, []);
 
 
     const totalVenta = useMemo(() => {
-        return carrito.reduce((acc, item) => acc + (item.cantidad * item.precio_unitario_presentacion), 0);
+        return carrito.reduce((acc, item) => {
+            let totalItem = 0;
+            
+            // Sumar precio de unidades
+            const cantidadUnidades = item.cantidades_por_presentacion['Unidad'] || 0;
+            totalItem += cantidadUnidades * item.precio_venta_unitario;
+            
+            // Sumar precio de otras presentaciones
+            item.conversiones.forEach(conversion => {
+                const cantidadPresentacion = item.cantidades_por_presentacion[conversion.nombre_presentacion] || 0;
+                const precioUnitarioPresentacion = item.precio_venta_unitario * Number(conversion.unidades_por_presentacion);
+                totalItem += cantidadPresentacion * precioUnitarioPresentacion;
+            });
+            
+            return acc + totalItem;
+        }, 0);
     }, [carrito]);
 
     const handleFinalizarVenta = async () => {
@@ -215,12 +240,31 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
             return;
         }
         setIsSubmitting(true);
-        const detallesVenta: DetalleVentaCreate[] = carrito.map(item => ({
-            producto_id: item.producto_id,
-            cantidad: item.cantidad,
-            precio_unitario: item.precio_unitario_presentacion,
-            presentacion_venta: item.presentacion_seleccionada,
-        }));
+        const detallesVenta: DetalleVentaCreate[] = [];
+        
+        carrito.forEach(item => {
+            // Agregar detalle por cada presentación con cantidad > 0
+            Object.entries(item.cantidades_por_presentacion).forEach(([presentacion, cantidad]) => {
+                if (cantidad > 0) {
+                    let precioUnitario = item.precio_venta_unitario;
+                    
+                    // Si no es 'Unidad', calcular precio según conversión
+                    if (presentacion !== 'Unidad') {
+                        const conversion = item.conversiones.find(c => c.nombre_presentacion === presentacion);
+                        if (conversion) {
+                            precioUnitario = item.precio_venta_unitario * Number(conversion.unidades_por_presentacion);
+                        }
+                    }
+                    
+                    detallesVenta.push({
+                        producto_id: item.producto_id,
+                        cantidad: cantidad,
+                        precio_unitario: precioUnitario,
+                        presentacion_venta: presentacion,
+                    });
+                }
+            });
+        });
         const ventaData: VentaCreate = { persona_id: clienteSeleccionado, metodo_pago_id: metodoPagoSeleccionado, estado: EstadoVentaEnum.activa, detalles: detallesVenta, total: totalVenta, solicitar_factura: solicitarFactura };
         try {
             const nuevaVenta = await createVenta(ventaData);
@@ -229,7 +273,7 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
             setShowSuccessModal(true);
             setCarrito([]);
             refetchVentaData();
-            refetchCatalogs();
+            // No necesitamos recargar catálogos después de una venta
         } catch (err: any) {
             setLocalError(err.response?.data?.detail || 'Error al finalizar la venta.');
         } finally {
@@ -237,29 +281,94 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
         }
     };
 
+    const calcularSubtotalItem = useCallback((item: CarritoItem) => {
+        let subtotal = 0;
+        
+        // Sumar precio de unidades
+        const cantidadUnidades = item.cantidades_por_presentacion['Unidad'] || 0;
+        subtotal += cantidadUnidades * item.precio_venta_unitario;
+        
+        // Sumar precio de otras presentaciones
+        item.conversiones.forEach(conversion => {
+            const cantidadPresentacion = item.cantidades_por_presentacion[conversion.nombre_presentacion] || 0;
+            const precioUnitarioPresentacion = item.precio_venta_unitario * Number(conversion.unidades_por_presentacion);
+            subtotal += cantidadPresentacion * precioUnitarioPresentacion;
+        });
+        
+        return subtotal;
+    }, []);
+
     const carritoColumns = useMemo(() => [
         { Header: 'Producto', accessor: 'nombre' },
         {
-            Header: 'Cantidad',
+            Header: 'Cantidades por Presentación',
             Cell: ({ row }: { row: { original: CarritoItem } }) => (
-                <Input type="number" value={row.original.cantidad} onChange={(e) => updateCartItem(row.original.producto_id, { cantidad: parseInt(e.target.value, 10) || 1 })} className="w-24 text-right" min="1" />
+                <div className="space-y-3">
+                    {/* Unidad base con mejor estilo */}
+                    <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center space-x-3">
+                            <span className="text-sm font-semibold text-blue-700 dark:text-blue-300 min-w-[80px]">
+                                {row.original.unidad_base}:
+                            </span>
+                            <Input 
+                                type="number" 
+                                value={row.original.cantidades_por_presentacion['Unidad'] || 0} 
+                                onChange={(e) => updateCartItemQuantity(row.original.producto_id, 'Unidad', parseInt(e.target.value, 10) || 0)}
+                                className="w-20 text-right" 
+                                min="0" 
+                            />
+                        </div>
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+                            {row.original.precio_venta_unitario.toFixed(2)} Bs/u
+                        </span>
+                    </div>
+                    
+                    {/* Otras presentaciones con mejor estilo */}
+                    {row.original.conversiones.filter((c: Conversion) => c.es_para_venta).map(conversion => (
+                        <div key={conversion.id} className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                            <div className="flex items-center space-x-3">
+                                <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 min-w-[80px]">
+                                    {conversion.nombre_presentacion}:
+                                </span>
+                                <Input 
+                                    type="number" 
+                                    value={row.original.cantidades_por_presentacion[conversion.nombre_presentacion] || 0} 
+                                    onChange={(e) => updateCartItemQuantity(row.original.producto_id, conversion.nombre_presentacion, parseInt(e.target.value, 10) || 0)}
+                                    className="w-20 text-right" 
+                                    min="0" 
+                                />
+                            </div>
+                            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1 rounded">
+                                {(row.original.precio_venta_unitario * Number(conversion.unidades_por_presentacion)).toFixed(2)} Bs/u
+                            </span>
+                        </div>
+                    ))}
+                </div>
             ),
         },
-        {
-            Header: 'Presentación',
+        { 
+            Header: 'Subtotal', 
             Cell: ({ row }: { row: { original: CarritoItem } }) => (
-                <Select value={row.original.presentacion_seleccionada} onChange={(e) => updateCartItem(row.original.producto_id, { presentacion_seleccionada: e.target.value })}>
-                    <option value="Unidad">Unidad ({row.original.unidad_base})</option>
-                    {row.original.conversiones.filter((c: Conversion) => c.es_para_venta).map(c => <option key={c.id} value={c.nombre_presentacion}>{c.nombre_presentacion}</option>)}
-                </Select>
-            ),
+                <strong className="text-emerald-600">
+                    {calcularSubtotalItem(row.original).toFixed(2)} Bs.
+                </strong>
+            )
         },
-        { Header: 'Precio Unit.', Cell: ({ row }: { row: { original: CarritoItem } }) => <span>{`${ (row.original.precio_unitario_presentacion)} Bs.`}</span> },
-        { Header: 'Subtotal', Cell: ({ row }: { row: { original: CarritoItem } }) => <strong>{`${(row.original.cantidad * row.original.precio_unitario_presentacion).toFixed(2)} Bs.`}</strong> },
-        { Header: 'Acciones', Cell: ({ row }: { row: { original: CarritoItem } }) => <Button onClick={() => setCarrito(prev => prev.filter(item => item.producto_id !== row.original.producto_id))} variant="danger" size="sm">X</Button> },
-    ], [updateCartItem]);
+        { 
+            Header: 'Acciones', 
+            Cell: ({ row }: { row: { original: CarritoItem } }) => (
+                <Button 
+                    onClick={() => setCarrito(prev => prev.filter(item => item.producto_id !== row.original.producto_id))} 
+                    variant="danger" 
+                    size="sm"
+                >
+                    Eliminar
+                </Button>
+            )
+        },
+    ], [updateCartItemQuantity, calcularSubtotalItem]);
 
-const globalIsLoading = isLoadingVenta || isLoadingCatalogs || isSubmitting || isUpdatingAfterProductCreate;
+const globalIsLoading = isLoadingVenta || isLoadingCatalogs || isSubmitting || isUpdatingAfterProductCreate || isLoadingProduct;
     const globalError = errorVenta || errorCatalogs || localError;
 
     return (
@@ -271,6 +380,7 @@ const globalIsLoading = isLoadingVenta || isLoadingCatalogs || isSubmitting || i
                     <span className={`ml-2 font-semibold ${websocketStatus.includes('Conectado') ? 'text-green-500' : 'text-red-500'}`}>
                         {websocketStatus}
                     </span>
+                    {isLoadingProduct && <span className="ml-2 text-yellow-500">Cargando producto...</span>}
                 </div>
             </div>
 

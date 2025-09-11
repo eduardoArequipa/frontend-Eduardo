@@ -18,7 +18,14 @@ interface ThemeProviderProps {
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     const [theme, setTheme] = useState<Theme>(() => {
         const storedTheme = localStorage.getItem('theme');
-        return (storedTheme as Theme) || 'light'; // Default to light mode
+        if (storedTheme) {
+            return storedTheme as Theme;
+        }
+        // Detectar preferencia del sistema
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            return 'dark';
+        }
+        return 'light';
     });
 
     useEffect(() => {
@@ -27,6 +34,21 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         root.classList.add(theme);
         localStorage.setItem('theme', theme);
     }, [theme]);
+
+    // Escuchar cambios en la preferencia del sistema
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const handleChange = (e: MediaQueryListEvent) => {
+            // Solo cambiar si no hay preferencia guardada
+            const storedTheme = localStorage.getItem('theme');
+            if (!storedTheme) {
+                setTheme(e.matches ? 'dark' : 'light');
+            }
+        };
+
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
+    }, []);
 
     const toggleTheme = () => {
         setTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));

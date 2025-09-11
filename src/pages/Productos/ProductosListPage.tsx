@@ -11,6 +11,7 @@ import Select from '../../components/Common/Select';
 import ErrorMessage from '../../components/Common/ErrorMessage';
 import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDropdown';
 import Modal from '../../components/Common/Modal';
+import StockDisplay from '../../components/Common/StockDisplay';
 import ProductoForm from '../../components/Specific/ProductoForm';
 
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -27,7 +28,8 @@ const ProductosListPage: React.FC = () => {
     const [estadoFilter, setEstadoFilter] = useState<EstadoEnum | ''>(EstadoEnum.Activo);
     const [categoriaFilter, setCategoriaFilter] = useState<number | ''>( '');
     const [unidadMedidaFilter, setUnidadMedidaFilter] = useState<number | ''>( '');
-    const [marcaFilter, setMarcaFilter] = useState<number | ''>( '');              
+    const [marcaFilter, setMarcaFilter] = useState<number | ''>( '');
+    
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
@@ -37,7 +39,11 @@ const ProductosListPage: React.FC = () => {
         marcas,
         unidadesMedida,
         isLoading: isLoadingCatalogs,
-        error: catalogError 
+        error: catalogError,
+        notifyProductoCreated,
+        notifyProductoUpdated,
+        ensureCategorias,
+        ensureMarcas
     } = useCatalogs();
     const { addNotification } = useNotification(); // 2. Instanciar hook
 
@@ -74,6 +80,13 @@ const ProductosListPage: React.FC = () => {
             setLoading(false);
         }
     };
+
+    // ⚡ CARGA OPTIMIZADA - Asegurar que categorías y marcas estén cargadas para el módulo productos
+    useEffect(() => {
+        console.log("📦 ProductosListPage: Asegurando que categorías y marcas estén cargadas");
+        ensureCategorias();
+        ensureMarcas();
+    }, [ensureCategorias, ensureMarcas]);
 
     useEffect(() => {
         if (!isLoadingCatalogs) {
@@ -130,10 +143,13 @@ const ProductosListPage: React.FC = () => {
 
     const handleOpenAddModal = () => setIsAddModalOpen(true);
     const handleCloseAddModal = () => setIsAddModalOpen(false);
-    const handleAddSuccess = async () => {
+    const handleAddSuccess = async (producto: Producto) => {
         handleCloseAddModal();
-        addNotification('Producto creado con éxito.', 'success'); // 4. Añadir notificación
-        await fetchProductos();
+        addNotification('Producto creado con éxito.', 'success');
+        
+        // 🚀 OPTIMIZACIÓN: Notificar a otros módulos Y actualizar lista local
+        notifyProductoCreated(producto);
+        await fetchProductos(); // Solo recarga la lista local para paginación
     };
 
     const handleOpenEditModal = (producto: Producto) => {
@@ -144,10 +160,13 @@ const ProductosListPage: React.FC = () => {
         setIsEditModalOpen(false);
         setEditingProduct(null);
     };
-    const handleEditSuccess = async () => {
+    const handleEditSuccess = async (producto: Producto) => {
         handleCloseEditModal();
-        addNotification('Producto actualizado con éxito.', 'success'); // 4. Añadir notificación
-        await fetchProductos();
+        addNotification('Producto actualizado con éxito.', 'success');
+        
+        // 🚀 OPTIMIZACIÓN: Notificar a otros módulos Y actualizar lista local
+        notifyProductoUpdated(producto);
+        await fetchProductos(); // Solo recarga la lista local para paginación
     };
 
     const totalPages = Math.ceil(totalProductos / itemsPerPage);
@@ -233,8 +252,8 @@ const ProductosListPage: React.FC = () => {
                         const isDropdownOpen = openDropdownId === producto.producto_id;
                         const stock = Number(producto.stock);
                         const stockMinimo = Number(producto.stock_minimo);
-                        let stockTextColor = stock <= stockMinimo ? 'text-red-600 dark:text-red-400' : stock > stockMinimo * 2 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400';
-                        let stockBgColor = stock <= stockMinimo ? 'bg-red-100 dark:bg-red-900/50' : stock > stockMinimo * 2 ? 'bg-green-100 dark:bg-green-900/50' : 'bg-yellow-100 dark:bg-yellow-900/50';
+                        const precioCompra = Number(producto.precio_compra);
+                        const isNewProduct = precioCompra === 0; // Producto sin compras
 
                         const productActions: ActionConfig[] = [
                             { label: 'Editar', onClick: () => handleOpenEditModal(producto), isVisible: true },
@@ -251,8 +270,15 @@ const ProductosListPage: React.FC = () => {
                                         className="h-48 w-full object-cover"
                                         onError={(e) => { e.currentTarget.src = '/src/assets/image-error.png'; }}
                                     />
-                                    <div className={`absolute top-2 right-2 px-2 py-1 text-xs font-bold text-white rounded-full ${producto.estado === EstadoEnum.Activo ? 'bg-green-500' : 'bg-red-500'}`}>
-                                        {producto.estado}
+                                    <div className="absolute top-2 right-2 flex flex-col gap-1">
+                                        <div className={`px-2 py-1 text-xs font-bold text-white rounded-full ${producto.estado === EstadoEnum.Activo ? 'bg-green-500' : 'bg-red-500'}`}>
+                                            {producto.estado}
+                                        </div>
+                                        {isNewProduct && (
+                                            <div className="px-2 py-1 text-xs font-bold text-white bg-orange-500 rounded-full">
+                                                NUEVO
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="absolute top-2 left-2">
                                         <ActionsDropdown 
@@ -268,13 +294,26 @@ const ProductosListPage: React.FC = () => {
                                     
                                     <div className="mt-4 flex justify-between items-center">
                                         <div className="text-sm text-gray-600 dark:text-gray-300">
-                                            <p>Compra: <span className="font-semibold text-blue-600 dark:text-blue-400">{Number(producto.precio_compra).toFixed(2)} Bs.</span></p>
-                                            <p>Venta: <span className="font-semibold text-green-600 dark:text-green-400">{Number(producto.precio_venta).toFixed(2)} Bs.</span></p>
+                                            {isNewProduct ? (
+                                                <div className="text-center">
+                                                    <p className="text-orange-600 dark:text-orange-400 font-medium">⚠️ Producto nuevo</p>
+                                                    <p className="text-xs text-gray-500">Necesita primera compra</p>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <p>Compra: <span className="font-semibold text-blue-600 dark:text-blue-400">{Number(producto.precio_compra).toFixed(2)} Bs.</span></p>
+                                                    <p>Venta: <span className="font-semibold text-green-600 dark:text-green-400">{Number(producto.precio_venta).toFixed(2)} Bs.</span></p>
+                                                </>
+                                            )}
                                         </div>
-                                        <div className={`px-3 py-1 rounded-full text-center ${stockBgColor}`}>
-                                            <p className={`font-bold text-sm ${stockTextColor}`}>{stock}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Stock</p>
-                                        </div>
+                                        <StockDisplay
+                                            stock={stock}
+                                            stockMinimo={stockMinimo}
+                                            stockConvertido={producto.stock_convertido}
+                                            stockDesglosado={producto.stock_desglosado}
+                                            unidadBase={producto.unidad_inventario}
+                                            isNewProduct={isNewProduct}
+                                        />
                                     </div>
 
                                     <div className="mt-auto pt-4">
