@@ -1,16 +1,16 @@
 import axiosInstance from '../api/axiosInstance';
-import { MovimientoResponse, MovimientoCreate } from '../types/movimiento';
+import { MovimientoResponse, MovimientoCreate, MovimientoPagination, TipoMovimientoEnum } from '../types/movimiento';
 import { PaginationParams } from '../types/pagination';
 
 export interface GetMovimientosParams extends PaginationParams {
     producto_id?: number;
-    tipo_movimiento?: string;
-    search?: string; // Para buscar por motivo, por ejemplo
+    tipo_movimiento?: TipoMovimientoEnum;
+    search?: string; // Para buscar por motivo
 }
 
-export const getMovimientos = async (params?: GetMovimientosParams): Promise<MovimientoResponse[]> => {
+export const getMovimientos = async (params?: GetMovimientosParams): Promise<MovimientoPagination> => {
     try {
-        const response = await axiosInstance.get(`/movimientos/`, { params });
+        const response = await axiosInstance.get<MovimientoPagination>(`/movimientos/`, { params });
         return response.data;
     } catch (error) {
         console.error("Error fetching movimientos:", error);

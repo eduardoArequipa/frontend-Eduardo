@@ -21,6 +21,7 @@ const PersonaFormPage = React.lazy(() => import('./pages/Personas/PersonaFormPag
 const UsuariosListPage = React.lazy(() => import('./pages/Usuarios/UsuariosListPage'));
 const UserRolesPage = React.lazy(() => import('./pages/Usuarios/UserRolesPage'));
 const UsuarioFormPage = React.lazy(() => import('./pages/Usuarios/UsuariosFormPage'));
+const PerfilPage = React.lazy(() => import('./pages/Usuarios/PerfilPage'));
 
 const RolesListPage = React.lazy(() => import('./pages/Roles/RolesListPage'));
 
@@ -45,6 +46,8 @@ const ReportesPage = React.lazy(() => import('./pages/Reportes/ReportesPage'));
 const ForgotPasswordRequestPage = React.lazy(() => import('./pages/Auth/ForgotPasswordRequestPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/Auth/ResetPasswordPage'));
 
+const AuditLogsPage = React.lazy(() => import('./pages/AuditLogs/AuditLogsPage'));
+
 const App: React.FC = () => {
     return (
         <ThemeProvider>
@@ -67,6 +70,7 @@ const App: React.FC = () => {
                                         <Route element={<ProtectedRoute />}>
                                             <Route element={<Layout />}>
                                                 <Route path="/home" element={<React.Suspense fallback={<div>Cargando...</div>}><HomePage /></React.Suspense>} />
+                                                <Route path="/perfil" element={<React.Suspense fallback={<div>Cargando...</div>}><PerfilPage /></React.Suspense>} />
 
                                                 <Route element={<ProtectedRoute requiredMenu="/dashboard" />}>
                                                     <Route path="/dashboard" element={<React.Suspense fallback={<div>Cargando...</div>}><DashboardPage /></React.Suspense>} />
@@ -126,6 +130,10 @@ const App: React.FC = () => {
 
                                                 <Route element={<ProtectedRoute requiredMenu="/reportes" />}>
                                                     <Route path="/reportes" element={<React.Suspense fallback={<div>Cargando...</div>}><ReportesPage /></React.Suspense>} />
+                                                </Route>
+
+                                                <Route element={<ProtectedRoute requiredMenu="/audit-logs" />}>
+                                                    <Route path="/audit-logs" element={<React.Suspense fallback={<div>Cargando...</div>}><AuditLogsPage /></React.Suspense>} />
                                                 </Route>
                                             </Route>
                                         </Route>

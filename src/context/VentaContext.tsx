@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { getMetodosPago } from '../services/ventasService';
 import { MetodoPagoNested } from '../types/metodoPago';
 import { EstadoEnum } from '../types/enums';
+import { useAuth } from '../hooks/useAuth';
 
 interface VentaContextType {
     metodosPago: MetodoPagoNested[];
@@ -14,6 +15,7 @@ interface VentaContextType {
 const VentaContext = createContext<VentaContextType | undefined>(undefined);
 
 export const VentaProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { isAuthenticated, loading: authLoading } = useAuth();
     const [metodosPago, setMetodosPago] = useState<MetodoPagoNested[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -33,8 +35,10 @@ export const VentaProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }, []);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (isAuthenticated && !authLoading) {
+            fetchData();
+        }
+    }, [isAuthenticated, authLoading, fetchData]);
 
     return (
         <VentaContext.Provider value={{ metodosPago, isLoading, error, refetchData: fetchData }}>

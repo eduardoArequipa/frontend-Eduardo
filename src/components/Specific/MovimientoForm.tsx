@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { createMovimiento } from '../../services/movimientoService';
-import { MovimientoCreate } from '../../types/movimiento';
+import { MovimientoCreate, TipoMovimientoEnum } from '../../types/movimiento';
 import { Producto } from '../../types/producto';
 import Input from '../Common/Input';
 import Button from '../Common/Button';
@@ -22,7 +22,7 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel, av
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const tipoMovimientoOptions = [
+    const tipoMovimientoOptions: Array<{ value: TipoMovimientoEnum; label: string }> = [
         { value: 'merma', label: 'Merma (Producto Roto/Dañado)' },
         { value: 'ajuste_positivo', label: 'Ajuste Positivo (Corrección de Inventario)' },
         { value: 'ajuste_negativo', label: 'Ajuste Negativo (Corrección de Inventario)' },

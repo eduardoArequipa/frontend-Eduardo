@@ -150,17 +150,17 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
         );
         addNotification('Presentación actualizada exitosamente', 'success');
       } else {
+        // Siempre llamar onAddConversion para que el padre maneje el estado
+        await onAddConversion(conversionData);
+        
         if (isCreationMode) {
-          // En modo creación, solo agregar al estado local
+          // En modo creación, también actualizar estado local para mostrar en UI
           const newConversion: ConversionLocal = {
             ...conversionData,
             id: 0,
             tempId: Date.now()
           };
           setLocalConversiones(prev => [...prev, newConversion]);
-        } else {
-          await onAddConversion(conversionData);
-          // La lista se actualizará desde el componente padre
         }
         addNotification('Presentación agregada exitosamente', 'success');
       }

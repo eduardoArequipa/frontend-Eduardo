@@ -1,5 +1,5 @@
 // src/pages/Auth/LoginPage.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
@@ -26,11 +26,12 @@ const LoginPage: React.FC = () => {
         }
     };
 
-    // Redirige si ya está autenticado
-    if (isAuthenticated) {
-        navigate('/dashboard'); // O a la ruta principal de la app
-        return null;
-    }
+    // Redirige si ya está autenticado - usando useEffect
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate('/dashboard'); // O a la ruta principal de la app
+        }
+    }, [isAuthenticated, navigate]);
 
     return (
         <div className={`min-h-screen flex ${theme}`}>

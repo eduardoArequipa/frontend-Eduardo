@@ -44,6 +44,7 @@ const ComprasFormPage: React.FC = () => {
     isLoading: isLoadingCatalogs, 
     ensureProductos, 
     ensureConversiones,
+    invalidateConversiones,
     notifyProductoCreated
   } = useCatalogs();
   const { addNotification } = useNotification();
@@ -266,12 +267,9 @@ const ComprasFormPage: React.FC = () => {
         setIsSubmitting(false);
         return;
       }
-      const productoConversiones = allConversions.filter((c: Conversion) => c.producto_id === prodId && c.es_para_compra);
-      if (productoConversiones.length > 0 && !presentacion) {
-        addNotification(`Debe seleccionar una presentación para ${producto.nombre}.`, 'warning');
-        setIsSubmitting(false);
-        return;
-      }
+      
+      // ✅ CAMBIO: Ya no validamos que sea obligatorio seleccionar presentación
+      // Si no selecciona presentación, se usa la unidad base por defecto
       if (isNaN(cant) || cant <= 0) {
         addNotification(`La cantidad para ${producto.nombre} debe ser un número positivo.`, 'warning');
         setIsSubmitting(false);
@@ -323,6 +321,11 @@ const ComprasFormPage: React.FC = () => {
     try {
       // 🚀 OPTIMIZACIÓN: Notificar producto creado sin recargar todo
       notifyProductoCreated(newProduct);
+      
+      // ⚡ IMPORTANTE: Refrescar conversiones ANTES de agregar al carrito
+      console.log("🔄 Refrescando conversiones después de crear producto...");
+      await invalidateConversiones();
+      
       // Agregar el producto recién creado al carrito
       addOrUpdateProductInCart(newProduct.producto_id);
       addNotification("Producto creado y añadido al carrito exitosamente!", "success");
@@ -495,6 +498,14 @@ const ComprasFormPage: React.FC = () => {
                   const productoConversiones = allConversions.filter(
                     (c: Conversion) => c.producto_id === producto?.producto_id && c.es_para_compra
                   );
+                  
+                  // 🔍 DEBUG: Verificar conversiones del producto
+                  console.log(`🔍 DEBUG Producto ${producto?.nombre || 'undefined'} (ID: ${producto?.producto_id}):`, {
+                    totalConversiones: allConversions.length,
+                    conversionesDelProducto: productoConversiones,
+                    todasLasConversiones: allConversions.filter(c => c.producto_id === producto?.producto_id),
+                    producto: producto
+                  });
                   const selectedConversion = productoConversiones.find(c => c.nombre_presentacion === detalle.presentacion_compra);
                   const unidadDisplay = selectedConversion
                     ? selectedConversion.nombre_presentacion
@@ -514,14 +525,14 @@ const ComprasFormPage: React.FC = () => {
                         </p>
                       </div>
 
-                      {producto && productoConversiones.length > 0 && (
+                      {producto && (
                         <div className="w-32">
                           <label className="text-xs text-gray-600 dark:text-gray-400 block text-center mb-1">Presentación</label>
                           <Select
                             value={detalle.presentacion_compra || ''}
                             onChange={(e) => handleDetalleChange(index, "presentacion_compra", e.target.value)}
                             options={[
-                              { value: '', label: 'Seleccione' },
+                           //   { value: '', label: 'Unidad base' },
                               ...productoConversiones.map(conv => ({
                                 value: conv.nombre_presentacion,
                                 label: conv.nombre_presentacion

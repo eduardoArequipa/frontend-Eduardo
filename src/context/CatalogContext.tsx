@@ -10,6 +10,7 @@ import { UnidadMedidaNested } from '../types/unidad_medida';
 import { Producto, Conversion } from '../types/producto';
 import { EstadoEnum } from '../types/enums';
 import eventBus, { EVENTS } from '../utils/EventBus';
+import { useAuth } from '../hooks/useAuth';
 
 interface CatalogContextType {
   categorias: CategoriaNested[];
@@ -41,6 +42,7 @@ interface CatalogContextType {
 const CatalogContext = createContext<CatalogContextType | undefined>(undefined);
 
 export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [categorias, setCategorias] = useState<CategoriaNested[]>([]);
   const [marcas, setMarcas] = useState<MarcaNested[]>([]);
   const [unidadesMedida, setUnidadesMedida] = useState<UnidadMedidaNested[]>([]);
@@ -93,13 +95,13 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
     console.log("📡 Cargando marcas...");
     setIsLoading(true);
     try {
-      const marcasData = await getMarcas({ limit: 500 });
-      setMarcas(marcasData);
+      const marcasData = await getMarcas({ limit: 100 });
+      setMarcas(marcasData.items);
       setCache(prev => ({
         ...prev,
         marcas: { loaded: true, timestamp: Date.now() }
       }));
-      console.log(`✅ Marcas cargadas: ${marcasData.length} items`);
+      console.log(`✅ Marcas cargadas: ${marcasData.items.length} items`);
     } catch (err) {
       setError('Error al cargar marcas.');
       console.error("❌ Error cargando marcas", err);
@@ -249,11 +251,13 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
     ]);
   }, [ensureCategorias, ensureMarcas, ensureUnidadesMedida, ensureProductos, ensureConversiones]);
 
-  // 🎯 CARGA INICIAL OPTIMIZADA - Solo unidades de medida (son pocas y se necesitan siempre)
+  // 🎯 CARGA INICIAL OPTIMIZADA - Solo cuando el usuario esté autenticado
   useEffect(() => {
-    console.log("🚀 CatalogContext: Carga inicial optimizada");
-    ensureUnidadesMedida(); // Solo las unidades que se necesitan siempre
-  }, [ensureUnidadesMedida]);
+    if (isAuthenticated && !authLoading) {
+      console.log("🚀 CatalogContext: Carga inicial optimizada (usuario autenticado)");
+      ensureUnidadesMedida(); // Solo las unidades que se necesitan siempre
+    }
+  }, [isAuthenticated, authLoading, ensureUnidadesMedida]);
 
   // 📡 EVENT LISTENERS - Escuchar notificaciones de otros módulos
   useEffect(() => {

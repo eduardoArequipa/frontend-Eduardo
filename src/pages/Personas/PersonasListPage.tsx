@@ -1,13 +1,15 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getPersonas, deactivatePersona, activatePersona, GetPersonasParams } from '../../services/personaService';
 import { getRoles } from '../../services/rolService'; // Importar servicio de roles
 import { IPersonaWithRoles } from '../../types/persona';
 import { IRolInDB } from '../../types/rol'; // Importar tipo de Rol
-import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
 import Select from '../../components/Common/Select';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
+import { ProfileCard } from '../../components/Common/Card';
+import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDropdown';
+import InfoIcon from '../../components/Common/InfoIcon';
 import { useNavigate } from 'react-router-dom';
 import { EstadoEnum, GeneroEnum } from '../../types/enums';
 
@@ -106,53 +108,25 @@ const PersonasListPage: React.FC = () => {
 
     const totalPages = Math.ceil(totalPersonas / itemsPerPage);
 
-    const columns = useMemo(() => [
-        {
-            Header: 'Nombre Completo',
-            accessor: 'nombre',
-            Cell: ({ row }: { row: { original: IPersonaWithRoles } }) => 
-                `${row.original.nombre} ${row.original.apellido_paterno || ''} ${row.original.apellido_materno || ''}`.trim()
+    const generatePersonaActions = (persona: IPersonaWithRoles): ActionConfig[] => [
+        { 
+            label: 'Editar', 
+            onClick: () => navigate(`/personas/edit/${persona.persona_id}`), 
+            isVisible: true 
         },
-        { Header: 'CI', accessor: 'ci' },
-        { Header: 'Email', accessor: 'email' },
-        { Header: 'Teléfono', accessor: 'telefono' },
-        { Header: 'Estado', accessor: 'estado' },
-        {
-            Header: 'Rol',
-            accessor: 'roles',
-            Cell: ({ row }: { row: { original: IPersonaWithRoles } }) => 
-                row.original.roles.map(rol => rol.nombre_rol).join(', ')
+        { 
+            label: 'Desactivar', 
+            onClick: () => handleDelete(persona.persona_id), 
+            isVisible: persona.estado === EstadoEnum.Activo, 
+            colorClass: 'text-red-700 dark:text-red-400' 
         },
-                {
-            Header: 'Acciones',
-            accessor: 'acciones',
-            Cell: ({ row }: { row: { original: IPersonaWithRoles } }) => (
-                <div className="flex space-x-2">
-                    <Button
-                        onClick={() => navigate(`/personas/edit/${row.original.persona_id}`)}
-                        className="bg-blue-500 hover:bg-blue-700 text-white text-xs py-1 px-2 rounded"
-                    >
-                        Editar
-                    </Button>
-                    {row.original.estado === EstadoEnum.Activo ? (
-                         <Button
-                            onClick={() => handleDelete(row.original.persona_id)}
-                            className="bg-red-500 hover:bg-red-700 text-white text-xs py-1 px-2 rounded"
-                         >
-                            Desactivar
-                         </Button>
-                    ) : (
-                      <Button
-                         onClick={() => handleActivate(row.original.persona_id)}
-                         className="bg-green-500 hover:bg-green-700 text-white text-xs py-1 px-2 rounded"
-                      >
-                         Activar
-                      </Button>
-                    )}
-                </div>
-            ),
-        },
-    ], [navigate]);
+        { 
+            label: 'Activar', 
+            onClick: () => handleActivate(persona.persona_id), 
+            isVisible: persona.estado === EstadoEnum.Inactivo, 
+            colorClass: 'text-green-700 dark:text-green-400' 
+        }
+    ];
 
     if (loading && personas.length === 0) {
         return (
@@ -241,13 +215,109 @@ const PersonasListPage: React.FC = () => {
             {personas.length === 0 && !loading && !error ? (
                 <p className="text-center text-gray-500 dark:text-gray-400">No hay personas registradas que coincidan con los filtros.</p>
             ) : (
-                 personas.length > 0 && (
-                     <div className="relative">
-                        <Table columns={columns} data={personas} />
-                        <div className="mt-4 flex justify-center items-center space-x-4">
+                personas.length > 0 && (
+                    <div className="relative">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {personas.map(persona => {
+                                const nombreCompleto = `${persona.nombre} ${persona.apellido_paterno || ''} ${persona.apellido_materno || ''}`.trim();
+                                const personaActions = generatePersonaActions(persona);
+
+                                // Generar badges dinámicos
+                                const badges: Array<{
+                                    text: string;
+                                    variant?: 'success' | 'danger' | 'warning' | 'info' | 'secondary';
+                                }> = [
+                                    {
+                                        text: persona.estado.charAt(0).toUpperCase() + persona.estado.slice(1),
+                                        variant: persona.estado === EstadoEnum.Activo ? 'success' : 'danger'
+                                    }
+                                ];
+
+                                // Agregar badge de género si existe
+                                if (persona.genero) {
+                                    badges.push({
+                                        text: persona.genero === GeneroEnum.Masculino ? '♂️ M' : '♀️ F',
+                                        variant: 'info'
+                                    });
+                                }
+
+                                // Agregar badge de roles activos
+                                if (persona.roles.length > 0) {
+                                    badges.push({
+                                        text: `${persona.roles.length} rol${persona.roles.length > 1 ? 'es' : ''}`,
+                                        variant: 'secondary'
+                                    });
+                                }
+
+                                return (
+                                    <ProfileCard
+                                        key={persona.persona_id}
+                                        avatar={{
+                                            alt: nombreCompleto,
+                                            size: 'md',
+                                            showFallback: true
+                                        }}
+                                        title={nombreCompleto}
+                                        subtitle={persona.genero ? `${persona.genero} • CI: ${persona.ci}` : `CI: ${persona.ci}`}
+                                        badges={badges}
+                                        actions={<ActionsDropdown actions={personaActions} isLoading={loading} />}
+                                        className="hover:shadow-xl transition-all duration-300 border-l-4 border-l-indigo-500/30 hover:border-l-indigo-500"
+                                    >
+                                        <div className="space-y-3">
+                                            <div className="flex items-center space-x-2">
+                                                <InfoIcon type="email" className="w-4 h-4 text-indigo-500" />
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold">EMAIL</p>
+                                                    <p className="text-sm text-gray-700 dark:text-gray-300 truncate" title={persona.email || 'No especificado'}>
+                                                        {persona.email || (
+                                                            <span className="text-gray-400 italic">No especificado</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center space-x-2">
+                                                <InfoIcon type="phone" className="w-4 h-4 text-green-500" />
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold">TELÉFONO</p>
+                                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                                        {persona.telefono || (
+                                                            <span className="text-gray-400 italic">No especificado</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-start space-x-2">
+                                                <InfoIcon type="role" className="w-4 h-4 text-purple-500 mt-0.5" />
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold">ROLES</p>
+                                                    <div className="flex flex-wrap gap-1 mt-1">
+                                                        {persona.roles.length > 0 ? (
+                                                            persona.roles.map((rol, index) => (
+                                                                <span
+                                                                    key={index}
+                                                                    className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium"
+                                                                >
+                                                                    {rol.nombre_rol}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-gray-400 italic text-sm">Sin roles asignados</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </ProfileCard>
+                                );
+                            })}
+                        </div>
+                        <div className="mt-8 flex justify-center items-center space-x-4">
                             <Button
                                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                                 disabled={currentPage === 1 || loading}
+                                variant="secondary"
                             >
                                 Anterior
                             </Button>
@@ -257,12 +327,13 @@ const PersonasListPage: React.FC = () => {
                             <Button
                                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                                 disabled={currentPage === totalPages || loading}
+                                variant="secondary"
                             >
                                 Siguiente
                             </Button>
                         </div>
-                     </div>
-                 )
+                    </div>
+                )
             )}
         </div>
     );

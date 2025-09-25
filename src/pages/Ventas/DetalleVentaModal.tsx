@@ -6,6 +6,7 @@ import ModalContainer from '../../components/Common/ModalContainer';
 import Button from '../../components/Common/Button';
 import Table from '../../components/Common/Table';
 import { useReactToPrint } from 'react-to-print';
+import { formatearCantidad } from '../../utils/numberFormat';
 
 // Iconos SVG como componentes funcionales para reutilización
 const CalendarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
@@ -39,9 +40,20 @@ const DetalleVentaModal: React.FC<DetalleVentaModalProps> = ({ venta, isOpen, on
       Cell: ({ row }: any) => row.original.producto?.nombre || 'N/A'
     },
     {
+      Header: 'Presentación',
+      accessor: 'presentacion_venta',
+      Cell: ({ row }: any) => (
+        <div className="text-center">
+          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
+            {row.original.presentacion_venta || 'Unidad'}
+          </span>
+        </div>
+      )
+    },
+    {
       Header: 'Cantidad',
       accessor: 'cantidad',
-      Cell: ({ row }: any) => <div className="text-right">{row.original.cantidad}</div>
+      Cell: ({ row }: any) => <div className="text-right">{formatearCantidad(row.original.cantidad)}</div>
     },
     {
       Header: 'P. Unitario',

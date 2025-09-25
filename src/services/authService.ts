@@ -2,7 +2,7 @@
 import axiosInstance from '../api/axiosInstance';
 import { Token } from '../types/auth';
 import { IUsuarioInDB } from '../types/usuario'; 
-import { IMenuInDB } from '../types/menu'; // Importar el tipo de Menú
+import { IMenuInDB, IMenuWithRoles } from '../types/menu'; // Importar el tipo de Menú
 
 export interface ForgotPasswordRequestPayload {
     username_or_email: string;
@@ -37,7 +37,17 @@ export const getMe = async (): Promise<IUsuarioInDB> => {
  */
 export const getMeMenus = async (): Promise<IMenuInDB[]> => {
     const response = await axiosInstance.get('/auth/me/menus');
-    
+
+    return response.data;
+};
+
+/**
+ * Obtiene los menús con información de roles para filtrado dinámico.
+ * @returns Una promesa que resuelve en un array de IMenuWithRoles.
+ */
+export const getMeMenusWithRoles = async (): Promise<IMenuWithRoles[]> => {
+    const response = await axiosInstance.get('/auth/me/menus-with-roles');
+
     return response.data;
 };
 

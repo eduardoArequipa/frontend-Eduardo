@@ -1,18 +1,22 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { login as loginService, getMe, getMeMenus } from '../services/authService';
+import { login as loginService, getMe, getMeMenusWithRoles } from '../services/authService';
 import { Token } from '../types/auth';
 import { IUsuarioReadAudit } from '../types/usuario';
-import { IMenuInDB } from '../types/menu';
+import { IMenuWithRoles } from '../types/menu';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AuthContextType {
     isAuthenticated: boolean;
     user: IUsuarioReadAudit | null;
-    menus: IMenuInDB[]; // Renombrado de userMenus a menus
+    menus: IMenuWithRoles[]; // Todos los menús con información de roles
+    activeRole: string | null; // Rol actualmente activo
+    availableRoles: string[]; // Roles disponibles del usuario
+    filteredMenus: IMenuWithRoles[]; // Menús filtrados por rol activo
     loading: boolean;
     error: string | null;
     login: (username: string, password: string) => Promise<void>;
     logout: () => void;
+    switchRole: (roleName: string) => void; // Cambiar rol activo
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,7 +24,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [user, setUser] = useState<IUsuarioReadAudit | null>(null);
-    const [menus, setMenus] = useState<IMenuInDB[]>([]); // Renombrado de userMenus a menus
+    const [menus, setMenus] = useState<IMenuWithRoles[]>([]);
+    const [activeRole, setActiveRole] = useState<string | null>(null);
+    const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+    const [filteredMenus, setFilteredMenus] = useState<IMenuWithRoles[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
@@ -28,11 +35,78 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const publicAuthPaths = ['/login', '/forgot-password', '/reset-password'];
 
+    // Función para filtrar menús basado en el rol activo
+    const filterMenusByRole = useCallback((allMenus: IMenuWithRoles[], roleName: string | null) => {
+        console.log('🔍 [DEBUG] filterMenusByRole llamado:', {
+            totalMenus: allMenus.length,
+            roleName,
+            menusConRoles: allMenus.map(m => ({
+                nombre: m.nombre,
+                roles: m.rol_menu?.map(rm => rm.rol.nombre_rol) || []
+            }))
+        });
+
+        if (!roleName) {
+            console.log('🔍 [DEBUG] No hay rol activo, devolviendo todos los menús');
+            return allMenus;
+        }
+
+        // Filtrar menús que el rol activo puede acceder
+        const filtered = allMenus.filter(menu => {
+            // Si el menú no tiene restricciones de rol, está disponible para todos
+            if (!menu.rol_menu || menu.rol_menu.length === 0) {
+                console.log(`🔍 [DEBUG] Menú "${menu.nombre}" sin restricciones de rol - INCLUIDO`);
+                return true;
+            }
+
+            // Verificar si el rol activo tiene acceso a este menú
+            const hasAccess = menu.rol_menu.some(rolMenu => rolMenu.rol.nombre_rol === roleName);
+            console.log(`🔍 [DEBUG] Menú "${menu.nombre}" - Roles permitidos: [${menu.rol_menu.map(rm => rm.rol.nombre_rol).join(', ')}] - ${hasAccess ? 'INCLUIDO' : 'EXCLUIDO'} para rol "${roleName}"`);
+            return hasAccess;
+        });
+
+        console.log(`🔍 [DEBUG] Filtrado completado: ${filtered.length}/${allMenus.length} menús para rol "${roleName}"`);
+        return filtered;
+    }, []);
+
+    // Función para cambiar rol activo
+    const switchRole = useCallback((roleName: string) => {
+        console.log('🔄 [DEBUG] switchRole llamado:', {
+            roleName,
+            availableRoles,
+            totalMenus: menus.length
+        });
+
+        if (!availableRoles.includes(roleName)) {
+            console.error(`❌ [DEBUG] Rol "${roleName}" no está disponible para este usuario`);
+            setError(`Rol "${roleName}" no está disponible para este usuario`);
+            return;
+        }
+
+        console.log(`✅ [DEBUG] Cambiando rol a: ${roleName}`);
+        setActiveRole(roleName);
+
+        const filtered = filterMenusByRole(menus, roleName);
+        setFilteredMenus(filtered);
+
+        // Guardar preferencia en localStorage
+        localStorage.setItem('activeRole', roleName);
+
+        // Limpiar error si existe
+        setError(null);
+
+        console.log(`🔄 [DEBUG] Rol cambiado exitosamente a: ${roleName}, menús filtrados: ${filtered.length}`);
+    }, [availableRoles, menus, filterMenusByRole]);
+
     const logout = useCallback(() => {
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('activeRole');
         setIsAuthenticated(false);
         setUser(null);
-        setMenus([]); // Renombrado de setUserMenus
+        setMenus([]);
+        setActiveRole(null);
+        setAvailableRoles([]);
+        setFilteredMenus([]);
         setError(null);
         navigate('/login', { replace: true });
     }, [navigate]);
@@ -57,10 +131,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             try {
                 const [userData, menusData] = await Promise.all([
                     getMe(),
-                    getMeMenus()
+                    getMeMenusWithRoles()
                 ]);
+
+                // Extraer roles disponibles
+                const userRoles = userData.persona?.roles?.map(rol => rol.nombre_rol) || [];
                 setUser(userData);
                 setMenus(menusData);
+                setAvailableRoles(userRoles);
+
+                // Determinar rol activo inicial
+                const savedActiveRole = localStorage.getItem('activeRole');
+                const initialRole =
+                    savedActiveRole && userRoles.includes(savedActiveRole)
+                        ? savedActiveRole
+                        : userRoles.length > 0
+                            ? userRoles[0]
+                            : null;
+
+                if (initialRole) {
+                    setActiveRole(initialRole);
+                    const filtered = filterMenusByRole(menusData, initialRole);
+                    setFilteredMenus(filtered);
+                } else {
+                    setFilteredMenus(menusData);
+                }
+
                 setIsAuthenticated(true);
             } catch (err) {
                 logout();
@@ -82,16 +178,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             
             const [userData, menusData] = await Promise.all([
                 getMe(),
-                getMeMenus()
+                getMeMenusWithRoles()
             ]);
-            
+
+            // Extraer roles disponibles
+            const userRoles = userData.persona?.roles?.map(rol => rol.nombre_rol) || [];
             setUser(userData);
             setMenus(menusData);
+            setAvailableRoles(userRoles);
+
+            // Establecer rol activo inicial (priorizar Administrador si existe)
+            const initialRole = userRoles.includes('Administrador')
+                ? 'Administrador'
+                : userRoles.length > 0
+                    ? userRoles[0]
+                    : null;
+
+            if (initialRole) {
+                setActiveRole(initialRole);
+                const filtered = filterMenusByRole(menusData, initialRole);
+                setFilteredMenus(filtered);
+                localStorage.setItem('activeRole', initialRole);
+            } else {
+                setFilteredMenus(menusData);
+            }
+
             setIsAuthenticated(true);
 
             // Lógica de redirección basada en el rol
-            const userRoles = userData.persona?.roles || [];
-            const isAdmin = userRoles.some(rol => rol.nombre_rol === 'Administrador');
+            const isAdmin = userRoles.some(rol => rol === 'Administrador');
 
             if (isAdmin) {
                 navigate('/dashboard', { replace: true });
@@ -111,11 +226,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const value = {
         isAuthenticated,
         user,
-        menus, // Renombrado de userMenus
+        menus, // Todos los menús del usuario
+        activeRole,
+        availableRoles,
+        filteredMenus, // Menús filtrados por rol activo
         loading,
         error,
         login: loginUser,
         logout,
+        switchRole,
     };
 
     if (loading) {

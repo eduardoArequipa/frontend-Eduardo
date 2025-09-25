@@ -48,7 +48,7 @@ export interface ProductoSchemaBase {
     codigo: string;
     nombre: string;
     precio_venta: string; // String para precisión decimal
-    stock: number; // Número entero para stock
+    stock: string; // String para precisión decimal
     unidad_inventario: UnidadMedidaNested;
     conversiones: Conversion[];
     estado: EstadoEnum;
@@ -57,7 +57,7 @@ export interface ProductoSchemaBase {
 
 export interface ProductoCreate extends ProductoBase {
     imagen_ruta?: string | null;
-    stock?: number;
+    stock?: string; // String para precisión decimal
     estado?: EstadoEnum;
 }
 
@@ -66,7 +66,7 @@ export interface ProductoUpdate {
     nombre?: string;
     precio_compra?: string; // String para precisión decimal
     precio_venta?: string; // String para precisión decimal
-    stock?: number; // Número entero para stock
+    stock?: string; // String para precisión decimal
     stock_minimo?: number;
     categoria_id?: number;
     imagen_ruta?: string | null;
@@ -82,13 +82,13 @@ export interface ProductoUpdate {
 // Una presentación del desglose de stock
 export interface DesglosePresentacion {
     nombre: string;
-    cantidad: number;
+    cantidad: number | string; // Puede venir como string desde backend (Decimal serializado)
     abreviatura: string;
 }
 
 // Información del stock convertido a unidad de venta preferida
 export interface StockConvertido {
-    cantidad: number;
+    cantidad: number | string; // Puede venir como string desde backend (Decimal serializado)
     unidad_nombre: string;
     unidad_abreviatura: string;
     es_aproximado?: boolean; // Si la conversión no es exacta
@@ -98,7 +98,7 @@ export interface StockConvertido {
 export interface Producto extends ProductoBase {
     producto_id: number;
     imagen_ruta?: string | null;
-    stock: number; // Número entero para stock
+    stock: string; // String para precisión decimal
     estado: EstadoEnum;
     categoria: CategoriaNested;
     creador?: IUsuarioAudit | null;

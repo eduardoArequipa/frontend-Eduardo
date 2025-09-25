@@ -28,6 +28,7 @@ type FormData = Omit<ProductoCreate, 'imagen_ruta'> & {
   tipo_margen: TipoMargenEnum;
   margen_valor: string; // String para precisión decimal
   precio_manual_activo: boolean;
+  stock: string; // String para precisión decimal
 };
 
 type LocalConversion = Omit<Conversion, 'producto_id'> & { tempId?: number };
@@ -73,7 +74,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
       setValue("precio_manual_activo", false);
       setValue("precio_compra", "0.00");
       setValue("precio_venta", "0.00");
-      setValue("stock", 0);
+      setValue("stock", "0.00");
       setValue("stock_minimo", 0);
     }
   }, [isEditing, setValue]);
@@ -95,7 +96,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           setValue("nombre", data.nombre);
           setValue("precio_compra", data.precio_compra.toString());
           setValue("precio_venta", data.precio_venta.toString());
-          setValue("stock", parseInt(data.stock.toString()));
+          setValue("stock", data.stock.toString());
           setValue("stock_minimo", data.stock_minimo);
           setValue("categoria_id", data.categoria.categoria_id);
           setValue("unidad_inventario_id", data.unidad_inventario?.unidad_id);
@@ -175,14 +176,26 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
         await onSuccess(productoActualizado);
       } else {
         const newProduct = await createProducto(dataToSend as ProductoCreate);
+        console.log(`📦 Producto creado: ${newProduct.nombre} (ID: ${newProduct.producto_id})`);
+        console.log(`🔧 Estado conversions actual:`, conversions);
+        console.log(`🔧 Conversiones a crear (${conversions.length}):`, conversions);
+        
         for (const conv of conversions) {
           const conversionData: ConversionCreate = {
             nombre_presentacion: conv.nombre_presentacion,
             unidades_por_presentacion: conv.unidades_por_presentacion,
             es_para_compra: conv.es_para_compra,
             es_para_venta: conv.es_para_venta,
+            descripcion_detallada: conv.descripcion_detallada,
           };
-          await createConversion(newProduct.producto_id, conversionData);
+          console.log(`🔧 Creando conversión: ${conv.nombre_presentacion}`, conversionData);
+          try {
+            const createdConversion = await createConversion(newProduct.producto_id, conversionData);
+            console.log(`✅ Conversión creada exitosamente:`, createdConversion);
+          } catch (convError: any) {
+            console.error(`❌ Error creando conversión ${conv.nombre_presentacion}:`, convError);
+            addNotification(`Error creando presentación ${conv.nombre_presentacion}: ${convError.response?.data?.detail || convError.message}`, 'error');
+          }
         }
         
         // 🔄 INVALIDAR CONVERSIONES - Se crearon nuevas presentaciones
@@ -330,18 +343,33 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
             </div>
 
             <div>
-              <label htmlFor="stock" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Stock Actual</label>
+              <label htmlFor="stock" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>
+                Stock Actual
+                <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(Solo lectura - Se actualiza con compras/movimientos)</span>
+              </label>
               <Input
                 id="stock"
-                type="number"
-                step="0"
+                type="text"
+                placeholder="0.00"
+                readOnly={true}
                 {...register("stock", {
                   required: "El stock actual es requerido",
-                  valueAsNumber: true,
-                  min: { value: 0, message: "El stock no puede ser negativo" }
+                  pattern: {
+                    value: /^\d+(\.\d{1,2})?$/,
+                    message: "Ingrese un número válido (ej: 10.50)"
+                  },
+                  validate: {
+                    positive: (value) => {
+                      const num = parseFloat(value || "0");
+                      return num >= 0 || "El stock no puede ser negativo";
+                    }
+                  }
                 })}
-                className={`mt-1 block w-full ${errors.stock ? 'border-red-500' : 'border-gray-400'}`}
+                className={`mt-1 block w-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed ${errors.stock ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
               />
+              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                💡 El stock se actualiza automáticamente con compras y movimientos de inventario
+              </div>
               {errors.stock && <span className="text-red-500 text-xs">{errors.stock.message}</span>}
             </div>
           </>
@@ -468,8 +496,14 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
               setConversions([...conversions, result]);
             } : 
             async (conversion) => {
+              console.log('📝 Agregando conversión en modo creación:', conversion);
+              console.log('📝 Conversiones actuales antes:', conversions);
               const newConversion = { ...conversion, id: 0, tempId: Date.now() };
-              setConversions([...conversions, newConversion as LocalConversion]);
+              setConversions(prev => {
+                const updated = [...prev, newConversion as LocalConversion];
+                console.log('📝 Conversiones actuales después:', updated);
+                return updated;
+              });
             }
           }
           onUpdateConversion={async (id, conversion) => {

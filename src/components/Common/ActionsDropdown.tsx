@@ -63,7 +63,8 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
 
             {isOpen && (
                 <div 
-                    className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black dark:ring-gray-700 ring-opacity-5 z-30 border border-gray-200 dark:border-gray-700"
+                    className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black dark:ring-gray-700 ring-opacity-5 border border-gray-200 dark:border-gray-700"
+                    style={{ zIndex: 9999 }}
                     role="menu" 
                     aria-orientation="vertical" 
                     aria-labelledby="menu-button"

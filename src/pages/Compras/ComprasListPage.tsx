@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCompras, anularCompra, completarCompra } from '../../services/compraService';
 import { getProveedores } from '../../services/proveedorService';
@@ -11,7 +11,6 @@ import {
 import { EstadoCompraEnum, EstadoEnum } from '../../types/enums'; 
 import { Proveedor} from '../../types/proveedor'; 
 
-import Table from '../../components/Common/Table'; 
 import Button from '../../components/Common/Button'; 
 import Input from '../../components/Common/Input'; 
 import LoadingSpinner from '../../components/Common/LoadingSpinner'; 
@@ -20,6 +19,7 @@ import { ActionConfig } from '../../components/Common/ActionsDropdown';
 import Select from '../../components/Common/Select';
 import ErrorMessage from '../../components/Common/ErrorMessage';
 import DetalleCompraModal from './DetalleCompraModal';
+import { TransactionCard } from '../../components/Common/Card';
 
 const ComprasListPage: React.FC = () => {
     const navigate = useNavigate();
@@ -146,110 +146,17 @@ const ComprasListPage: React.FC = () => {
 
     const totalPages = Math.ceil(totalCompras / itemsPerPage);
 
-    const columns = useMemo(() => {
+    const generateCompraActions = (compra: Compra): ActionConfig[] => {
+        const isAnulada = compra.estado === EstadoCompraEnum.anulada;
+        const isPendiente = compra.estado === EstadoCompraEnum.pendiente;
+
         return [
-            { Header: 'ID', accessor: 'compra_id' },
-            {
-                 Header: 'Proveedor',
-                 accessor: 'proveedor',
-                 Cell: ({ row }: { row: { original: Compra } }): React.ReactNode => {
-                      const p = row.original.proveedor;
-                      if (p) {
-                           if (p.persona && p.persona.nombre) {
-                               return `${p.persona.nombre} ${p.persona.apellido_paterno || ''}`.trim();
-                           } else if (p.empresa && p.empresa.razon_social) {
-                               return p.empresa.razon_social;
-                           } else {
-                               return `ID ${p.proveedor_id !== undefined ? p.proveedor_id : 'N/A'}`;
-                           }
-                      }
-                      return '-';
-                 },
-            },
-
-            {
-                 Header: 'Fecha',
-                 accessor: 'fecha_compra',
-                 Cell: ({ row }: { row: { original: Compra } }): React.ReactNode => {
-                      const value = row.original.fecha_compra;
-                      try {
-                           const date = new Date(value);
-                           return date.toLocaleDateString();
-                      } catch {
-                           return value;
-                      }
-                 },
-            },
-            {
-                 Header: 'Total',
-                 accessor: 'total',
-                 Cell: ({ row }: { row: { original: Compra } }): React.ReactNode => {
-                      const value = row.original.total;
-                      const numericValue = typeof value === 'string' ? parseFloat(value) : value;
-                      if (typeof numericValue === 'number' && !isNaN(numericValue)) {
-                          return <span className="text-green-700 dark:text-green-400 font-semibold">{`${numericValue.toFixed(2)} Bs`}</span>;
-                      }
-                      return <span className="text-gray-700 dark:text-gray-300">{`${value} Bs`}</span>;
-                 },
-            },
-            { 
-                Header: 'Estado', 
-                accessor: 'estado',
-                Cell: ({ row }: { row: { original: Compra } }): React.ReactNode => {
-                    const estado = row.original.estado;
-                    let textColorClass = '';
-                    let bgColorClass = '';
-
-                    switch (estado) {
-                        case EstadoCompraEnum.pendiente:
-                            textColorClass = 'text-blue-900 dark:text-blue-200';
-                            bgColorClass = 'bg-blue-200 dark:bg-blue-800';
-                            break;
-                        case EstadoCompraEnum.completada:
-                            textColorClass = 'text-green-900 dark:text-green-200';
-                            bgColorClass = 'bg-green-200 dark:bg-green-800';
-                            break;
-                        case EstadoCompraEnum.anulada:
-                            textColorClass = 'text-red-900 dark:text-red-200';
-                            bgColorClass = 'bg-red-200 dark:bg-red-800';
-                            break;
-                        default:
-                            textColorClass = 'text-gray-900 dark:text-gray-200';
-                            bgColorClass = 'bg-gray-200 dark:bg-gray-700';
-                            break;
-                    }
-
-                    return (
-                        <span className={`relative inline-block px-3 py-1 font-semibold leading-tight ${textColorClass}`}>
-                            <span aria-hidden="true" className={`absolute inset-0 opacity-50 rounded-full ${bgColorClass}`}></span>
-                            <span className="relative">{estado.charAt(0).toUpperCase() + estado.slice(1)}</span>
-                        </span>
-                    );
-                },
-            },
-            {
-                Header: 'Acciones',
-                accessor: 'acciones',
-                Cell: ({ row }: { row: { original: Compra } }): React.ReactNode => {
-                    const compra = row.original;
-                    const isAnulada = compra.estado === EstadoCompraEnum.anulada;
-                    const isCompletada = compra.estado === EstadoCompraEnum.completada;
-                    const isPendiente = compra.estado === EstadoCompraEnum.pendiente;
-
-                    const compraActions: ActionConfig[] = [
-                        { label: 'Ver', onClick: () => handleViewModal(compra), isVisible: true, buttonVariant: 'menuItem', colorClass: 'text-blue-700 dark:text-blue-400' },
-                        { label: 'Editar', onClick: () => handleEditCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem' },
-                        { label: 'Completar', onClick: () => handleCompletarCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem', colorClass: 'text-green-700 dark:text-green-400' },
-                        { label: 'Anular', onClick: () => handleAnularCompra(compra.compra_id), isVisible: !isAnulada && !isCompletada, buttonVariant: 'menuItem', colorClass: 'text-red-700 dark:text-red-400' },
-                    ];
-
-                    return (
-                        <ActionsDropdown actions={compraActions} isLoading={loading} />
-                    );
-                },
-            },
+            { label: 'Ver', onClick: () => handleViewModal(compra), isVisible: true, buttonVariant: 'menuItem', colorClass: 'text-blue-700 dark:text-blue-400' },
+            { label: 'Editar', onClick: () => handleEditCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem' },
+            { label: 'Completar', onClick: () => handleCompletarCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem', colorClass: 'text-green-700 dark:text-green-400' },
+            { label: 'Anular', onClick: () => handleAnularCompra(compra.compra_id), isVisible: !isAnulada, buttonVariant: 'menuItem', colorClass: 'text-red-700 dark:text-red-400' },
         ];
-    }, [handleAnularCompra, handleCompletarCompra, handleViewModal, handleEditCompra, loading]);
+    };
 
     if (loading && compras.length === 0) {
         return (
@@ -309,24 +216,83 @@ const ComprasListPage: React.FC = () => {
                 </div>
             </div>
 
-            {loading && compras.length > 0 && (
-                 <div className="absolute inset-0 flex justify-center items-center bg-white dark:bg-gray-800 bg-opacity-75 dark:bg-opacity-75 z-10">
-                     <LoadingSpinner />
-                 </div>
-            )}
             {compras.length === 0 && !loading && !error ? (
-                <p className="text-center text-gray-500 dark:text-gray-400">No hay compras registradas que coincidan con los filtros.</p>
+                <p className="text-gray-600 dark:text-gray-400 text-center mt-8">No hay compras registradas que coincidan con los filtros.</p>
             ) : (
-                 <div className="relative overflow-x-auto">
-                    <Table columns={columns} data={compras} />
-                    <div className="mt-4 flex justify-center items-center space-x-4">
+                <div className="relative">
+                    {loading && compras.length > 0 && (
+                        <div className="absolute inset-0 flex justify-center items-center bg-white dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 z-10">
+                            <LoadingSpinner />
+                        </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {compras.map(compra => {
+                            const proveedor = compra.proveedor
+                                ? compra.proveedor.persona 
+                                    ? `${compra.proveedor.persona.nombre} ${compra.proveedor.persona.apellido_paterno || ''}`.trim()
+                                    : compra.proveedor.empresa 
+                                        ? compra.proveedor.empresa.razon_social
+                                        : `ID ${compra.proveedor.proveedor_id}`
+                                : 'Sin proveedor';
+                            
+                            const compraActions = generateCompraActions(compra);
+                            
+                            const items = [];
+                            
+                            if (compra.estado === EstadoCompraEnum.completada) {
+                                items.push({
+                                    label: 'Stock',
+                                    value: 'Actualizado',
+                                    icon: (
+                                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    )
+                                });
+                            } else if (compra.estado === EstadoCompraEnum.pendiente) {
+                                items.push({
+                                    label: 'Stock',
+                                    value: 'Pendiente',
+                                    icon: (
+                                        <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    )
+                                });
+                            }
+
+                            return (
+                                <TransactionCard
+                                    key={compra.compra_id}
+                                    transactionId={compra.compra_id}
+                                    date={compra.fecha_compra}
+                                    client={proveedor}
+                                    total={Number(compra.total)}
+                                    status={{
+                                        text: compra.estado.charAt(0).toUpperCase() + compra.estado.slice(1),
+                                        variant: compra.estado === EstadoCompraEnum.completada 
+                                            ? 'success' 
+                                            : compra.estado === EstadoCompraEnum.anulada 
+                                                ? 'danger' 
+                                                : 'info'
+                                    }}
+                                    items={items}
+                                    actions={<ActionsDropdown actions={compraActions} isLoading={loading} />}
+                                    variant="purchase"
+                                />
+                            );
+                        })}
+                    </div>
+                    
+                    <div className="flex justify-center items-center mt-8 space-x-4">
                         <Button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1 || loading} variant="secondary">Anterior</Button>
                         <span className="text-gray-700 dark:text-gray-300">
                             Página {currentPage} de {totalPages} (Total: {totalCompras} compras)
                         </span>
                         <Button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || loading} variant="secondary">Siguiente</Button>
                     </div>
-                 </div>
+                </div>
             )}
             
             <DetalleCompraModal

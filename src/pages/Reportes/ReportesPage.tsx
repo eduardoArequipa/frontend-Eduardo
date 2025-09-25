@@ -145,7 +145,7 @@ const ReportesPage: React.FC = () => {
         setCategorias(categoriasRes.items || []);
         setEmpleados(usuariosRes.items || []);
         setProveedores(proveedoresRes.items || []);
-        setMarcas(marcasRes || []);
+        setMarcas(marcasRes.items || []);
         
       } catch (error) {
         console.error("Error al cargar datos para filtros:", error);

@@ -64,16 +64,22 @@ const StockDisplay: React.FC<StockDisplayProps> = ({
     }
 
     // Si hay stock convertido y es mayor a 0, mostrarlo (caso simple)
-    if (stockConvertido && stockConvertido.cantidad > 0) {
+    if (stockConvertido && parseFloat(stockConvertido.cantidad.toString()) > 0) {
         const tooltipText = `Stock base: ${stock} ${unidadBase.abreviatura}`;
-        
+
+        // Formatear la cantidad para mostrar
+        const cantidadNum = parseFloat(stockConvertido.cantidad.toString());
+        const cantidadFormateada = cantidadNum % 1 === 0
+            ? cantidadNum.toString()
+            : cantidadNum.toFixed(2).replace(/\.?0+$/, '');
+
         return (
-            <div 
+            <div
                 className={`px-3 py-1 rounded-full text-center ${stockBgColor} ${className}`}
                 title={tooltipText}
             >
                 <p className={`font-bold text-sm ${stockTextColor}`}>
-                    {stockConvertido.cantidad}
+                    {cantidadFormateada}
                     {stockConvertido.es_aproximado && <span className="text-xs ml-1">~</span>}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">

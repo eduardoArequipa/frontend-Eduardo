@@ -27,6 +27,7 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
     const [estado, setEstado] = useState<EstadoEnum>(EstadoEnum.Activo);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
 
     useEffect(() => {
         if (marcaId) {
@@ -49,12 +50,46 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
         }
     }, [marcaId]);
 
+    const validateForm = (): boolean => {
+        const errors: {[key: string]: string} = {};
+
+        // Validar nombre de marca
+        if (!formData.nombre_marca.trim()) {
+            errors.nombre_marca = 'El nombre de la marca es obligatorio';
+        } else if (formData.nombre_marca.length < 2) {
+            errors.nombre_marca = 'El nombre debe tener al menos 2 caracteres';
+        } else if (formData.nombre_marca.length > 50) {
+            errors.nombre_marca = 'El nombre no puede exceder 50 caracteres';
+        }
+
+        // Validar descripción
+        if (formData.descripcion && formData.descripcion.length > 500) {
+            errors.descripcion = 'La descripción no puede exceder 500 caracteres';
+        }
+
+        // Validar país de origen
+        if (formData.pais_origen && formData.pais_origen.length > 50) {
+            errors.pais_origen = 'El país de origen no puede exceder 50 caracteres';
+        }
+
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { id, value } = e.target;
         setFormData(prev => ({
             ...prev,
             [id]: value,
         }));
+
+        // Limpiar error de validación específico al cambiar el campo
+        if (validationErrors[id]) {
+            setValidationErrors(prev => ({
+                ...prev,
+                [id]: ''
+            }));
+        }
     };
 
     const handleEstadoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -63,6 +98,12 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validar formulario antes de enviar
+        if (!validateForm()) {
+            return;
+        }
+
         setLoading(true);
         setError(null);
         try {
@@ -71,11 +112,11 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
                 onSuccess(marcaActualizada); // Pasar la marca actualizada
             } else {
                 const nuevaMarca = await createMarca(formData);
-                
+
                 // 🚀 OPTIMIZACIÓN: Notificar a otros módulos sin recargar todo
                 console.log('🏷️ Nueva marca creada, notificando a cache:', nuevaMarca.nombre_marca);
                 notifyMarcaCreated(nuevaMarca);
-                
+
                 onSuccess(nuevaMarca); // Pasar la nueva marca
             }
         } catch (err: any) {
@@ -96,35 +137,56 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
     return (
         <form onSubmit={handleSubmit} className="space-y-4 p-4 bg-white dark:bg-gray-800 rounded-lg">
             <div>
-                <label htmlFor="nombre_marca" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre de la Marca</label>
+                <label htmlFor="nombre_marca" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Nombre de la Marca *
+                </label>
                 <Input
                     id="nombre_marca"
                     type="text"
                     value={formData.nombre_marca}
                     onChange={handleChange}
                     required
-                    className="mt-1 block w-full"
+                    maxLength={50}
+                    className={`mt-1 block w-full ${validationErrors.nombre_marca ? 'border-red-500' : ''}`}
+                    placeholder="Ingrese el nombre de la marca"
                 />
+                {validationErrors.nombre_marca && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.nombre_marca}</p>
+                )}
             </div>
             <div>
-                <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Descripción</label>
+                <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Descripción
+                </label>
                 <Input
                     id="descripcion"
                     type="text"
                     value={formData.descripcion || ''}
                     onChange={handleChange}
-                    className="mt-1 block w-full"
+                    maxLength={500}
+                    className={`mt-1 block w-full ${validationErrors.descripcion ? 'border-red-500' : ''}`}
+                    placeholder="Descripción opcional de la marca"
                 />
+                {validationErrors.descripcion && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.descripcion}</p>
+                )}
             </div>
             <div>
-                <label htmlFor="pais_origen" className="block text-sm font-medium text-gray-700 dark:text-gray-300">País de Origen</label>
+                <label htmlFor="pais_origen" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    País de Origen
+                </label>
                 <Input
                     id="pais_origen"
                     type="text"
                     value={formData.pais_origen || ''}
                     onChange={handleChange}
-                    className="mt-1 block w-full"
+                    maxLength={50}
+                    className={`mt-1 block w-full ${validationErrors.pais_origen ? 'border-red-500' : ''}`}
+                    placeholder="País de origen de la marca"
                 />
+                {validationErrors.pais_origen && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.pais_origen}</p>
+                )}
             </div>
             {marcaId && (
                 <div>

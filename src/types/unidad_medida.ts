@@ -4,7 +4,7 @@ import { EstadoEnum } from "./enums";
 export interface UnidadMedidaBase {
     nombre_unidad: string;
     abreviatura: string;
-    es_fraccionable: boolean;
+    es_fraccionable: boolean; // Permite cantidades decimales en ventas (ej: 0.5 metros)
 }
 
 export interface UnidadMedidaCreate extends UnidadMedidaBase {

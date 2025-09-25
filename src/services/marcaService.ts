@@ -1,6 +1,6 @@
 // src/services/marcaService.ts
 import axiosInstance from '../api/axiosInstance'; // Import your configured Axios instance
-import { Marca, MarcaCreate, MarcaUpdate } from '../types/marca'; // Import Marca and MarcaCreate types
+import { Marca, MarcaCreate, MarcaUpdate, MarcaPagination } from '../types/marca'; // Import Marca and MarcaCreate types
 import { EstadoEnum } from '../types/enums'; // Import EstadoEnum if used for filters/status types
 
 /**
@@ -14,14 +14,12 @@ interface GetMarcasParams {
 }
 
 /**
- * Fetches a list of brands.
+ * Fetches a list of brands with pagination.
  * @param params Optional parameters for filtering, searching, and pagination.
- * @returns A promise that resolves to an array of Marca objects.
+ * @returns A promise that resolves to a MarcaPagination object.
  */
-export const getMarcas = async (params?: GetMarcasParams): Promise<Marca[]> => {
-    const response = await axiosInstance.get('/marcas/', { params });
-    // Assuming the backend directly returns an array of brands.
-    // If your backend paginates with {items:[], total:}, you should use response.data.items
+export const getMarcas = async (params?: GetMarcasParams): Promise<MarcaPagination> => {
+    const response = await axiosInstance.get<MarcaPagination>('/marcas/', { params });
     return response.data;
 };
 

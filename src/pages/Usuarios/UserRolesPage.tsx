@@ -87,12 +87,17 @@ const UserRolesPage: React.FC = () => {
     };
 
     const { userRoles, availableRolesForAssignment } = useMemo(() => {
-        if (!usuario || !allRoles || !usuario.persona) {
+        if (!usuario || !allRoles) {
             return { userRoles: [], availableRolesForAssignment: [] };
         }
-        const userRoleIds = new Set(usuario.persona.roles.map(rol => rol.rol_id));
+        
+        // Manejar el caso donde el usuario no tiene persona asignada
+        const currentRoles = usuario.persona?.roles || [];
+        const userRoleIds = new Set(currentRoles.map(rol => rol.rol_id));
+        
         const userRolesList = allRoles.filter(rol => userRoleIds.has(rol.rol_id));
         const availableForAssignmentList = allRoles.filter(rol => !userRoleIds.has(rol.rol_id));
+        
         return { userRoles: userRolesList, availableRolesForAssignment: availableForAssignmentList };
     }, [usuario, allRoles]);
 
@@ -123,9 +128,13 @@ const UserRolesPage: React.FC = () => {
                     <UserAvatar src={photoUrl} alt={`Avatar de ${usuario.nombre_usuario}`} className="h-16 w-16 mr-4 rounded-full object-cover" />
                     <div>
                         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{usuario.nombre_usuario}</h2>
-                        {usuario.persona && (
+                        {usuario.persona ? (
                             <p className="text-gray-600 dark:text-gray-400">
                                 Persona: {`${usuario.persona.nombre} ${usuario.persona.apellido_paterno || ''}`.trim()}
+                            </p>
+                        ) : (
+                            <p className="text-orange-600 dark:text-orange-400 font-medium">
+                                ⚠️ Sin persona asignada
                             </p>
                         )}
                         <p className="text-gray-600 dark:text-gray-400">Estado: {usuario.estado}</p>
@@ -139,17 +148,27 @@ const UserRolesPage: React.FC = () => {
                     </div>
                 )}
 
+                {!usuario.persona && (
+                    <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                        <p className="text-orange-700 dark:text-orange-300">
+                            <strong>Nota:</strong> Este usuario no tiene una persona asignada. Para asignar roles, primero debe asociarse con una persona desde la edición del usuario.
+                        </p>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <h3 className="text-lg font-semibold mb-2 border-b pb-1 text-gray-800 dark:text-gray-200">Roles Asignados</h3>
                         {userRoles.length === 0 ? (
-                            <p className="text-gray-500 dark:text-gray-400">No tiene roles asignados.</p>
+                            <p className="text-gray-500 dark:text-gray-400">
+                                {!usuario.persona ? 'Sin persona asignada - no hay roles.' : 'No tiene roles asignados.'}
+                            </p>
                         ) : (
                             <ul className="space-y-2">
                                 {userRoles.map(rol => (
                                     <li key={rol.rol_id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded">
                                         <span className="text-gray-800 dark:text-gray-200">{rol.nombre_rol}</span>
-                                        <Button onClick={() => handleRemoveRole(rol.rol_id)} variant="danger" size="sm" disabled={isUpdatingRoles}>Remover</Button>
+                                        <Button onClick={() => handleRemoveRole(rol.rol_id)} variant="danger" size="sm" disabled={isUpdatingRoles || !usuario.persona}>Remover</Button>
                                     </li>
                                 ))}
                             </ul>
@@ -165,7 +184,7 @@ const UserRolesPage: React.FC = () => {
                                 {availableRolesForAssignment.map(rol => (
                                     <li key={rol.rol_id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded">
                                         <span className="text-gray-800 dark:text-gray-200">{rol.nombre_rol}</span>
-                                        <Button onClick={() => handleAssignRole(rol.rol_id)} variant="success" size="sm" disabled={isUpdatingRoles}>Asignar</Button>
+                                        <Button onClick={() => handleAssignRole(rol.rol_id)} variant="success" size="sm" disabled={isUpdatingRoles || !usuario.persona}>Asignar</Button>
                                     </li>
                                 ))}
                             </ul>

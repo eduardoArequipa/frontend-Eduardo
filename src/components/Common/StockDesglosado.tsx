@@ -1,5 +1,6 @@
 import React from 'react';
 import { DesglosePresentacion } from '../../types/producto';
+import { formatearPresentacion, formatearPresentacionCompacta } from '../../utils/pluralization';
 
 interface StockDesglosadoProps {
     desglose: DesglosePresentacion[];
@@ -23,17 +24,17 @@ const StockDesglosado: React.FC<StockDesglosadoProps> = ({
         return null;
     }
 
-    // Formatear el desglose para mostrar
+    // Formatear el desglose para mostrar con pluralización correcta
     const formatearDesglose = () => {
         return desglose
-            .map(item => `${item.cantidad} ${item.nombre.toLowerCase()}`)
+            .map(item => formatearPresentacion(item.cantidad, item.nombre))
             .join(', ');
     };
 
     // Formatear el desglose compacto para mostrar
     const formatearDesgloseCompacto = () => {
         return desglose
-            .map(item => `${item.cantidad} ${item.abreviatura}`)
+            .map(item => formatearPresentacionCompacta(item.cantidad, item.nombre, item.abreviatura))
             .join(', ');
     };
 

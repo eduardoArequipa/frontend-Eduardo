@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { getMarcas, deleteMarca, activateMarca } from '../../services/marcaService';
-import { Marca } from '../../types/marca';
+import { Marca, MarcaPagination } from '../../types/marca';
 import { EstadoEnum } from '../../types/enums';
 // Ya no necesitamos useCatalogs aquí
 import Table from '../../components/Common/Table';
@@ -15,11 +15,14 @@ import MarcaForm from '../../components/Specific/MarcaForm';
 
 const MarcasListPage: React.FC = () => {
     const [marcas, setMarcas] = useState<Marca[]>([]);
+    const [totalMarcas, setTotalMarcas] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const [search, setSearch] = useState('');
     const [estadoFilter, setEstadoFilter] = useState<EstadoEnum | ''>(EstadoEnum.Activo);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
@@ -34,13 +37,16 @@ const MarcasListPage: React.FC = () => {
             const params = {
                 ...(search && { search }),
                 ...(estadoFilter && { estado: estadoFilter }),
-                limit: 1000, // Limite alto para traer todas las marcas activas
+                skip: (currentPage - 1) * itemsPerPage,
+                limit: itemsPerPage,
             };
-            const fetchedData = await getMarcas(params);
-            setMarcas(fetchedData);
+            const response: MarcaPagination = await getMarcas(params);
+            setMarcas(response.items);
+            setTotalMarcas(response.total);
         } catch (err: any) {
             setError(err.response?.data?.detail || "Error al cargar las marcas.");
             setMarcas([]);
+            setTotalMarcas(0);
         } finally {
             setLoading(false);
         }
@@ -48,10 +54,11 @@ const MarcasListPage: React.FC = () => {
 
     useEffect(() => {
         fetchMarcas();
-    }, [search, estadoFilter]);
+    }, [search, estadoFilter, currentPage]);
 
     const handleFilterValueChange = (setter: React.Dispatch<any>) => (value: any) => {
         setter(value);
+        setCurrentPage(1); // Resetear a la primera página cuando cambian los filtros
     };
 
     const handleDelete = async (id: number, nombreMarca: string) => {
@@ -162,6 +169,29 @@ const MarcasListPage: React.FC = () => {
             ) : (
                 <div className="relative overflow-x-auto">
                     <Table columns={columns} data={marcas} />
+                </div>
+            )}
+
+            {/* Paginación */}
+            {totalMarcas > 0 && (
+                <div className="mt-4 flex justify-center items-center space-x-4">
+                    <Button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1 || loading}
+                        variant="secondary"
+                    >
+                        Anterior
+                    </Button>
+                    <span className="text-gray-700 dark:text-gray-300">
+                        Página {currentPage} de {Math.ceil(totalMarcas / itemsPerPage)} (Total: {totalMarcas} marcas)
+                    </span>
+                    <Button
+                        onClick={() => setCurrentPage(prev => prev + 1)}
+                        disabled={currentPage >= Math.ceil(totalMarcas / itemsPerPage) || loading}
+                        variant="secondary"
+                    >
+                        Siguiente
+                    </Button>
                 </div>
             )}
 

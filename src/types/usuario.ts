@@ -36,8 +36,12 @@ export interface IUsuarioInDB extends IUsuarioBase {
     bloqueado_hasta: string | null; // Puede ser string (ISO 8601) o null
     codigo_recuperacion: string | null; // Hice este campo opcional, ya que solo existe temporalmente
     expiracion_codigo_recuperacion: string | null; // Hice este campo opcional
-    creado_en: string; // Campo de auditoría (fecha de creación)
 
+    // Campos de auditoría en español
+    fecha_creacion?: string; // Campo de auditoría (fecha de creación)
+    fecha_modificacion?: string; // Campo de auditoría (fecha de modificación)
+    creado_por?: number | null;
+    modificado_por?: number | null;
 
     persona: IPersonaWithRoles | null; // Persona asociada, puede ser con roles o sin ellos
 

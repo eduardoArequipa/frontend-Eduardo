@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { getProveedores } from '../services/proveedorService';
 import { Proveedor } from '../types/proveedor';
 import { EstadoEnum } from '../types/enums';
+import { useAuth } from '../hooks/useAuth';
 
 interface CompraContextType {
     proveedores: Proveedor[];
@@ -13,6 +14,7 @@ interface CompraContextType {
 const CompraContext = createContext<CompraContextType | undefined>(undefined);
 
 export const CompraProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { isAuthenticated, loading: authLoading } = useAuth();
     const [proveedores, setProveedores] = useState<Proveedor[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -32,8 +34,10 @@ export const CompraProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }, []);
 
     useEffect(() => {
-        fetchProveedores();
-    }, [fetchProveedores]);
+        if (isAuthenticated && !authLoading) {
+            fetchProveedores();
+        }
+    }, [isAuthenticated, authLoading, fetchProveedores]);
 
     return (
         <CompraContext.Provider value={{ proveedores, isLoading, error, refetchProveedores: fetchProveedores }}>

@@ -22,7 +22,6 @@ const ProductosListPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const pageRef = useRef<HTMLDivElement>(null);
-    const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
 
     const [search, setSearch] = useState('');
     const [estadoFilter, setEstadoFilter] = useState<EstadoEnum | ''>(EstadoEnum.Activo);
@@ -94,17 +93,6 @@ const ProductosListPage: React.FC = () => {
         }
     }, [search, estadoFilter, categoriaFilter, unidadMedidaFilter, marcaFilter, currentPage, itemsPerPage, isLoadingCatalogs]);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (openDropdownId !== null && pageRef.current && !pageRef.current.contains(event.target as Node)) {
-                setOpenDropdownId(null);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [openDropdownId]);
 
      const handleFilterValueChange = (setter: React.Dispatch<any>) => (value: any) => {
          setter(value);
@@ -247,12 +235,11 @@ const ProductosListPage: React.FC = () => {
             <div className="relative">
                 {loading && productos.length > 0 && <div className="absolute inset-0 flex justify-center items-center bg-white dark:bg-gray-900 bg-opacity-50 dark:bg-opacity-75 z-10 rounded-lg"><LoadingSpinner /></div>}
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-6">
                     {productos.map(producto => {
-                        const isDropdownOpen = openDropdownId === producto.producto_id;
-                        const stock = Number(producto.stock);
+                        const stock = parseFloat(producto.stock);
                         const stockMinimo = Number(producto.stock_minimo);
-                        const precioCompra = Number(producto.precio_compra);
+                        const precioCompra = parseFloat(producto.precio_compra);
                         const isNewProduct = precioCompra === 0; // Producto sin compras
 
                         const productActions: ActionConfig[] = [
@@ -262,63 +249,137 @@ const ProductosListPage: React.FC = () => {
                         ];
 
                         return (
-                            <div key={producto.producto_id} className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300 ease-in-out flex flex-col ${isDropdownOpen ? 'z-20' : 'z-10'}`}>
+                            <div key={producto.producto_id} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out flex flex-col relative group"
+                                 style={{ zIndex: 1 }}
+                                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.zIndex = '50'; }}
+                                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.zIndex = '1'; }}
+                            >
                                 <div className="relative">
                                     <img 
                                         src={producto.imagen_ruta ? `${BACKEND_BASE_URL}${producto.imagen_ruta}` : '/src/assets/default-product-image.png'} 
                                         alt={`Imagen de ${producto.nombre}`} 
-                                        className="h-48 w-full object-cover"
+                                        className="h-32 sm:h-36 w-full object-cover rounded-t-lg"
                                         onError={(e) => { e.currentTarget.src = '/src/assets/image-error.png'; }}
                                     />
-                                    <div className="absolute top-2 right-2 flex flex-col gap-1">
-                                        <div className={`px-2 py-1 text-xs font-bold text-white rounded-full ${producto.estado === EstadoEnum.Activo ? 'bg-green-500' : 'bg-red-500'}`}>
+                                    
+                                    {/* Status Badges - Reorganizados */}
+                                    <div className="absolute top-3 right-3 flex flex-col gap-2">
+                                        <div className={`px-3 py-1 text-xs font-bold text-white rounded-full shadow-sm ${producto.estado === EstadoEnum.Activo ? 'bg-green-500' : 'bg-red-500'}`}>
                                             {producto.estado}
                                         </div>
                                         {isNewProduct && (
-                                            <div className="px-2 py-1 text-xs font-bold text-white bg-orange-500 rounded-full">
+                                            <div className="px-3 py-1 text-xs font-bold text-white bg-orange-500 rounded-full shadow-sm animate-pulse">
                                                 NUEVO
                                             </div>
                                         )}
+                                        {/* Alerta de Stock Bajo */}
+                                        {!isNewProduct && stock <= stockMinimo && stock > 0 && (
+                                            <div className="px-3 py-1 text-xs font-bold text-white bg-red-600 rounded-full shadow-sm animate-pulse">
+                                                STOCK BAJO
+                                            </div>
+                                        )}
+                                        {/* Sin Stock */}
+                                        {!isNewProduct && stock === 0 && (
+                                            <div className="px-3 py-1 text-xs font-bold text-white bg-gray-800 rounded-full shadow-sm">
+                                                SIN STOCK
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="absolute top-2 left-2">
-                                        <ActionsDropdown 
-                                            actions={productActions} 
-                                            isLoading={loading} 
-                                        />
-                                    </div>
+                                    
+                                    {/* Categoría Badge - Mejorado */}
+                                    {producto.categoria && (
+                                        <div className="absolute bottom-3 left-3">
+                                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-white/90 dark:bg-gray-800/90 text-gray-800 dark:text-gray-100 shadow-lg backdrop-blur-sm border border-white/20 dark:border-gray-700/50">
+                                                <svg className="w-3 h-3 mr-1 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                                </svg>
+                                                {producto.categoria.nombre_categoria}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                                 
-                                <div className="p-4 flex-grow flex flex-col">
-                                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 truncate" title={producto.nombre}>{producto.nombre}</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">{producto.marca?.nombre_marca || 'Sin Marca'}</p>
-                                    
-                                    <div className="mt-4 flex justify-between items-center">
-                                        <div className="text-sm text-gray-600 dark:text-gray-300">
-                                            {isNewProduct ? (
-                                                <div className="text-center">
-                                                    <p className="text-orange-600 dark:text-orange-400 font-medium">⚠️ Producto nuevo</p>
-                                                    <p className="text-xs text-gray-500">Necesita primera compra</p>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <p>Compra: <span className="font-semibold text-blue-600 dark:text-blue-400">{Number(producto.precio_compra).toFixed(2)} Bs.</span></p>
-                                                    <p>Venta: <span className="font-semibold text-green-600 dark:text-green-400">{Number(producto.precio_venta).toFixed(2)} Bs.</span></p>
-                                                </>
-                                            )}
+                                <div className="p-3 flex-grow flex flex-col">
+                                    {/* Header del producto */}
+                                    <div className="mb-2">
+                                        <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 truncate" title={producto.nombre}>
+                                            {producto.nombre}
+                                        </h3>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                {producto.marca?.nombre_marca || 'Sin Marca'}
+                                            </p>
+                                            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                                                #{producto.codigo}
+                                            </p>
                                         </div>
-                                        <StockDisplay
-                                            stock={stock}
-                                            stockMinimo={stockMinimo}
-                                            stockConvertido={producto.stock_convertido}
-                                            stockDesglosado={producto.stock_desglosado}
-                                            unidadBase={producto.unidad_inventario}
-                                            isNewProduct={isNewProduct}
-                                        />
                                     </div>
-
-                                    <div className="mt-auto pt-4">
-                                        <p className="text-xs text-gray-400 dark:text-gray-500 text-center">Código: {producto.codigo}</p>
+                                    
+                                    {/* Información de precios y stock */}
+                                    <div className="flex-grow">
+                                        {isNewProduct ? (
+                                            <div className="text-center py-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                                                <div className="text-orange-600 dark:text-orange-400 font-medium text-sm">
+                                                    ⚠️ Producto nuevo
+                                                </div>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">Necesita primera compra</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {/* Precios - Más compacto */}
+                                                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Precios</span>
+                                                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                                                            Margen: {precioCompra > 0 ? (((parseFloat(producto.precio_venta) - precioCompra) / precioCompra) * 100).toFixed(1) : '0'}%
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Compra</p>
+                                                            <p className="font-semibold text-blue-600 dark:text-blue-400 text-sm">
+                                                                {precioCompra.toFixed(2)} Bs.
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Venta</p>
+                                                            <p className="font-semibold text-green-600 dark:text-green-400 text-sm">
+                                                                {parseFloat(producto.precio_venta).toFixed(2)} Bs.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Stock - Con botón de acciones integrado */}
+                                                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stock</span>
+                                                        <div className="flex items-center space-x-2">
+                                                            {stock <= stockMinimo && stock > 0 && (
+                                                                <span className="text-xs text-red-500 dark:text-red-400 font-medium">
+                                                                    ⚠️ Bajo mínimo
+                                                                </span>
+                                                            )}
+                                                            {/* Actions Dropdown integrado */}
+                                                            <ActionsDropdown 
+                                                                actions={productActions} 
+                                                                isLoading={loading} 
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <StockDisplay
+                                                        stock={stock}
+                                                        stockMinimo={stockMinimo}
+                                                        stockConvertido={producto.stock_convertido}
+                                                        stockDesglosado={producto.stock_desglosado}
+                                                        unidadBase={producto.unidad_inventario}
+                                                        isNewProduct={isNewProduct}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
+                                    
                                 </div>
                             </div>
                         );

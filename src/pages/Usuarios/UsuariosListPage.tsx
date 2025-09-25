@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUsers, deactivateUser, activarUsuario } from '../../services/userService';
-import UserAvatar from '../../components/Specific/UserAvatar';
 import { IUsuarioReadAudit } from '../../types/usuario';
 import { EstadoEnum } from '../../types/enums';
 import { IRolInDB } from '../../types/rol';
@@ -13,6 +12,8 @@ import Select from '../../components/Common/Select';
 import { getRoles } from '../../services/rolService';
 import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDropdown';
 import ErrorMessage from '../../components/Common/ErrorMessage';
+import { ProfileCard } from '../../components/Common/Card';
+import InfoIcon from '../../components/Common/InfoIcon';
 
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -44,7 +45,7 @@ const UsuariosListPage: React.FC = () => {
             displayMessage = err.message;
         }
         setError(displayMessage);
-        console.error(contextMessage, err); // Log for debugging
+        console.error(contextMessage, err); 
     };
 
     useEffect(() => {
@@ -204,40 +205,127 @@ const UsuariosListPage: React.FC = () => {
                             { label: 'Desactivar', onClick: () => handleDelete(user.usuario_id, user.nombre_usuario), isVisible: user.estado === EstadoEnum.Activo, colorClass: 'text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50' },
                             { label: 'Activar', onClick: () => handleActivate(user.usuario_id, user.nombre_usuario), isVisible: user.estado !== EstadoEnum.Activo, colorClass: 'text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/50' },
                         ];
-                        const roles = user.persona?.roles?.map(rol => rol.nombre_rol).join(', ') || 'Sin roles';
+
+                        // Generar badges dinámicos
+                        const badges: Array<{
+                            text: string;
+                            variant?: 'success' | 'danger' | 'warning' | 'info' | 'secondary';
+                        }> = [
+                            {
+                                text: user.estado.charAt(0).toUpperCase() + user.estado.slice(1),
+                                variant: user.estado === EstadoEnum.Activo ? 'success' : 'danger'
+                            }
+                        ];
+
+                        // Agregar badge de número de roles
+                        const rolesCount = user.persona?.roles?.length || 0;
+                        if (rolesCount > 0) {
+                            badges.push({
+                                text: `${rolesCount} rol${rolesCount > 1 ? 'es' : ''}`,
+                                variant: 'secondary'
+                            });
+                        }
+
+                        // Agregar badge si es usuario sin persona
+                        if (!user.persona) {
+                            badges.push({
+                                text: 'Sin persona',
+                                variant: 'warning'
+                            });
+                        }
+
+                        const nombrePersona = user.persona 
+                            ? `${user.persona.nombre} ${user.persona.apellido_paterno || ''}`.trim()
+                            : 'Sin persona asignada';
+
+                        const avatarName = user.persona 
+                            ? nombrePersona
+                            : user.nombre_usuario;
 
                         return (
-                            <div key={user.usuario_id} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300 ease-in-out flex flex-col">
-                                <div className="p-4 relative">
-                                    <div className="absolute top-4 right-4">
-                                        <ActionsDropdown actions={userActions} isLoading={loading} />
+                            <ProfileCard
+                                key={user.usuario_id}
+                                avatar={{
+                                    src: user.foto_ruta ? `${BACKEND_BASE_URL}${user.foto_ruta}` : undefined,
+                                    alt: avatarName,
+                                    size: 'md',
+                                    showFallback: true
+                                }}
+                                title={user.nombre_usuario}
+                                subtitle={nombrePersona}
+                                badges={badges}
+                                actions={<ActionsDropdown actions={userActions} isLoading={loading} />}
+                                className="hover:shadow-xl transition-all duration-300 border-l-4 border-l-blue-500/30 hover:border-l-blue-500"
+                            >
+                                <div className="space-y-3">
+                                    {user.persona && (
+                                        <>
+                                            <div className="flex items-center space-x-2">
+                                                <InfoIcon type="email" className="w-4 h-4 text-indigo-500" />
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold">EMAIL PERSONAL</p>
+                                                    <p className="text-sm text-gray-700 dark:text-gray-300 truncate" title={user.persona.email || 'No especificado'}>
+                                                        {user.persona.email || (
+                                                            <span className="text-gray-400 italic">No especificado</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center space-x-2">
+                                                <InfoIcon type="phone" className="w-4 h-4 text-green-500" />
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold">TELÉFONO</p>
+                                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                                        {user.persona.telefono || (
+                                                            <span className="text-gray-400 italic">No especificado</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center space-x-2">
+                                                <InfoIcon type="id" className="w-4 h-4 text-orange-500" />
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold">CI</p>
+                                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                                        {user.persona.ci}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                    
+                                    <div className="flex items-start space-x-2">
+                                        <InfoIcon type="role" className="w-4 h-4 text-purple-500 mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold">ROLES ASIGNADOS</p>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {user.persona?.roles?.length ? (
+                                                    user.persona.roles.map((rol, index) => (
+                                                        <span
+                                                            key={index}
+                                                            className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium"
+                                                        >
+                                                            {rol.nombre_rol}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-gray-400 italic text-sm">Sin roles asignados</span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center space-x-4">
-                                        <UserAvatar
-                                            src={user.foto_ruta ? `${BACKEND_BASE_URL}${user.foto_ruta}` : undefined}
-                                            alt={`Foto de ${user.nombre_usuario}`}
-                                            className="h-16 w-16 rounded-full object-cover ring-2 ring-offset-2 dark:ring-offset-gray-800 ring-indigo-500"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 truncate" title={user.nombre_usuario}>{user.nombre_usuario}</h3>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate" title={user.persona ? `${user.persona.nombre} ${user.persona.apellido_paterno}` : 'Sin persona asignada'}>
-                                                {user.persona ? `${user.persona.nombre} ${user.persona.apellido_paterno || ''}`.trim() : 'Sin persona asignada'}
-                                            </p>
+
+                                    {/* Información adicional del usuario */}
+                                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                                        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                            <span>ID Usuario: {user.usuario_id}</span>
+                                            <span className="font-medium">{user.nombre_usuario}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="px-4 pb-4 flex-grow flex flex-col justify-between">
-                                    <div>
-                                        <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold mb-1">ROLES:</p>
-                                        <p className="text-sm text-gray-700 dark:text-gray-300 truncate" title={roles}>{roles}</p>
-                                    </div>
-                                    <div className="mt-4 text-right">
-                                        <span className={`px-3 py-1 text-xs font-semibold leading-tight rounded-full ${user.estado === EstadoEnum.Activo ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200'}`}>
-                                            {user.estado.charAt(0).toUpperCase() + user.estado.slice(1)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                            </ProfileCard>
                         );
                     })}
                 </div>

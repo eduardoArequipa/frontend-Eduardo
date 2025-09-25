@@ -33,6 +33,7 @@ export interface CarritoItem {
     nombre: string;
     stock_disponible_base: number;
     unidad_base: string;
+    unidad_base_fraccionable: boolean; // Para saber si permite decimales
     conversiones: Conversion[];
     precio_venta_unitario: number; // Precio base en unidad mínima
     // Objeto que almacena cantidades por presentación
@@ -93,7 +94,7 @@ const VentasFormPage: React.FC = () => {
                 return prev;
             }
 
-            if (producto.stock <= 0) {
+            if (parseFloat(producto.stock) <= 0) {
                 setLocalError(`Stock insuficiente para "${producto.nombre}".`);
                 return prev;
             }
@@ -115,14 +116,24 @@ const VentasFormPage: React.FC = () => {
                 codigo: producto.codigo,
                 nombre: producto.nombre,
                 precio_venta_unitario: parseFloat(String(producto.precio_venta)) || 0,
-                stock_disponible_base: producto.stock,
+                stock_disponible_base: parseFloat(producto.stock),
                 unidad_base: producto.unidad_inventario.nombre_unidad,
+                unidad_base_fraccionable: producto.unidad_inventario.es_fraccionable,
                 conversiones: salesConversions,
                 cantidades_por_presentacion: cantidadesPorPresentacion,
             };
             return [...prev, newItem];
         });
     }, [allConversions]);
+
+    // Función helper para parsear cantidades según el tipo de unidad
+    const parsearCantidad = (valor: string, esFraccionable: boolean): number => {
+        if (esFraccionable) {
+            return parseFloat(valor) || 0;
+        } else {
+            return parseInt(valor, 10) || 0;
+        }
+    };
 
     const handleSelectAndAddToCart = async (productoBase: ProductoSchemaBase) => {
         setIsSubmitting(true);
@@ -310,12 +321,14 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
                             <span className="text-sm font-semibold text-blue-700 dark:text-blue-300 min-w-[80px]">
                                 {row.original.unidad_base}:
                             </span>
-                            <Input 
-                                type="number" 
-                                value={row.original.cantidades_por_presentacion['Unidad'] || 0} 
-                                onChange={(e) => updateCartItemQuantity(row.original.producto_id, 'Unidad', parseInt(e.target.value, 10) || 0)}
-                                className="w-20 text-right" 
-                                min="0" 
+                            <Input
+                                type="number"
+                                value={row.original.cantidades_por_presentacion['Unidad'] || 0}
+                                onChange={(e) => updateCartItemQuantity(row.original.producto_id, 'Unidad', parsearCantidad(e.target.value, row.original.unidad_base_fraccionable))}
+                                className="w-20 text-right"
+                                min="0"
+                                step={row.original.unidad_base_fraccionable ? "0.01" : "1"}
+                                placeholder={row.original.unidad_base_fraccionable ? "1.5" : "1"}
                             />
                         </div>
                         <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
@@ -330,12 +343,14 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
                                 <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 min-w-[80px]">
                                     {conversion.nombre_presentacion}:
                                 </span>
-                                <Input 
-                                    type="number" 
-                                    value={row.original.cantidades_por_presentacion[conversion.nombre_presentacion] || 0} 
+                                <Input
+                                    type="number"
+                                    value={row.original.cantidades_por_presentacion[conversion.nombre_presentacion] || 0}
                                     onChange={(e) => updateCartItemQuantity(row.original.producto_id, conversion.nombre_presentacion, parseInt(e.target.value, 10) || 0)}
-                                    className="w-20 text-right" 
-                                    min="0" 
+                                    className="w-20 text-right"
+                                    min="0"
+                                    step="1"
+                                    placeholder="1"
                                 />
                             </div>
                             <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1 rounded">

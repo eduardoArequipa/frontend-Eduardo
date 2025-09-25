@@ -1,11 +1,10 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getVentas, anularVenta, descargarFacturaPdf } from '../../services/ventasService';
 import { Venta, VentaPagination } from '../../types/venta';
 import { EstadoVentaEnum } from '../../types/enums';
 import { useNotification } from '../../context/NotificationContext'; // 1. Importar hook
 
-import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
@@ -13,6 +12,8 @@ import ErrorMessage from '../../components/Common/ErrorMessage';
 import Select from '../../components/Common/Select';
 import Modal from '../../components/Common/Modal';
 import DetalleVentaModal from './DetalleVentaModal';
+import { TransactionCard } from '../../components/Common/Card';
+import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDropdown';
 import { useNavigate } from 'react-router-dom';
 
 const VentasListPage: React.FC = () => {
@@ -128,86 +129,25 @@ const VentasListPage: React.FC = () => {
 
     const totalPages = Math.ceil(totalVentas / pageSize);
 
-    const columns = useMemo(() => [
-        { Header: 'ID Venta', accessor: 'venta_id' },
-        {
-            Header: 'Fecha',
-            accessor: 'fecha_venta',
-            Cell: ({ row }: { row: { original: Venta } }) => new Date(row.original.fecha_venta).toLocaleString('es-BO'),
-        },
-        {
-            Header: 'Cliente',
-            accessor: 'persona',
-            Cell: ({ row }: { row: { original: Venta } }) => {
-                const { persona } = row.original;
-                return persona ? `${persona.nombre || ''} ${persona.apellido_paterno || ''}`.trim() : 'Consumidor Final';
-            }
-        },
-        {
-            Header: 'Factura',
-            id: 'factura_estado',
-            Cell: ({ row }: { row: { original: Venta } }) => {
-                if (!row.original.factura_electronica) {
-                    return <span className="text-xs text-gray-500">No Solicitada</span>;
-                }
-                const estado = row.original.factura_electronica.estado;
-                const color = estado === 'VALIDADA' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-                return <span className={`font-semibold ${color}`}>{estado}</span>;
-            }
-        },
-        {
-            Header: 'Total',
-            accessor: 'total',
-            Cell: ({ row }: { row: { original: Venta } }) => <span className="text-green-700 dark:text-green-400 font-semibold">{`${Number(row.original.total).toFixed(2)} Bs.`}</span>,
+    const generateVentaActions = (venta: Venta): ActionConfig[] => [
+        { 
+            label: 'Ver Detalles', 
+            onClick: () => handleViewDetailsClick(venta), 
+            isVisible: true 
         },
         { 
-            Header: 'Estado Venta', 
-            accessor: 'estado',
-            Cell: ({ row }: { row: { original: Venta } }) => (
-                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    row.original.estado === EstadoVentaEnum.activa ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                }`}>
-                    {row.original.estado}
-                </span>
-            )
+            label: 'Anular Venta', 
+            onClick: () => handleAnularVentaClick(venta), 
+            isVisible: venta.estado === EstadoVentaEnum.activa, 
+            colorClass: 'text-red-700 dark:text-red-400' 
         },
-        {
-            Header: 'Acciones',
-            id: 'acciones',
-            Cell: ({ row }: { row: { original: Venta } }) => (
-                <div className="flex items-center space-x-2">
-                    <Button
-                        onClick={() => handleViewDetailsClick(row.original)}
-                        size="sm"
-                        variant="primary"
-                    >
-                        Ver
-                    </Button>
-                    {row.original.estado === EstadoVentaEnum.activa && (
-                        <Button
-                            onClick={() => handleAnularVentaClick(row.original)}
-                            size="sm"
-                            variant="danger"
-                        >
-                            Anular
-                        </Button>
-                    )}
-                    {row.original.factura_electronica && row.original.factura_electronica.estado === 'VALIDADA' && (
-                        <Button
-                            onClick={() => handleDescargarFactura(row.original.factura_electronica!.factura_id)}
-                            size="sm"
-                            variant="secondary"
-                            title="Descargar Factura PDF"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                        </Button>
-                    )}
-                </div>
-            ),
-        },
-    ], [handleAnularVentaClick, handleDescargarFactura, handleViewDetailsClick]);
+        { 
+            label: 'Descargar Factura', 
+            onClick: () => handleDescargarFactura(venta.factura_electronica!.factura_id), 
+            isVisible: !!(venta.factura_electronica && venta.factura_electronica.estado === 'VALIDADA'), 
+            colorClass: 'text-blue-700 dark:text-blue-400' 
+        }
+    ];
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
@@ -272,14 +212,67 @@ const VentasListPage: React.FC = () => {
             {ventas.length === 0 && !isLoading && !error ? (
                 <p className="text-gray-600 dark:text-gray-400 text-center mt-8">No se encontraron ventas con los filtros aplicados.</p>
             ) : (
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md overflow-x-auto relative">
+                <div className="relative">
                     {isLoading && ventas.length > 0 && (
-                        <div className="absolute inset-0 flex justify-center items-center bg-white dark:bg-gray-800 bg-opacity-75 dark:bg-opacity-75 z-10">
+                        <div className="absolute inset-0 flex justify-center items-center bg-white dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 z-10">
                             <LoadingSpinner />
                         </div>
                     )}
-                    <Table columns={columns} data={ventas} />
-                    <div className="flex justify-between items-center mt-4">
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {ventas.map(venta => {
+                            const cliente = venta.persona 
+                                ? `${venta.persona.nombre || ''} ${venta.persona.apellido_paterno || ''}`.trim()
+                                : 'Consumidor Final';
+                            
+                            const ventaActions = generateVentaActions(venta);
+                            
+                            // Items adicionales para mostrar en la card
+                            const items = [];
+                            
+                            // Información de factura electrónica
+                            if (venta.factura_electronica) {
+                                items.push({
+                                    label: 'Factura',
+                                    value: venta.factura_electronica.estado,
+                                    icon: (
+                                        <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    )
+                                });
+                            } else {
+                                items.push({
+                                    label: 'Factura',
+                                    value: 'No Solicitada',
+                                    icon: (
+                                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    )
+                                });
+                            }
+
+                            return (
+                                <TransactionCard
+                                    key={venta.venta_id}
+                                    transactionId={venta.venta_id}
+                                    date={venta.fecha_venta}
+                                    client={cliente}
+                                    total={Number(venta.total)}
+                                    status={{
+                                        text: venta.estado.charAt(0).toUpperCase() + venta.estado.slice(1),
+                                        variant: venta.estado === EstadoVentaEnum.activa ? 'success' : 'danger'
+                                    }}
+                                    items={items}
+                                    actions={<ActionsDropdown actions={ventaActions} isLoading={isLoading} />}
+                                    variant="sale"
+                                />
+                            );
+                        })}
+                    </div>
+                    
+                    <div className="flex justify-center items-center mt-8 space-x-4">
                         <Button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1 || isLoading} variant="secondary">
                             Anterior
                         </Button>
