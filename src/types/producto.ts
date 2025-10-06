@@ -35,7 +35,6 @@ export interface ProductoBase {
     categoria_id: number;
     unidad_inventario_id: number;
     marca_id: number;
-    unidad_compra_predeterminada?: string | null;
     tipo_margen?: TipoMargenEnum;
     margen_valor?: string; // String para precisión decimal en márgenes
     precio_manual_activo?: boolean;
@@ -73,7 +72,6 @@ export interface ProductoUpdate {
     estado?: EstadoEnum;
     unidad_inventario_id?: number;
     marca_id?: number;
-    unidad_compra_predeterminada?: string | null;
     tipo_margen?: TipoMargenEnum;
     margen_valor?: string; // String para precisión decimal
     precio_manual_activo?: boolean;

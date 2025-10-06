@@ -134,11 +134,11 @@ const ReportesPage: React.FC = () => {
       try {
         setLoadingData(true);
         const [productosRes, categoriasRes, usuariosRes, proveedoresRes, marcasRes] = await Promise.all([
-          getProductos({ limit: 1000 }),
-          getCategorias({ limit: 1000 }),
-          getUsers({ limit: 1000 }),
-          getProveedores({ limit: 1000, estado: EstadoEnum.Activo }),
-          getMarcas({ limit: 1000 }),
+          getProductos({ limit: 100 }),
+          getCategorias({ limit: 100 }),
+          getUsers({ limit: 100 }),
+          getProveedores({ limit: 100, estado: EstadoEnum.Activo }),
+          getMarcas({ limit: 100 }),
         ]);
         
         setProductos(productosRes.items || []);
@@ -557,7 +557,7 @@ const ReportesPage: React.FC = () => {
               <Statistic 
                 title={<span className={themeStyles.secondaryText}>Total Ventas</span>}
                 value={datosVentas.resumen.total_ventas} 
-                prefix="S/ " 
+              //  prefix="S/ " 
                 precision={2}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
@@ -573,7 +573,7 @@ const ReportesPage: React.FC = () => {
               <Statistic 
                 title={<span className={themeStyles.secondaryText}>Promedio por Venta</span>}
                 value={datosVentas.resumen.promedio_venta} 
-                prefix="S/ " 
+               // prefix="S/ " 
                 precision={2}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
@@ -605,7 +605,7 @@ const ReportesPage: React.FC = () => {
               <Statistic 
                 title={<span className={themeStyles.secondaryText}>Total Compras</span>}
                 value={datosCompras.resumen.total_compras} 
-                prefix="S/ " 
+              //  prefix="S/ " 
                 precision={2}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
@@ -621,7 +621,7 @@ const ReportesPage: React.FC = () => {
               <Statistic 
                 title={<span className={themeStyles.secondaryText}>Promedio por Compra</span>}
                 value={datosCompras.resumen.promedio_compra} 
-                prefix="S/ " 
+                //prefix="S/ " 
                 precision={2}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
@@ -674,7 +674,7 @@ const ReportesPage: React.FC = () => {
               <Statistic 
                 title={<span className={themeStyles.secondaryText}>Valor Inventario</span>}
                 value={datosProductos.resumen.valor_inventario} 
-                prefix="S/ " 
+               // prefix="S/ " 
                 precision={2}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />

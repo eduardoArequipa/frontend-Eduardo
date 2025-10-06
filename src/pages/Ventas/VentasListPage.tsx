@@ -88,7 +88,11 @@ const VentasListPage: React.FC = () => {
         setError(null);
         try {
             await anularVenta(selectedVenta.venta_id);
-            addNotification('Venta anulada con éxito y stock revertido.', 'success'); // 3. Reemplazar
+            // Mensaje más descriptivo que incluye la factura si existe
+            const mensaje = selectedVenta.factura_electronica?.estado === 'VALIDADA'
+                ? 'Venta y factura electrónica anuladas con éxito. Stock revertido.'
+                : 'Venta anulada con éxito y stock revertido.';
+            addNotification(mensaje, 'success');
             fetchVentas();
         } catch (err: any) {
             const errorMessage = err.response?.data?.detail || 'Error al anular la venta.';
@@ -135,11 +139,11 @@ const VentasListPage: React.FC = () => {
             onClick: () => handleViewDetailsClick(venta), 
             isVisible: true 
         },
-        { 
-            label: 'Anular Venta', 
-            onClick: () => handleAnularVentaClick(venta), 
-            isVisible: venta.estado === EstadoVentaEnum.activa, 
-            colorClass: 'text-red-700 dark:text-red-400' 
+        {
+            label: venta.factura_electronica?.estado === 'VALIDADA' ? 'Anular Venta y Factura' : 'Anular Venta',
+            onClick: () => handleAnularVentaClick(venta),
+            isVisible: venta.estado === EstadoVentaEnum.activa,
+            colorClass: 'text-red-700 dark:text-red-400'
         },
         { 
             label: 'Descargar Factura', 
@@ -302,12 +306,21 @@ const VentasListPage: React.FC = () => {
             >
                 {selectedVenta && (
                     <div>
-                        <p className="text-gray-700 dark:text-gray-300">¿Estás seguro de que quieres anular la venta <strong>#{selectedVenta.venta_id}</strong>?</p>
+                        <p className="text-gray-700 dark:text-gray-300">
+                            ¿Estás seguro de que quieres anular la venta <strong>#{selectedVenta.venta_id}</strong>
+                            {selectedVenta.factura_electronica?.estado === 'VALIDADA' && ' y su factura electrónica'}?
+                        </p>
                         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                             Cliente: {selectedVenta.persona ? `${selectedVenta.persona.nombre} ${selectedVenta.persona.apellido_paterno || ''}`.trim() : 'Consumidor Final'}<br/>
                             Total: {Number(selectedVenta.total).toFixed(2)} Bs.
+                            {selectedVenta.factura_electronica?.estado === 'VALIDADA' && (
+                                <><br/>Factura: {selectedVenta.factura_electronica.cuf || 'Generada'}</>
+                            )}
                         </p>
-                        <p className="mt-4 font-semibold text-red-600 dark:text-red-400">Esta acción es irreversible y repondrá el stock de los productos involucrados.</p>
+                        <p className="mt-4 font-semibold text-red-600 dark:text-red-400">
+                            Esta acción es irreversible y repondrá el stock de los productos involucrados.
+                            {selectedVenta.factura_electronica?.estado === 'VALIDADA' && ' La factura electrónica también será anulada en Tesabiz.'}
+                        </p>
                     </div>
                 )}
             </Modal>

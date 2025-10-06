@@ -37,17 +37,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Función para filtrar menús basado en el rol activo
     const filterMenusByRole = useCallback((allMenus: IMenuWithRoles[], roleName: string | null) => {
-        console.log('🔍 [DEBUG] filterMenusByRole llamado:', {
-            totalMenus: allMenus.length,
-            roleName,
-            menusConRoles: allMenus.map(m => ({
-                nombre: m.nombre,
-                roles: m.rol_menu?.map(rm => rm.rol.nombre_rol) || []
-            }))
-        });
+
 
         if (!roleName) {
-            console.log('🔍 [DEBUG] No hay rol activo, devolviendo todos los menús');
             return allMenus;
         }
 
@@ -55,27 +47,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const filtered = allMenus.filter(menu => {
             // Si el menú no tiene restricciones de rol, está disponible para todos
             if (!menu.rol_menu || menu.rol_menu.length === 0) {
-                console.log(`🔍 [DEBUG] Menú "${menu.nombre}" sin restricciones de rol - INCLUIDO`);
                 return true;
             }
 
             // Verificar si el rol activo tiene acceso a este menú
             const hasAccess = menu.rol_menu.some(rolMenu => rolMenu.rol.nombre_rol === roleName);
-            console.log(`🔍 [DEBUG] Menú "${menu.nombre}" - Roles permitidos: [${menu.rol_menu.map(rm => rm.rol.nombre_rol).join(', ')}] - ${hasAccess ? 'INCLUIDO' : 'EXCLUIDO'} para rol "${roleName}"`);
             return hasAccess;
         });
 
-        console.log(`🔍 [DEBUG] Filtrado completado: ${filtered.length}/${allMenus.length} menús para rol "${roleName}"`);
         return filtered;
     }, []);
 
     // Función para cambiar rol activo
     const switchRole = useCallback((roleName: string) => {
-        console.log('🔄 [DEBUG] switchRole llamado:', {
-            roleName,
-            availableRoles,
-            totalMenus: menus.length
-        });
+
 
         if (!availableRoles.includes(roleName)) {
             console.error(`❌ [DEBUG] Rol "${roleName}" no está disponible para este usuario`);
@@ -83,7 +68,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        console.log(`✅ [DEBUG] Cambiando rol a: ${roleName}`);
         setActiveRole(roleName);
 
         const filtered = filterMenusByRole(menus, roleName);
@@ -95,7 +79,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Limpiar error si existe
         setError(null);
 
-        console.log(`🔄 [DEBUG] Rol cambiado exitosamente a: ${roleName}, menús filtrados: ${filtered.length}`);
     }, [availableRoles, menus, filterMenusByRole]);
 
     const logout = useCallback(() => {

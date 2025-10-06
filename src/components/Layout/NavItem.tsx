@@ -14,20 +14,14 @@ interface NavLinkProps {
 }
 
 const NavItem: React.FC<NavLinkProps> = ({ path, label, icon, roles, subLinks, isSubItem = false, hasRole }) => {
-    // 1. Verificación de Autorización:
-    // Un enlace o menú solo se renderizará si el usuario tiene al menos uno de los roles requeridos,
-    // o si no se especifican roles (roles.length === 0, lo que significa que es accesible para todos los logeados).
+
     const isAuthorized = roles.length === 0 || roles.some(role => hasRole(role));
 
     if (!isAuthorized) {
-        return null; // No renderizar si el usuario no está autorizado para este elemento del menú
+        return null; 
     }
 
-    // 2. Determinación de Enlace Activo para Estilo:
-    // 'useResolvedPath' y 'useMatch' se usan para saber si la ruta actual coincide con el enlace,
-    // lo que permite aplicar estilos de "activo".
-    // 'end: false' es para elementos padres (ej. '/productos' se activa si la URL es '/productos/new').
-    // 'end: true' es para enlaces hoja, donde se requiere una coincidencia exacta de la ruta.
+
     const resolvedPath = path ? useResolvedPath(path) : null;
     const isActive = resolvedPath ? useMatch({ path: resolvedPath.pathname, end: false }) : false;
 

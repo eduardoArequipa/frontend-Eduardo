@@ -101,7 +101,6 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           setValue("categoria_id", data.categoria.categoria_id);
           setValue("unidad_inventario_id", data.unidad_inventario?.unidad_id);
           setValue("marca_id", data.marca?.marca_id);
-          setValue("unidad_compra_predeterminada", data.unidad_compra_predeterminada || '');
           // Nuevos campos de margen
           setValue("tipo_margen", data.tipo_margen || TipoMargenEnum.Porcentaje);
           setValue("margen_valor", data.margen_valor?.toString() || '30.00');
@@ -443,15 +442,6 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           {errors.marca_id && <span className="text-red-500 text-xs">{errors.marca_id.message}</span>}
         </div>
 
-        <div>
-          <label htmlFor="unidad_compra_predeterminada" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Unidad de Compra Predeterminada</label>
-          <Input
-            id="unidad_compra_predeterminada"
-            type="text"
-            {...register("unidad_compra_predeterminada")}
-            className={`mt-1 block w-full border-gray-400'}`}
-          />
-        </div>
 
         <div className="md:col-span-2">
           <label htmlFor="product_image" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium mb-2`}>Imagen del Producto</label>

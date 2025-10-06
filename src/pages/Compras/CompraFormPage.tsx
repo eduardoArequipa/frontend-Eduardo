@@ -166,9 +166,7 @@ const ComprasFormPage: React.FC = () => {
         let defaultPresentationName: string | undefined;
         let initialPricePerPresentation = parseFloat(String(producto.precio_compra)) || 0;
 
-        if (producto.unidad_compra_predeterminada) {
-          defaultPresentationName = producto.unidad_compra_predeterminada;
-        } else if (purchaseConversions.length > 0) {
+        if (purchaseConversions.length > 0) {
           defaultPresentationName = purchaseConversions[0].nombre_presentacion;
         }
 
@@ -319,18 +317,14 @@ const ComprasFormPage: React.FC = () => {
 
   const handleProductFormSuccess = async (newProduct: Producto) => {
     try {
-      // 🚀 OPTIMIZACIÓN: Notificar producto creado sin recargar todo
       notifyProductoCreated(newProduct);
       
-      // ⚡ IMPORTANTE: Refrescar conversiones ANTES de agregar al carrito
-      console.log("🔄 Refrescando conversiones después de crear producto...");
       await invalidateConversiones();
       
       // Agregar el producto recién creado al carrito
       addOrUpdateProductInCart(newProduct.producto_id);
       addNotification("Producto creado y añadido al carrito exitosamente!", "success");
     } catch (error) {
-      console.error('❌ Error al actualizar catálogos:', error);
       addNotification('Error al actualizar los datos del catálogo.', 'error');
     } finally {
       // 3. Cierra el modal solo después de que todo el proceso ha finalizado.
@@ -499,13 +493,7 @@ const ComprasFormPage: React.FC = () => {
                     (c: Conversion) => c.producto_id === producto?.producto_id && c.es_para_compra
                   );
                   
-                  // 🔍 DEBUG: Verificar conversiones del producto
-                  console.log(`🔍 DEBUG Producto ${producto?.nombre || 'undefined'} (ID: ${producto?.producto_id}):`, {
-                    totalConversiones: allConversions.length,
-                    conversionesDelProducto: productoConversiones,
-                    todasLasConversiones: allConversions.filter(c => c.producto_id === producto?.producto_id),
-                    producto: producto
-                  });
+
                   const selectedConversion = productoConversiones.find(c => c.nombre_presentacion === detalle.presentacion_compra);
                   const unidadDisplay = selectedConversion
                     ? selectedConversion.nombre_presentacion

@@ -74,7 +74,6 @@ const VentasFormPage: React.FC = () => {
     
     // ⚡ CARGA OPTIMIZADA - Solo cargar lo que necesitamos cuando lo necesitamos
     useEffect(() => {
-        console.log("🏪 VentaFormPage: Asegurando que productos y conversiones estén cargados");
         ensureProductos();
         ensureConversiones();
     }, [ensureProductos, ensureConversiones]);
@@ -143,7 +142,6 @@ const VentasFormPage: React.FC = () => {
             addProductToCart(productoCompleto);
         } catch (err) {
             setLocalError('No se pudieron obtener los detalles del producto.');
-            console.error(err);
         } finally {
             setIsSubmitting(false);
         }
@@ -163,21 +161,16 @@ const VentasFormPage: React.FC = () => {
 const [isUpdatingAfterProductCreate, setIsUpdatingAfterProductCreate] = useState(false);
 
 const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
-    console.log('⚡ Producto creado exitosamente:', producto.nombre);
     
     setIsUpdatingAfterProductCreate(true);
     
     try {
-        // 🚀 OPTIMIZACIÓN: En lugar de recargar todo, solo notificar el nuevo producto
         notifyProductoCreated(producto);
         
-        console.log('✅ Producto agregado al cache instantáneamente');
         
-        // Pequeña pausa para UX
         await new Promise(resolve => setTimeout(resolve, 100));
         
     } catch (error) {
-        console.error('❌ Error notificando producto creado:', error);
         setLocalError('Error al actualizar la lista de productos.');
     } finally {
         setIsUpdatingAfterProductCreate(false);
@@ -279,7 +272,6 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
         const ventaData: VentaCreate = { persona_id: clienteSeleccionado, metodo_pago_id: metodoPagoSeleccionado, estado: EstadoVentaEnum.activa, detalles: detallesVenta, total: totalVenta, solicitar_factura: solicitarFactura };
         try {
             const nuevaVenta = await createVenta(ventaData);
-            console.log("Respuesta de createVenta:", JSON.stringify(nuevaVenta, null, 2));
             setVentaExitosa(nuevaVenta);
             setShowSuccessModal(true);
             setCarrito([]);

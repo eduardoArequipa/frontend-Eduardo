@@ -187,7 +187,7 @@ const UserDropdown: React.FC = () => {
                             Ver Perfil
                         </button>
                         
-                        <button
+                        {/* <button
                             onClick={() => {
                                 closeDropdown();
                                 navigate('/configuracion');
@@ -199,7 +199,7 @@ const UserDropdown: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                             Configuración
-                        </button>
+                        </button> */}
                     </div>
 
                     {/* Logout Section */}

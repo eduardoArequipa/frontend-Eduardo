@@ -44,16 +44,13 @@ const useScannerWebSocket = (): UseScannerWebSocketResult => {
         try {
             setIsLoadingProduct(true);
             setScannerError(null);
-            console.log(`🔄 Obteniendo producto completo para ID: ${productId}`);
             
             const productoCompleto = await getProductoById(productId);
             
             if (isMounted.current) {
                 setLastScannedProduct(productoCompleto);
-                console.log(`✅ Producto completo obtenido: ${productoCompleto.nombre}`);
             }
         } catch (error) {
-            console.error('❌ Error obteniendo producto completo:', error);
             if (isMounted.current) {
                 setScannerError(`Error cargando detalles del producto: ${productName}`);
             }
@@ -83,7 +80,7 @@ const useScannerWebSocket = (): UseScannerWebSocketResult => {
                 reconnectAttempts.current = 0;
                 reconnectDelay.current = 1000;
                 setScannerError(null);
-                console.log('WebSocket de escáner: Conexión establecida. ✅');
+                console.log('WebSocket de escáner: Conexión establecida. ');
             }
         };
 
@@ -95,7 +92,6 @@ const useScannerWebSocket = (): UseScannerWebSocketResult => {
                 if (data.event === 'product_scanned' && data.product && (data.type === 'sales_scan' || data.type === 'purchase_scan')) {
                     setLastScannedType(data.type);
                     
-                    // ✅ TEMPORAL: Usar producto básico del WebSocket con validación defensiva
                     const productFromWS = {
                         ...data.product,
                         // Agregar campos faltantes con valores por defecto
@@ -125,12 +121,10 @@ const useScannerWebSocket = (): UseScannerWebSocketResult => {
             if (reconnectAttempts.current < maxReconnectAttempts) {
                 reconnectAttempts.current += 1;
                 reconnectDelay.current = Math.min(reconnectDelay.current * 2, 30000); // Backoff exponencial
-                console.log(`WebSocket de escáner: Intentando reconectar en ${reconnectDelay.current / 1000} segundos (Intento: ${reconnectAttempts.current})...`);
                 setTimeout(connectWebSocket, reconnectDelay.current); // Reintento
             } else {
                 setWebsocketStatus('Fallo de conexión');
                 setScannerError('No se pudo establecer la conexión con el escáner después de varios intentos.');
-                console.error('WebSocket de escáner: Demasiados intentos de reconexión fallidos.');
             }
         };
 
@@ -156,7 +150,6 @@ const useScannerWebSocket = (): UseScannerWebSocketResult => {
             for (let i = Number(timeoutId) - Number(reconnectAttempts.current); i <= Number(timeoutId); i++) {
                 clearTimeout(i);
             }
-            console.log('WebSocket de escáner: Conexión y timeouts limpiados al desmontar.');
         };
     }, [connectWebSocket]); // Dependencia del useCallback
 

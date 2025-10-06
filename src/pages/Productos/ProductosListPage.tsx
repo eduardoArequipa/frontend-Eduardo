@@ -82,7 +82,6 @@ const ProductosListPage: React.FC = () => {
 
     // ⚡ CARGA OPTIMIZADA - Asegurar que categorías y marcas estén cargadas para el módulo productos
     useEffect(() => {
-        console.log("📦 ProductosListPage: Asegurando que categorías y marcas estén cargadas");
         ensureCategorias();
         ensureMarcas();
     }, [ensureCategorias, ensureMarcas]);

@@ -64,11 +64,9 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
   
   const ensureCategorias = useCallback(async () => {
     if (cache.categorias.loaded) {
-      console.log("📋 Categorías ya en cache, no se recargan");
       return;
     }
     
-    console.log("📡 Cargando categorías...");
     setIsLoading(true);
     try {
       const categoriasData = await getCategorias({ limit: 500 });
@@ -77,10 +75,8 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
         ...prev,
         categorias: { loaded: true, timestamp: Date.now() }
       }));
-      console.log(`✅ Categorías cargadas: ${categoriasData.items.length} items`);
     } catch (err) {
       setError('Error al cargar categorías.');
-      console.error("❌ Error cargando categorías", err);
     } finally {
       setIsLoading(false);
     }
@@ -88,11 +84,9 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const ensureMarcas = useCallback(async () => {
     if (cache.marcas.loaded) {
-      console.log("🏷️ Marcas ya en cache, no se recargan");
       return;
     }
     
-    console.log("📡 Cargando marcas...");
     setIsLoading(true);
     try {
       const marcasData = await getMarcas({ limit: 100 });
@@ -101,10 +95,8 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
         ...prev,
         marcas: { loaded: true, timestamp: Date.now() }
       }));
-      console.log(`✅ Marcas cargadas: ${marcasData.items.length} items`);
     } catch (err) {
       setError('Error al cargar marcas.');
-      console.error("❌ Error cargando marcas", err);
     } finally {
       setIsLoading(false);
     }
@@ -112,11 +104,9 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const ensureUnidadesMedida = useCallback(async () => {
     if (cache.unidadesMedida.loaded) {
-      console.log("📏 Unidades ya en cache, no se recargan");
       return;
     }
     
-    console.log("📡 Cargando unidades de medida...");
     setIsLoading(true);
     try {
       const unidadesData = await getUnidadesMedida({ limit: 500 });
@@ -125,10 +115,8 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
         ...prev,
         unidadesMedida: { loaded: true, timestamp: Date.now() }
       }));
-      console.log(`✅ Unidades cargadas: ${unidadesData.length} items`);
     } catch (err) {
       setError('Error al cargar unidades de medida.');
-      console.error("❌ Error cargando unidades", err);
     } finally {
       setIsLoading(false);
     }
@@ -136,11 +124,9 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const ensureProductos = useCallback(async () => {
     if (cache.productos.loaded) {
-      console.log("📦 Productos ya en cache, no se recargan");
       return;
     }
     
-    console.log("📡 Cargando productos...");
     setIsLoading(true);
     try {
       const productosData = await getProductos({ limit: 1000, estado: EstadoEnum.Activo });
@@ -149,10 +135,8 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
         ...prev,
         productos: { loaded: true, timestamp: Date.now() }
       }));
-      console.log(`✅ Productos cargados: ${productosData.items.length} items`);
     } catch (err) {
       setError('Error al cargar productos.');
-      console.error("❌ Error cargando productos", err);
     } finally {
       setIsLoading(false);
     }
@@ -160,11 +144,9 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const ensureConversiones = useCallback(async () => {
     if (cache.conversiones.loaded) {
-      console.log("🔄 Conversiones ya en cache, no se recargan");
       return;
     }
     
-    console.log("📡 Cargando conversiones...");
     setIsLoading(true);
     try {
       const conversionesData = await getConversiones({ limit: 500 });
@@ -173,10 +155,8 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
         ...prev,
         conversiones: { loaded: true, timestamp: Date.now() }
       }));
-      console.log(`✅ Conversiones cargadas: ${conversionesData.length} items`);
     } catch (err) {
       setError('Error al cargar conversiones.');
-      console.error("❌ Error cargando conversiones", err);
     } finally {
       setIsLoading(false);
     }
@@ -185,13 +165,11 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
   // 🚀 FUNCIONES DE NOTIFICACIÓN - Para actualizar cache sin hacer peticiones
   
   const notifyProductoCreated = useCallback((producto: Producto) => {
-    console.log("➕ Producto creado, agregando a cache:", producto.nombre);
     setProductos(prev => [...prev, producto]);
     eventBus.emit(EVENTS.PRODUCTO_CREATED, producto);
   }, []);
 
   const notifyProductoUpdated = useCallback((producto: Producto) => {
-    console.log("✏️ Producto actualizado, actualizando cache:", producto.nombre);
     setProductos(prev => prev.map(p => 
       p.producto_id === producto.producto_id ? producto : p
     ));
@@ -199,26 +177,22 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const notifyProductoDeleted = useCallback((productoId: number) => {
-    console.log("🗑️ Producto eliminado, removiendo de cache:", productoId);
     setProductos(prev => prev.filter(p => p.producto_id !== productoId));
     eventBus.emit(EVENTS.PRODUCTO_DELETED, productoId);
   }, []);
 
   const notifyCategoriaCreated = useCallback((categoria: CategoriaNested) => {
-    console.log("➕ Categoría creada, agregando a cache:", categoria.nombre_categoria);
     setCategorias(prev => [...prev, categoria]);
     eventBus.emit(EVENTS.CATEGORIA_CREATED, categoria);
   }, []);
 
   const notifyMarcaCreated = useCallback((marca: MarcaNested) => {
-    console.log("➕ Marca creada, agregando a cache:", marca.nombre_marca);
     setMarcas(prev => [...prev, marca]);
     eventBus.emit(EVENTS.MARCA_CREATED, marca);
   }, []);
 
   // 🔄 INVALIDAR CONVERSIONES - Para cuando se modifican las presentaciones
   const invalidateConversiones = useCallback(async () => {
-    console.log("🔄 Invalidando conversiones...");
     setCache(prev => ({ ...prev, conversiones: { loaded: false, timestamp: 0 } }));
     setConversiones([]);
     
@@ -229,10 +203,8 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
         ...prev,
         conversiones: { loaded: true, timestamp: Date.now() }
       }));
-      console.log(`✅ Conversiones refrescadas: ${conversionesData.length} items`);
       eventBus.emit(EVENTS.CONVERSION_UPDATED, conversionesData);
     } catch (err) {
-      console.error("❌ Error refrescando conversiones:", err);
       setError('Error al refrescar conversiones.');
     }
   }, []);
@@ -254,7 +226,6 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
   // 🎯 CARGA INICIAL OPTIMIZADA - Solo cuando el usuario esté autenticado
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
-      console.log("🚀 CatalogContext: Carga inicial optimizada (usuario autenticado)");
       ensureUnidadesMedida(); // Solo las unidades que se necesitan siempre
     }
   }, [isAuthenticated, authLoading, ensureUnidadesMedida]);
@@ -263,7 +234,6 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
   useEffect(() => {
     const handleProductoCreatedFromExternal = (producto: Producto) => {
       if (cache.productos.loaded) {
-        console.log("📨 Recibida notificación externa: producto creado", producto.nombre);
         setProductos(prev => {
           // Evitar duplicados
           if (prev.find(p => p.producto_id === producto.producto_id)) {
@@ -276,7 +246,6 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleProductoUpdatedFromExternal = (producto: Producto) => {
       if (cache.productos.loaded) {
-        console.log("📨 Recibida notificación externa: producto actualizado", producto.nombre);
         setProductos(prev => prev.map(p => 
           p.producto_id === producto.producto_id ? producto : p
         ));
@@ -285,7 +254,6 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleConversionUpdatedFromExternal = (conversiones: Conversion[]) => {
       if (cache.conversiones.loaded) {
-        console.log("📨 Recibida notificación externa: conversiones actualizadas", conversiones.length);
         setConversiones(conversiones);
       }
     };

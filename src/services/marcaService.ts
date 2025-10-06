@@ -3,9 +3,7 @@ import axiosInstance from '../api/axiosInstance'; // Import your configured Axio
 import { Marca, MarcaCreate, MarcaUpdate, MarcaPagination } from '../types/marca'; // Import Marca and MarcaCreate types
 import { EstadoEnum } from '../types/enums'; // Import EstadoEnum if used for filters/status types
 
-/**
- * Interface for query parameters when fetching brands.
- */
+
 interface GetMarcasParams {
     estado?: EstadoEnum;
     search?: string; // Search by brand name
@@ -13,11 +11,7 @@ interface GetMarcasParams {
     limit?: number;
 }
 
-/**
- * Fetches a list of brands with pagination.
- * @param params Optional parameters for filtering, searching, and pagination.
- * @returns A promise that resolves to a MarcaPagination object.
- */
+
 export const getMarcas = async (params?: GetMarcasParams): Promise<MarcaPagination> => {
     const response = await axiosInstance.get<MarcaPagination>('/marcas/', { params });
     return response.data;

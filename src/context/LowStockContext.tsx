@@ -32,12 +32,10 @@ export const LowStockProvider: React.FC<LowStockProviderProps> = ({ children }) 
     // Función para obtener los productos con bajo stock
     const fetchLowStockProducts = useCallback(async () => {
         if (authLoading) {
-            console.log("LowStockContext: Autenticación aún cargando, esperando...");
             return;
         }
 
         if (!isAuthenticated) {
-            console.log("LowStockContext: Usuario no autenticado o sesión cerrada, no se verificará el stock.");
             setLowStockProducts([]);
             setShowNotification(false);
             setLoadingLowStock(false);
@@ -47,19 +45,15 @@ export const LowStockProvider: React.FC<LowStockProviderProps> = ({ children }) 
 
         setLoadingLowStock(true);
         setErrorLowStock(null);
-        console.log("LowStockContext: Intentando cargar productos con bajo stock...");
         try {
             const products = await getLowStockProducts();
             setLowStockProducts(products);
             if (products.length > 0) {
                 setShowNotification(true);
-                console.log(`LowStockContext: ${products.length} productos con bajo stock encontrados.`);
             } else {
                 setShowNotification(false);
-                console.log("LowStockContext: No se encontraron productos con bajo stock.");
             }
         } catch (err: any) {
-            console.error("LowStockContext: Error al cargar productos con bajo stock (raw error):", err);
             let displayErrorMessage = "Error desconocido al verificar stock.";
 
             // Intenta obtener el detalle del error de FastAPI
@@ -81,7 +75,6 @@ export const LowStockProvider: React.FC<LowStockProviderProps> = ({ children }) 
             setShowNotification(true); // Mostrar la notificación de error
         } finally {
             setLoadingLowStock(false);
-            console.log("LowStockContext: Verificación de stock finalizada.");
         }
     }, [isAuthenticated, authLoading]);
 

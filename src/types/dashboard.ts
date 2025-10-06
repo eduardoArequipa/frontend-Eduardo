@@ -7,6 +7,8 @@ export interface KpiCard {
 export interface SalesDataPoint {
   period: string; // Can be '2023-10-27', '2023-10', or '2023'
   total: number;
+  quantity?: number; // Para tooltips mejorados
+  previousPeriodTotal?: number; // Para comparación de períodos
 }
 
 export interface TopSellingProduct {
@@ -41,6 +43,40 @@ export interface PurchaseStats {
   top_purchased_products: TopPurchasedProduct[];
 }
 
+export interface DashboardFilters {
+  startDate?: string;
+  endDate?: string;
+  category?: string;
+  supplier?: string;
+  compareWithPrevious?: boolean;
+}
+
+export interface DrillDownData {
+  period: string;
+  details: {
+    date: string;
+    amount: number;
+    transactions: number;
+  }[];
+}
+
+export interface ProductDetail {
+  producto_id: number;
+  nombre: string;
+  categoria: string;
+  marca?: string;
+  stock_actual: number;
+  stock_minimo: number;
+  precio_venta: number;
+  precio_compra: number;
+  margen_ganancia: number;
+  ingresos_totales: number;
+  unidades_vendidas: number;
+  ultima_venta?: string;
+  proveedor_principal?: string;
+  estado: string;
+}
+
 export interface DashboardData {
   kpi_cards: KpiCard[];
   sales_daily: SalesDataPoint[];
@@ -51,4 +87,6 @@ export interface DashboardData {
   purchase_stats: PurchaseStats;
   low_stock_products: LowStockProduct[];
   total_inventory_value: number;
+  available_categories: string[]; // Para filtros
+  available_suppliers: string[]; // Para filtros
 }

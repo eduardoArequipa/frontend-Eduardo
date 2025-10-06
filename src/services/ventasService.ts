@@ -118,6 +118,24 @@ export const anularVenta = async (id: number): Promise<Venta> => {
 };
 
 /**
+ * Anula una factura electrónica específica.
+ * @param facturaId El ID de la factura a anular.
+ * @param codigoMotivo Código del motivo de anulación (por defecto 1 = error de importe).
+ * @returns Una promesa que resuelve en el resultado de la anulación.
+ */
+export const anularFactura = async (facturaId: number, codigoMotivo: number = 1): Promise<{ success: boolean; message: string; codigo_recepcion?: string }> => {
+    try {
+        const response = await axiosInstance.patch(`/facturas/${facturaId}/anular`, {
+            codigo_motivo: codigoMotivo
+        });
+        return response.data;
+    } catch (error) {
+        console.error(`Error al anular factura con ID ${facturaId}:`, error);
+        throw error;
+    }
+};
+
+/**
  * Obtiene una lista de métodos de pago.
  * @returns Una promesa que resuelve en un array de MetodoPagoNested.
  */
