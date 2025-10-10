@@ -20,6 +20,8 @@ import Select from '../../components/Common/Select';
 import ErrorMessage from '../../components/Common/ErrorMessage';
 import DetalleCompraModal from './DetalleCompraModal';
 import { TransactionCard } from '../../components/Common/Card';
+import Modal from '../../components/Common/Modal'; // Importar Modal
+import { useNotification } from '../../context/NotificationContext'; // Importar el hook de notificación
 
 const ComprasListPage: React.FC = () => {
     const navigate = useNavigate();
@@ -43,7 +45,10 @@ const ComprasListPage: React.FC = () => {
     const [errorFiltersData, setErrorFiltersData] = useState<string | null>(null);
 
     const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
-    const [modalOpen, setModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [isAnularModalOpen, setIsAnularModalOpen] = useState(false); // Nuevo estado para el modal de anulación
+
+    const { addNotification } = useNotification(); // Hook para notificaciones
 
     const fetchCompras = async () => {
         setLoading(true);
@@ -103,21 +108,42 @@ const ComprasListPage: React.FC = () => {
          setCurrentPage(1);
      };
 
-    const handleAnularCompra = async (id: number) => {
-        const compra = compras.find(c => c.compra_id === id);
-        const mensaje = compra?.estado === EstadoCompraEnum.completada 
-            ? `¿Estás seguro de anular la compra #${id}? Esto revertirá el stock asociado.`
-            : `¿Estás seguro de anular la compra #${id}? Esta compra aún no ha modificado el stock.`;
-        
-        if (window.confirm(mensaje)) {
-            try {
-                const updatedCompra = await anularCompra(id);
-                setCompras(compras.map(c => c.compra_id === id ? updatedCompra : c));
-                alert(`Compra #${id} anulada con éxito!`);
+    const handleAnularCompraClick = (compra: Compra) => {
+        setSelectedCompra(compra);
+        setIsAnularModalOpen(true);
+    };
 
-            } catch (err: any) {
-                 alert(`Error al anular la compra #${id}: ${err.response?.data?.detail || err.message}`);
-            }
+    const handleConfirmAnularCompra = async () => {
+        if (!selectedCompra) return;
+
+        const compraId = selectedCompra.compra_id;
+        const originalState = [...compras];
+
+        try {
+            // Optimistic UI update
+            const updatedCompras = compras.map(c => 
+                c.compra_id === compraId ? { ...c, estado: EstadoCompraEnum.anulada } : c
+            );
+            setCompras(updatedCompras);
+
+            await anularCompra(compraId);
+
+            const mensaje = selectedCompra.estado === EstadoCompraEnum.completada
+                ? `Compra #${compraId} anulada y stock revertido con éxito.`
+                : `Compra #${compraId} anulada con éxito.`;
+            addNotification(mensaje, 'success');
+            
+            // Fetch data again to ensure consistency
+            fetchCompras(); 
+
+        } catch (err: any) {
+            // Revert UI on error
+            setCompras(originalState);
+            const errorMessage = err.response?.data?.detail || `Error al anular la compra #${compraId}`;
+            addNotification(errorMessage, 'error');
+        } finally {
+            setIsAnularModalOpen(false);
+            setSelectedCompra(null);
         }
     };
 
@@ -137,7 +163,7 @@ const ComprasListPage: React.FC = () => {
 
     const handleViewModal = useCallback((compra: Compra) => {
         setSelectedCompra(compra);
-        setModalOpen(true);
+        setIsDetailModalOpen(true);
     }, []);
 
     const handleEditCompra = useCallback((id: number) => {
@@ -154,7 +180,7 @@ const ComprasListPage: React.FC = () => {
             { label: 'Ver', onClick: () => handleViewModal(compra), isVisible: true, buttonVariant: 'menuItem', colorClass: 'text-blue-700 dark:text-blue-400' },
             { label: 'Editar', onClick: () => handleEditCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem' },
             { label: 'Completar', onClick: () => handleCompletarCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem', colorClass: 'text-green-700 dark:text-green-400' },
-            { label: 'Anular', onClick: () => handleAnularCompra(compra.compra_id), isVisible: !isAnulada, buttonVariant: 'menuItem', colorClass: 'text-red-700 dark:text-red-400' },
+            { label: 'Anular', onClick: () => handleAnularCompraClick(compra), isVisible: !isAnulada, buttonVariant: 'menuItem', colorClass: 'text-red-700 dark:text-red-400' },
         ];
     };
 
@@ -297,9 +323,39 @@ const ComprasListPage: React.FC = () => {
             
             <DetalleCompraModal
                 compra={selectedCompra}
-                isOpen={modalOpen}
-                onClose={() => setModalOpen(false)}
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
             />
+
+            {/* Modal de Anulación */}
+            <Modal
+                isOpen={isAnularModalOpen}
+                onClose={() => setIsAnularModalOpen(false)}
+                onConfirm={handleConfirmAnularCompra}
+                title="Confirmar Anulación de Compra"
+                confirmButtonText="Sí, Anular Compra"
+                cancelButtonText="Cancelar"
+                showConfirmButton={true}
+                confirmButtonVariant="danger"
+                isConfirmButtonDisabled={loading}
+                isCancelButtonDisabled={loading}
+            >
+                {selectedCompra && (
+                    <div>
+                        <p className="text-gray-700 dark:text-gray-300">
+                            ¿Estás seguro de que quieres anular la compra <strong>#{selectedCompra.compra_id}</strong>?
+                        </p>
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            Proveedor: {selectedCompra.proveedor?.persona?.nombre || selectedCompra.proveedor?.empresa?.razon_social || 'N/A'}<br/>
+                            Total: {Number(selectedCompra.total).toFixed(2)} Bs.
+                        </p>
+                        <p className="mt-4 font-semibold text-red-600 dark:text-red-400">
+                            Esta acción es irreversible.
+                            {selectedCompra.estado === EstadoCompraEnum.completada && ' Se repondrá el stock de los productos involucrados.'}
+                        </p>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };

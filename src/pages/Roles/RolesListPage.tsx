@@ -10,6 +10,7 @@ import Modal from '../../components/Common/Modal';
 import RolForm from '../../components/Specific/RolForm';
 import Button from '../../components/Common/Button';
 import { FaShieldAlt, FaUserTie, FaUser, FaTruck, FaEdit, FaPlus, FaTrash } from 'react-icons/fa';
+import { useNotification } from '../../context/NotificationContext';
 
 const RolesListPage: React.FC = () => {
     const [roles, setRoles] = useState<IRolInDB[]>([]);
@@ -18,6 +19,23 @@ const RolesListPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRolId, setEditingRolId] = useState<number | undefined>(undefined);
     const navigate = useNavigate();
+    const { addNotification } = useNotification();
+
+    const [modalState, setModalState] = useState<{
+        isOpen: boolean;
+        action: (() => Promise<any>) | null;
+        title: string;
+        message: React.ReactNode;
+        confirmText: string;
+        confirmVariant: 'danger' | 'success';
+    }>({
+        isOpen: false,
+        action: null,
+        title: '',
+        message: null,
+        confirmText: '',
+        confirmVariant: 'danger',
+    });
 
     const iconMap: { [key: string]: React.ElementType } = {
         'administrador': FaShieldAlt,
@@ -56,17 +74,39 @@ const RolesListPage: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleDeleteRol = async (rolId: number, rolName: string) => {
-        if (window.confirm(`¿Estás seguro de eliminar el rol "${rolName}"?\n\nEsta acción no se puede deshacer.`)) {
+    const handleCloseConfirmationModal = () => {
+        setModalState({ isOpen: false, action: null, title: '', message: null, confirmText: '', confirmVariant: 'danger' });
+    };
+
+    const handleConfirmAction = async () => {
+        if (modalState.action) {
             try {
-                await deleteRol(rolId);
-                setRoles(prev => prev.filter(rol => rol.rol_id !== rolId));
-                alert(`Rol "${rolName}" eliminado exitosamente.`);
+                await modalState.action();
+                addNotification('Acción completada con éxito', 'success');
+                // The optimistic update is handled by the action itself now
             } catch (err: any) {
-                const errorMessage = err.response?.data?.detail || "Error al eliminar el rol.";
-                alert(`Error: ${errorMessage}`);
+                const errorMessage = err.response?.data?.detail || 'Ocurrió un error al realizar la acción.';
+                addNotification(errorMessage, 'error');
+            } finally {
+                handleCloseConfirmationModal();
             }
         }
+    };
+
+    const handleDeleteRol = async (rolId: number, rolName: string) => {
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Eliminación',
+            message: (
+                <p>¿Estás seguro de eliminar el rol <strong>{rolName}</strong>? Esta acción no se puede deshacer.</p>
+            ),
+            confirmText: 'Sí, Eliminar',
+            confirmVariant: 'danger',
+            action: async () => {
+                await deleteRol(rolId);
+                setRoles(prev => prev.filter(rol => rol.rol_id !== rolId));
+            },
+        });
     };
 
     const handleModalClose = () => {
@@ -78,11 +118,11 @@ const RolesListPage: React.FC = () => {
         if (editingRolId) {
             // Actualizar rol existente
             setRoles(prev => prev.map(r => r.rol_id === rol.rol_id ? rol : r));
-            alert("Rol actualizado exitosamente!");
+            addNotification("Rol actualizado exitosamente!", 'success');
         } else {
             // Añadir nuevo rol
             setRoles(prev => [...prev, rol]);
-            alert("Rol creado exitosamente!");
+            addNotification("Rol creado exitosamente!", 'success');
         }
         handleModalClose();
     };
@@ -189,6 +229,19 @@ const RolesListPage: React.FC = () => {
                     onSuccess={handleRolSuccess}
                     onCancel={handleModalClose}
                 />
+            </Modal>
+
+            <Modal
+                isOpen={modalState.isOpen}
+                onClose={handleCloseConfirmationModal}
+                onConfirm={handleConfirmAction}
+                title={modalState.title}
+                confirmButtonText={modalState.confirmText}
+                confirmButtonVariant={modalState.confirmVariant}
+                showConfirmButton={true}
+                isConfirmButtonDisabled={loading}
+            >
+                <div>{modalState.message}</div>
             </Modal>
         </div>
     );

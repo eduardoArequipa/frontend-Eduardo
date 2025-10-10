@@ -27,9 +27,8 @@ export const updateCategoria = async (id: number, categoriaData: CategoriaUpdate
  const response = await axiosInstance.put(`/categorias/${id}`, categoriaData);
     return response.data;
 };
-export const activateCategoria = async (id: number): Promise<Categoria> => {
- const response = await axiosInstance.patch(`/categorias/${id}/activar`);
-     return response.data; 
+export const activateCategoria = async (id: number): Promise<void> => {
+ await axiosInstance.patch(`/categorias/${id}/activar`);
 };
 
 export const deleteCategoria = async (id: number): Promise<void> => {

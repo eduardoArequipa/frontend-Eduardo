@@ -14,6 +14,8 @@ import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDr
 import ErrorMessage from '../../components/Common/ErrorMessage';
 import { ProfileCard } from '../../components/Common/Card';
 import InfoIcon from '../../components/Common/InfoIcon';
+import Modal from '../../components/Common/Modal';
+import { useNotification } from '../../context/NotificationContext';
 
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -24,6 +26,23 @@ const UsuariosListPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showCreateOptionsModal, setShowCreateOptionsModal] = useState(false);
+    const { addNotification } = useNotification();
+
+    const [modalState, setModalState] = useState<{
+        isOpen: boolean;
+        action: (() => Promise<void>) | null;
+        title: string;
+        message: React.ReactNode;
+        confirmText: string;
+        confirmVariant: 'danger' | 'success';
+    }>({
+        isOpen: false,
+        action: null,
+        title: '',
+        message: null,
+        confirmText: '',
+        confirmVariant: 'danger',
+    });
 
     const [search, setSearch] = useState('');
     const [estadoFilter, setEstadoFilter] = useState<EstadoEnum | ''>(EstadoEnum.Activo);
@@ -97,28 +116,49 @@ const UsuariosListPage: React.FC = () => {
         }
     }
 
-    const handleDelete = async (id: number, nombreUsuario: string) => {
-        if (window.confirm(`¿Estás seguro de desactivar al usuario "${nombreUsuario}"?`)) {
+    const handleCloseModal = () => {
+        setModalState({ isOpen: false, action: null, title: '', message: null, confirmText: '', confirmVariant: 'danger' });
+    };
+
+    const handleConfirmAction = async () => {
+        if (modalState.action) {
             try {
-                await deactivateUser(id);
-                await refetchUsers();
-                alert(`Usuario "${nombreUsuario}" desactivado con éxito!`);
+                await modalState.action();
+                addNotification('Acción completada con éxito', 'success');
             } catch (err: any) {
-                 alert(`Error al desactivar el usuario: ${err.response?.data?.detail || err.message}`);
+                const errorMessage = err.response?.data?.detail || 'Ocurrió un error al realizar la acción.';
+                addNotification(errorMessage, 'error');
+            } finally {
+                handleCloseModal();
+                refetchUsers();
             }
         }
     };
 
-    const handleActivate = async (id: number, nombreUsuario: string) => {
-        if (window.confirm(`¿Estás seguro de activar al usuario "${nombreUsuario}"?`)) {
-            try {
-                await activarUsuario(id);
-                await refetchUsers();
-                alert(`Usuario "${nombreUsuario}" activado con éxito!`);
-            } catch (err: any) {
-                 alert(`Error al activar el usuario: ${err.response?.data?.detail || err.message}`);
-            }
-        }
+    const handleDelete = (id: number, nombreUsuario: string) => {
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Desactivación',
+            message: (
+                <p>¿Estás seguro de desactivar al usuario <strong>{nombreUsuario}</strong>?</p>
+            ),
+            confirmText: 'Sí, Desactivar',
+            confirmVariant: 'danger',
+            action: () => deactivateUser(id),
+        });
+    };
+
+    const handleActivate = (id: number, nombreUsuario: string) => {
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Activación',
+            message: (
+                <p>¿Estás seguro de activar al usuario <strong>{nombreUsuario}</strong>?</p>
+            ),
+            confirmText: 'Sí, Activar',
+            confirmVariant: 'success',
+            action: () => activarUsuario(id),
+        });
     };
 
     const totalPages = Math.ceil(totalUsuarios / itemsPerPage);
@@ -356,6 +396,19 @@ const UsuariosListPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            <Modal
+                isOpen={modalState.isOpen}
+                onClose={handleCloseModal}
+                onConfirm={handleConfirmAction}
+                title={modalState.title}
+                confirmButtonText={modalState.confirmText}
+                confirmButtonVariant={modalState.confirmVariant}
+                showConfirmButton={true}
+                isConfirmButtonDisabled={loading}
+            >
+                <div>{modalState.message}</div>
+            </Modal>
         </div>
     );
 };

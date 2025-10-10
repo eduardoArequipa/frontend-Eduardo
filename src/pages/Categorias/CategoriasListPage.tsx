@@ -11,6 +11,7 @@ import Select from '../../components/Common/Select';
 import Modal from '../../components/Common/Modal';
 import CategoriaForm from '../../components/Specific/CategoriaForm';
 import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDropdown';
+import { useNotification } from '../../context/NotificationContext'; // Importar hook
 
 const CategoriasListPage: React.FC = () => {
     const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -26,6 +27,23 @@ const CategoriasListPage: React.FC = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(null);
+    const { addNotification } = useNotification();
+
+    const [modalState, setModalState] = useState<{
+        isOpen: boolean;
+        action: (() => Promise<void>) | null;
+        title: string;
+        message: React.ReactNode;
+        confirmText: string;
+        confirmVariant: 'danger' | 'success';
+    }>({
+        isOpen: false,
+        action: null,
+        title: '',
+        message: null,
+        confirmText: '',
+        confirmVariant: 'danger',
+    });
 
     // Ya no necesitamos invalidateCategorias porque CategoriaForm notifica directamente
 
@@ -75,28 +93,45 @@ const CategoriasListPage: React.FC = () => {
         // No necesitamos invalidar porque CategoriaForm ya notifica al cache global
     };
 
-    const handleDelete = async (id: number, nombreCategoria: string) => {
-        if (window.confirm(`¿Estás seguro de desactivar la categoría "${nombreCategoria}"?`)) {
+    const handleCloseConfirmationModal = () => {
+        setModalState({ isOpen: false, action: null, title: '', message: null, confirmText: '', confirmVariant: 'danger' });
+    };
+
+    const handleConfirmAction = async () => {
+        if (modalState.action) {
             try {
-                await deleteCategoria(id);
-                fetchCategorias(); // Solo recargar la lista local
-                alert(`Categoría "${nombreCategoria}" desactivada con éxito!`);
+                await modalState.action();
+                addNotification('Acción completada con éxito', 'success');
             } catch (err: any) {
-                 alert(`Error al desactivar la categoría: ${err.response?.data?.detail || err.message}`);
+                const errorMessage = err.response?.data?.detail || 'Ocurrió un error al realizar la acción.';
+                addNotification(errorMessage, 'error');
+            } finally {
+                handleCloseConfirmationModal();
+                fetchCategorias();
             }
         }
     };
 
+    const handleDelete = (id: number, nombreCategoria: string) => {
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Desactivación',
+            message: <p>¿Estás seguro de desactivar la categoría <strong>{nombreCategoria}</strong>?</p>,
+            confirmText: 'Sí, Desactivar',
+            confirmVariant: 'danger',
+            action: () => deleteCategoria(id),
+        });
+    };
+
     const handleActivateCategoria = async (id: number, nombreCategoria: string) => {
-         if (window.confirm(`¿Estás seguro de activar la categoría "${nombreCategoria}"?`)) {
-             try {
-                 await activateCategoria(id); 
-                 fetchCategorias(); // Solo recargar la lista local
-                 alert(`Categoría "${nombreCategoria}" activada con éxito!`);
-             } catch (err: any) {
-                 alert(`Error al activar la categoría: ${err.response?.data?.detail || err.message}`);
-             }
-         }
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Activación',
+            message: <p>¿Estás seguro de activar la categoría <strong>{nombreCategoria}</strong>?</p>,
+            confirmText: 'Sí, Activar',
+            confirmVariant: 'success',
+            action: () => activateCategoria(id),
+        });
      };
 
     const totalPages = Math.ceil(totalCategorias / itemsPerPage);
@@ -205,6 +240,19 @@ const CategoriasListPage: React.FC = () => {
                     onCancel={handleCloseModal}
                     categoriaId={editingCategoria?.categoria_id}
                 />
+            </Modal>
+
+            <Modal
+                isOpen={modalState.isOpen}
+                onClose={handleCloseConfirmationModal}
+                onConfirm={handleConfirmAction}
+                title={modalState.title}
+                confirmButtonText={modalState.confirmText}
+                confirmButtonVariant={modalState.confirmVariant}
+                showConfirmButton={true}
+                isConfirmButtonDisabled={loading}
+            >
+                <div>{modalState.message}</div>
             </Modal>
         </div>
     );

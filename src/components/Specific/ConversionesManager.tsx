@@ -208,8 +208,10 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
   };
 
   const showCalculatorFields = unidadInventarioNombre === 'Metro' && 
-    (formData.nombre_presentacion.toLowerCase().includes('caja') || 
-     formData.nombre_presentacion.toLowerCase().includes('rollo'));
+    (formData.nombre_presentacion.toLowerCase().includes('caja') 
+     
+  // || formData.nombre_presentacion.toLowerCase().includes('rollo')
+   );
 
   return (
     <div className={`space-y-4 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>

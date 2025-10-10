@@ -11,11 +11,30 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Select from '../../components/Common/Select'; // Asegúrate de que este Select es el componente común
 import ErrorMessage from '../../components/Common/ErrorMessage';
 import { GetProveedoresParams } from '../../types/proveedor'; // Asegúrate de que esta ruta y nombre de tipo sean correctos
+import Modal from '../../components/Common/Modal';
+import { useNotification } from '../../context/NotificationContext';
 const ProveedoresListPage: React.FC = () => {
 
     const [proveedores, setProveedores] = useState<Proveedor[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { addNotification } = useNotification();
+
+    const [modalState, setModalState] = useState<{
+        isOpen: boolean;
+        action: (() => Promise<any>) | null;
+        title: string;
+        message: React.ReactNode;
+        confirmText: string;
+        confirmVariant: 'danger' | 'success';
+    }>({
+        isOpen: false,
+        action: null,
+        title: '',
+        message: null,
+        confirmText: '',
+        confirmVariant: 'danger',
+    });
 
     const [search, setSearch] = useState('');
     const [estadoFilter, setEstadoFilter] = useState<EstadoEnum | ''>('');
@@ -58,30 +77,45 @@ const ProveedoresListPage: React.FC = () => {
          setCurrentPage(1);
      };
 
-    const handleDelete = async (id: number, nombreProveedor: string) => {
-        if (window.confirm(`¿Estás seguro de desactivar el proveedor "${nombreProveedor}"?`)) {
-            try {
-                await deleteProveedor(id);
-                setProveedores(proveedores.map(p => p.proveedor_id === id ? { ...p, estado: EstadoEnum.Inactivo } : p));
-                alert(`Proveedor "${nombreProveedor}" desactivado con éxito!`);
+    const handleCloseConfirmationModal = () => {
+        setModalState({ isOpen: false, action: null, title: '', message: null, confirmText: '', confirmVariant: 'danger' });
+    };
 
+    const handleConfirmAction = async () => {
+        if (modalState.action) {
+            try {
+                await modalState.action();
+                addNotification('Acción completada con éxito', 'success');
             } catch (err: any) {
-                 alert(`Error al desactivar el proveedor: ${err.response?.data?.detail || err.message}`);
+                const errorMessage = err.response?.data?.detail || 'Ocurrió un error al realizar la acción.';
+                addNotification(errorMessage, 'error');
+            } finally {
+                handleCloseConfirmationModal();
+                fetchProveedores();
             }
         }
     };
 
-     const handleActivate = async (id: number, nombreProveedor: string) => {
-         if (window.confirm(`¿Estás seguro de activar el proveedor "${nombreProveedor}"?`)) {
-             try {
-                 await activateProveedor(id);
-                 setProveedores(proveedores.map(p => p.proveedor_id === id ? { ...p, estado: EstadoEnum.Activo } : p));
-                 alert(`Proveedor "${nombreProveedor}" activado con éxito!`);
+    const handleDelete = (id: number, nombreProveedor: string) => {
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Desactivación',
+            message: <p>¿Estás seguro de desactivar al proveedor <strong>{nombreProveedor}</strong>?</p>,
+            confirmText: 'Sí, Desactivar',
+            confirmVariant: 'danger',
+            action: () => deleteProveedor(id),
+        });
+    };
 
-             } catch (err: any) {
-                 alert(`Error al activar el proveedor: ${err.response?.data?.detail || err.message}`);
-             }
-         }
+     const handleActivate = (id: number, nombreProveedor: string) => {
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Activación',
+            message: <p>¿Estás seguro de activar al proveedor <strong>{nombreProveedor}</strong>?</p>,
+            confirmText: 'Sí, Activar',
+            confirmVariant: 'success',
+            action: () => activateProveedor(id),
+        });
      };
 
     const columns = useMemo(() => {
@@ -218,6 +252,19 @@ const ProveedoresListPage: React.FC = () => {
                  <span className="text-gray-700 dark:text-gray-300">Página {currentPage} de {totalPages} (Total: {totalItems} proveedores)</span>
                  <Button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || loading} variant="secondary">Siguiente</Button>
              </div>
+
+            <Modal
+                isOpen={modalState.isOpen}
+                onClose={handleCloseConfirmationModal}
+                onConfirm={handleConfirmAction}
+                title={modalState.title}
+                confirmButtonText={modalState.confirmText}
+                confirmButtonVariant={modalState.confirmVariant}
+                showConfirmButton={true}
+                isConfirmButtonDisabled={loading}
+            >
+                <div>{modalState.message}</div>
+            </Modal>
         </div>
     );
 };

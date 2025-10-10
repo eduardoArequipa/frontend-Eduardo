@@ -30,6 +30,12 @@ export interface CarritoItemCompra {
   conversiones?: Conversion[];
 }
 
+const toLocalISOString = (date: Date): string => {
+  const timezoneOffset = date.getTimezoneOffset() * 60000; // in milliseconds
+  const localDate = new Date(date.getTime() - timezoneOffset);
+  return localDate.toISOString().slice(0, 16);
+}; 
+
 const ComprasFormPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
@@ -51,7 +57,7 @@ const ComprasFormPage: React.FC = () => {
 
   // Form state
   const [proveedorId, setProveedorId] = useState<number | "">("");
-  const [fechaCompra, setFechaCompra] = useState<string>(() => new Date().toISOString().slice(0, 16));
+  const [fechaCompra, setFechaCompra] = useState<string>(() => toLocalISOString(new Date()));
   const [estadoCompra, setEstadoCompra] = useState<EstadoCompraEnum>(EstadoCompraEnum.pendiente);
   const [detallesCompra, setDetallesCompra] = useState<DetalleCompraCreate[]>([]);
   const [productoSearchTerm, setProductoSearchTerm] = useState('');
@@ -121,7 +127,7 @@ const ComprasFormPage: React.FC = () => {
         try {
           const compra = await getCompraById(compraId);
           setProveedorId(compra.proveedor_id);
-          setFechaCompra(new Date(compra.fecha_compra).toISOString().slice(0, 16));
+          setFechaCompra(toLocalISOString(new Date(compra.fecha_compra)));
           setEstadoCompra(compra.estado);
           const loadedDetalles: DetalleCompraCreate[] = compra.detalles.map(d => ({
             producto_id: d.producto.producto_id,

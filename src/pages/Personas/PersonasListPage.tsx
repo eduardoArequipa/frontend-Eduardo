@@ -12,6 +12,8 @@ import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDr
 import InfoIcon from '../../components/Common/InfoIcon';
 import { useNavigate } from 'react-router-dom';
 import { EstadoEnum, GeneroEnum } from '../../types/enums';
+import Modal from '../../components/Common/Modal';
+import { useNotification } from '../../context/NotificationContext';
 
 const PersonasListPage: React.FC = () => {
     const navigate = useNavigate();
@@ -20,6 +22,23 @@ const PersonasListPage: React.FC = () => {
     const [totalPersonas, setTotalPersonas] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { addNotification } = useNotification();
+
+    const [modalState, setModalState] = useState<{
+        isOpen: boolean;
+        action: (() => Promise<void>) | null;
+        title: string;
+        message: React.ReactNode;
+        confirmText: string;
+        confirmVariant: 'danger' | 'success';
+    }>({
+        isOpen: false,
+        action: null,
+        title: '',
+        message: null,
+        confirmText: '',
+        confirmVariant: 'danger',
+    });
 
     // Estados de los filtros
     const [search, setSearch] = useState('');
@@ -80,53 +99,71 @@ const PersonasListPage: React.FC = () => {
         setCurrentPage(1);
     };
 
-    const handleDelete = async (id: number) => {
-        if (window.confirm('¿Estás seguro de desactivar esta persona?')) {
+    const handleCloseModal = () => {
+        setModalState({ isOpen: false, action: null, title: '', message: null, confirmText: '', confirmVariant: 'danger' });
+    };
+
+    const handleConfirmAction = async () => {
+        if (modalState.action) {
             try {
-                await deactivatePersona(id);
-                fetchPersonas();
-                alert("Persona desactivada con éxito!");
+                await modalState.action();
+                addNotification('Acción completada con éxito', 'success');
             } catch (err: any) {
-                 console.error("Error deactivating persona:", err);
-                 alert(`Error al desactivar la persona: ${err.response?.data?.detail || err.message}`);
+                const errorMessage = err.response?.data?.detail || 'Ocurrió un error al realizar la acción.';
+                addNotification(errorMessage, 'error');
+            } finally {
+                handleCloseModal();
+                fetchPersonas();
             }
         }
     };
 
-    const handleActivate = async (id: number) => {
-      if (window.confirm('¿Estás seguro de activar esta persona?')) {
-         try {
-             await activatePersona(id);
-             fetchPersonas();
-             alert("Persona activada con éxito!");
-         } catch (err: any) {
-              console.error("Error activating persona:", err);
-              alert(`Error al activar la persona: ${err.response?.data?.detail || err.message}`);
-         }
-     }
+    const handleDelete = (id: number, nombreCompleto: string) => {
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Desactivación',
+            message: <p>¿Estás seguro de desactivar a <strong>{nombreCompleto}</strong>?</p>,
+            confirmText: 'Sí, Desactivar',
+            confirmVariant: 'danger',
+            action: () => deactivatePersona(id),
+        });
+    };
+
+    const handleActivate = (id: number, nombreCompleto: string) => {
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Activación',
+            message: <p>¿Estás seguro de activar a <strong>{nombreCompleto}</strong>?</p>,
+            confirmText: 'Sí, Activar',
+            confirmVariant: 'success',
+            action: () => activatePersona(id),
+        });
     };
 
     const totalPages = Math.ceil(totalPersonas / itemsPerPage);
 
-    const generatePersonaActions = (persona: IPersonaWithRoles): ActionConfig[] => [
-        { 
-            label: 'Editar', 
-            onClick: () => navigate(`/personas/edit/${persona.persona_id}`), 
-            isVisible: true 
-        },
-        { 
-            label: 'Desactivar', 
-            onClick: () => handleDelete(persona.persona_id), 
-            isVisible: persona.estado === EstadoEnum.Activo, 
-            colorClass: 'text-red-700 dark:text-red-400' 
-        },
-        { 
-            label: 'Activar', 
-            onClick: () => handleActivate(persona.persona_id), 
-            isVisible: persona.estado === EstadoEnum.Inactivo, 
-            colorClass: 'text-green-700 dark:text-green-400' 
-        }
-    ];
+    const generatePersonaActions = (persona: IPersonaWithRoles): ActionConfig[] => {
+        const nombreCompleto = `${persona.nombre} ${persona.apellido_paterno || ''} ${persona.apellido_materno || ''}`.trim();
+        return [
+            { 
+                label: 'Editar', 
+                onClick: () => navigate(`/personas/edit/${persona.persona_id}`), 
+                isVisible: true 
+            },
+            { 
+                label: 'Desactivar', 
+                onClick: () => handleDelete(persona.persona_id, nombreCompleto), 
+                isVisible: persona.estado === EstadoEnum.Activo, 
+                colorClass: 'text-red-700 dark:text-red-400' 
+            },
+            { 
+                label: 'Activar', 
+                onClick: () => handleActivate(persona.persona_id, nombreCompleto), 
+                isVisible: persona.estado === EstadoEnum.Inactivo, 
+                colorClass: 'text-green-700 dark:text-green-400' 
+            }
+        ];
+    };
 
     if (loading && personas.length === 0) {
         return (
@@ -335,6 +372,19 @@ const PersonasListPage: React.FC = () => {
                     </div>
                 )
             )}
+
+            <Modal
+                isOpen={modalState.isOpen}
+                onClose={handleCloseModal}
+                onConfirm={handleConfirmAction}
+                title={modalState.title}
+                confirmButtonText={modalState.confirmText}
+                confirmButtonVariant={modalState.confirmVariant}
+                showConfirmButton={true}
+                isConfirmButtonDisabled={loading}
+            >
+                <div>{modalState.message}</div>
+            </Modal>
         </div>
     );
 };

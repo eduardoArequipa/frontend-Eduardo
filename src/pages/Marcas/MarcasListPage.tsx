@@ -12,6 +12,7 @@ import ErrorMessage from '../../components/Common/ErrorMessage';
 import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDropdown';
 import Modal from '../../components/Common/Modal';
 import MarcaForm from '../../components/Specific/MarcaForm';
+import { useNotification } from '../../context/NotificationContext';
 
 const MarcasListPage: React.FC = () => {
     const [marcas, setMarcas] = useState<Marca[]>([]);
@@ -27,6 +28,23 @@ const MarcasListPage: React.FC = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [editingMarca, setEditingMarca] = useState<Marca | null>(null);
+    const { addNotification } = useNotification();
+
+    const [modalState, setModalState] = useState<{
+        isOpen: boolean;
+        action: (() => Promise<any>) | null;
+        title: string;
+        message: React.ReactNode;
+        confirmText: string;
+        confirmVariant: 'danger' | 'success';
+    }>({
+        isOpen: false,
+        action: null,
+        title: '',
+        message: null,
+        confirmText: '',
+        confirmVariant: 'danger',
+    });
 
     // Ya no necesitamos invalidateMarcas porque MarcaForm notifica directamente
 
@@ -61,28 +79,45 @@ const MarcasListPage: React.FC = () => {
         setCurrentPage(1); // Resetear a la primera página cuando cambian los filtros
     };
 
-    const handleDelete = async (id: number, nombreMarca: string) => {
-        if (window.confirm(`¿Estás seguro de desactivar la marca "${nombreMarca}"?`)) {
+    const handleCloseConfirmationModal = () => {
+        setModalState({ isOpen: false, action: null, title: '', message: null, confirmText: '', confirmVariant: 'danger' });
+    };
+
+    const handleConfirmAction = async () => {
+        if (modalState.action) {
             try {
-                await deleteMarca(id);
-                fetchMarcas(); // Solo recargar la lista local
-                alert(`Marca "${nombreMarca}" desactivada con éxito!`);
+                await modalState.action();
+                addNotification('Acción completada con éxito', 'success');
             } catch (err: any) {
-                alert(`Error al desactivar: ${err.response?.data?.detail || err.message}`);
+                const errorMessage = err.response?.data?.detail || 'Ocurrió un error al realizar la acción.';
+                addNotification(errorMessage, 'error');
+            } finally {
+                handleCloseConfirmationModal();
+                fetchMarcas();
             }
         }
     };
 
-    const handleActivate = async (id: number, nombreMarca: string) => {
-        if (window.confirm(`¿Estás seguro de activar la marca "${nombreMarca}"?`)) {
-            try {
-                await activateMarca(id);
-                fetchMarcas(); // Solo recargar la lista local
-                alert(`Marca "${nombreMarca}" activada con éxito!`);
-            } catch (err: any) {
-                alert(`Error al activar: ${err.response?.data?.detail || err.message}`);
-            }
-        }
+    const handleDelete = (id: number, nombreMarca: string) => {
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Desactivación',
+            message: <p>¿Estás seguro de desactivar la marca <strong>{nombreMarca}</strong>?</p>,
+            confirmText: 'Sí, Desactivar',
+            confirmVariant: 'danger',
+            action: () => deleteMarca(id),
+        });
+    };
+
+    const handleActivate = (id: number, nombreMarca: string) => {
+        setModalState({
+            isOpen: true,
+            title: 'Confirmar Activación',
+            message: <p>¿Estás seguro de activar la marca <strong>{nombreMarca}</strong>?</p>,
+            confirmText: 'Sí, Activar',
+            confirmVariant: 'success',
+            action: () => activateMarca(id),
+        });
     };
 
     const handleOpenAddModal = () => setIsAddModalOpen(true);
@@ -204,6 +239,19 @@ const MarcasListPage: React.FC = () => {
                     <MarcaForm marcaId={editingMarca.marca_id} onSuccess={handleEditSuccess} onCancel={handleCloseEditModal} />
                 </Modal>
             )}
+
+            <Modal
+                isOpen={modalState.isOpen}
+                onClose={handleCloseConfirmationModal}
+                onConfirm={handleConfirmAction}
+                title={modalState.title}
+                confirmButtonText={modalState.confirmText}
+                confirmButtonVariant={modalState.confirmVariant}
+                showConfirmButton={true}
+                isConfirmButtonDisabled={loading}
+            >
+                <div>{modalState.message}</div>
+            </Modal>
         </div>
     );
 };
