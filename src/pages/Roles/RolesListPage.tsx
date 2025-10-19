@@ -118,11 +118,9 @@ const RolesListPage: React.FC = () => {
         if (editingRolId) {
             // Actualizar rol existente
             setRoles(prev => prev.map(r => r.rol_id === rol.rol_id ? rol : r));
-            addNotification("Rol actualizado exitosamente!", 'success');
         } else {
             // Añadir nuevo rol
             setRoles(prev => [...prev, rol]);
-            addNotification("Rol creado exitosamente!", 'success');
         }
         handleModalClose();
     };

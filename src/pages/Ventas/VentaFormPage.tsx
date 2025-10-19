@@ -36,7 +36,6 @@ export interface CarritoItem {
     unidad_base_fraccionable: boolean; // Para saber si permite decimales
     conversiones: Conversion[];
     precio_venta_unitario: number; // Precio base en unidad mínima
-    // Objeto que almacena cantidades por presentación
     cantidades_por_presentacion: {
         [presentacion: string]: number; // Incluye 'Unidad' y otras presentaciones
     };
@@ -475,7 +474,7 @@ const globalIsLoading = isLoadingVenta || isLoadingCatalogs || isSubmitting || i
             <Modal isOpen={isAddProductModalOpen} onClose={handleCloseAddProductModal} title="Crear Nuevo Producto">
                 <ProductoForm onSuccess={handleProductFormSuccess} onCancel={handleCloseAddProductModal} />
             </Modal>
-            <Modal isOpen={isClienteModalOpen} onClose={() => setIsClienteModalOpen(false)} title="Añadir Nuevo Cliente">
+            <Modal  showCancelButton={false}  isOpen={isClienteModalOpen}  onClose={() => setIsClienteModalOpen(false)} title="Añadir Nuevo Cliente">
                 <PersonaForm mode="assign-role" roleToAssign="Cliente" onSuccess={handleClienteFormSuccess} onCancel={() => setIsClienteModalOpen(false)} />
             </Modal>
             <Modal 

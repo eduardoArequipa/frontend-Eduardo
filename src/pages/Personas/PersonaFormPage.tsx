@@ -26,6 +26,7 @@ const PersonaFormPage: React.FC = () => {
         onCancel={handleCancel}
         showTitle={true}
         showCancelButton={true}
+        
       />
     </div>
   );

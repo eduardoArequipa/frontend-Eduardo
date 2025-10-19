@@ -1,141 +1,114 @@
-
-import React, { useState, useEffect } from 'react';
-import { MarcaCreate } from '../../types/marca';
+import React, { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { createMarca, getMarcaById, updateMarca } from '../../services/marcaService';
+import { useCatalogs } from '../../context/CatalogContext';
+import { useNotification } from '../../context/NotificationContext';
+import { EstadoEnum } from '../../types/enums';
 import Input from '../Common/Input';
 import Button from '../Common/Button';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import ErrorMessage from '../Common/ErrorMessage';
-import { EstadoEnum } from '../../types/enums';
 import Select from '../Common/Select';
-import { useCatalogs } from '../../context/CatalogContext';
+
+// 1. Definir el esquema de validación con Zod
+const marcaSchema = z.object({
+  nombre_marca: z.string()
+    .trim()
+    .min(1, { message: 'El nombre de la marca es requerido.' })
+    .min(2, { message: 'El nombre debe tener al menos 2 caracteres.' })
+    .max(50, { message: 'El nombre no puede exceder 50 caracteres.' }),
+  descripcion: z.string()
+    .max(500, { message: 'La descripción no puede exceder 500 caracteres.' })
+    .optional()
+    .or(z.literal('')),
+  pais_origen: z.string()
+    .max(50, { message: 'El país de origen no puede exceder 50 caracteres.' })
+    .optional()
+    .or(z.literal('')),
+  estado: z.nativeEnum(EstadoEnum).optional(),
+});
+
+type MarcaFormData = z.infer<typeof marcaSchema>;
 
 interface MarcaFormProps {
-    marcaId?: number; // Opcional, si estamos editando una marca existente
-    onSuccess: (marca?: any) => void; // Cambiar para recibir la marca creada/editada
+    marcaId?: number;
+    onSuccess: (marca?: any) => void;
     onCancel: () => void;
 }
 
 const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) => {
+    const isEditing = Boolean(marcaId);
     const { notifyMarcaCreated } = useCatalogs();
-    
-    const [formData, setFormData] = useState<MarcaCreate>({
-        nombre_marca: '',
-        descripcion: '',
-        pais_origen: '',
+    const { addNotification } = useNotification();
+
+    const { register, handleSubmit, setValue, formState: { errors } } = useForm<MarcaFormData>({
+        resolver: zodResolver(marcaSchema),
+        defaultValues: {
+            nombre_marca: '',
+            descripcion: '',
+            pais_origen: '',
+            estado: EstadoEnum.Activo,
+        }
     });
-    const [estado, setEstado] = useState<EstadoEnum>(EstadoEnum.Activo);
+
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+    const [serverError, setServerError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (marcaId) {
+        if (isEditing && marcaId) {
             setLoading(true);
             getMarcaById(marcaId)
                 .then(data => {
-                    setFormData({
-                        nombre_marca: data.nombre_marca,
-                        descripcion: data.descripcion || '',
-                        pais_origen: data.pais_origen || '',
-                    });
-                    setEstado(data.estado);
+                    // Poblar el formulario con los datos de la marca
+                    setValue('nombre_marca', data.nombre_marca);
+                    setValue('descripcion', data.descripcion || '');
+                    setValue('pais_origen', data.pais_origen || '');
+                    setValue('estado', data.estado);
                 })
                 .catch(err => {
-                    setError(err.response?.data?.detail || "Error al cargar la marca.");
+                    const errorMsg = err.response?.data?.detail || "Error al cargar la marca.";
+                    setServerError(errorMsg);
+                    addNotification(errorMsg, 'error');
                 })
                 .finally(() => {
                     setLoading(false);
                 });
         }
-    }, [marcaId]);
+    }, [marcaId, isEditing, setValue, addNotification]);
 
-    const validateForm = (): boolean => {
-        const errors: {[key: string]: string} = {};
-
-        // Validar nombre de marca
-        if (!formData.nombre_marca.trim()) {
-            errors.nombre_marca = 'El nombre de la marca es obligatorio';
-        } else if (formData.nombre_marca.length < 2) {
-            errors.nombre_marca = 'El nombre debe tener al menos 2 caracteres';
-        } else if (formData.nombre_marca.length > 50) {
-            errors.nombre_marca = 'El nombre no puede exceder 50 caracteres';
-        }
-
-        // Validar descripción
-        if (formData.descripcion && formData.descripcion.length > 500) {
-            errors.descripcion = 'La descripción no puede exceder 500 caracteres';
-        }
-
-        // Validar país de origen
-        if (formData.pais_origen && formData.pais_origen.length > 50) {
-            errors.pais_origen = 'El país de origen no puede exceder 50 caracteres';
-        }
-
-        setValidationErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { id, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [id]: value,
-        }));
-
-        // Limpiar error de validación específico al cambiar el campo
-        if (validationErrors[id]) {
-            setValidationErrors(prev => ({
-                ...prev,
-                [id]: ''
-            }));
-        }
-    };
-
-    const handleEstadoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setEstado(e.target.value as EstadoEnum);
-    }
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        // Validar formulario antes de enviar
-        if (!validateForm()) {
-            return;
-        }
-
+    const onSubmit = async (data: MarcaFormData) => {
         setLoading(true);
-        setError(null);
+        setServerError(null);
         try {
-            if (marcaId) {
-                const marcaActualizada = await updateMarca(marcaId, {...formData, estado});
-                onSuccess(marcaActualizada); // Pasar la marca actualizada
+            if (isEditing && marcaId) {
+                const marcaActualizada = await updateMarca(marcaId, data);
+                addNotification('Marca actualizada con éxito', 'success');
+                onSuccess(marcaActualizada);
             } else {
-                const nuevaMarca = await createMarca(formData);
-
-                // 🚀 OPTIMIZACIÓN: Notificar a otros módulos sin recargar todo
-                console.log('🏷️ Nueva marca creada, notificando a cache:', nuevaMarca.nombre_marca);
+                const nuevaMarca = await createMarca(data);
+                addNotification('Marca creada con éxito', 'success');
                 notifyMarcaCreated(nuevaMarca);
-
-                onSuccess(nuevaMarca); // Pasar la nueva marca
+                onSuccess(nuevaMarca);
             }
         } catch (err: any) {
-            setError(err.response?.data?.detail || "Error al guardar la marca.");
+            const errorMessage = err.response?.data?.detail || "Error al guardar la marca.";
+            setServerError(errorMessage);
+            addNotification(errorMessage, 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    if (loading && marcaId) {
+    if (loading && isEditing) {
         return <div className="flex justify-center items-center h-40"><LoadingSpinner /> Cargando marca...</div>;
     }
 
-    if (error) {
-        return <ErrorMessage message={error} />;
-    }
-
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 p-4 bg-white dark:bg-gray-800 rounded-lg">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-4 bg-white dark:bg-gray-800 rounded-lg">
+            {serverError && <ErrorMessage message={serverError} />}
+            
             <div>
                 <label htmlFor="nombre_marca" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Nombre de la Marca *
@@ -143,15 +116,12 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
                 <Input
                     id="nombre_marca"
                     type="text"
-                    value={formData.nombre_marca}
-                    onChange={handleChange}
-                    required
-                    maxLength={50}
-                    className={`mt-1 block w-full ${validationErrors.nombre_marca ? 'border-red-500' : ''}`}
+                    {...register('nombre_marca')}
+                    className={`mt-1 block w-full ${errors.nombre_marca ? 'border-red-500' : ''}`}
                     placeholder="Ingrese el nombre de la marca"
                 />
-                {validationErrors.nombre_marca && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.nombre_marca}</p>
+                {errors.nombre_marca && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.nombre_marca.message}</p>
                 )}
             </div>
             <div>
@@ -161,14 +131,12 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
                 <Input
                     id="descripcion"
                     type="text"
-                    value={formData.descripcion || ''}
-                    onChange={handleChange}
-                    maxLength={500}
-                    className={`mt-1 block w-full ${validationErrors.descripcion ? 'border-red-500' : ''}`}
+                    {...register('descripcion')}
+                    className={`mt-1 block w-full ${errors.descripcion ? 'border-red-500' : ''}`}
                     placeholder="Descripción opcional de la marca"
                 />
-                {validationErrors.descripcion && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.descripcion}</p>
+                {errors.descripcion && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.descripcion.message}</p>
                 )}
             </div>
             <div>
@@ -178,23 +146,20 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
                 <Input
                     id="pais_origen"
                     type="text"
-                    value={formData.pais_origen || ''}
-                    onChange={handleChange}
-                    maxLength={50}
-                    className={`mt-1 block w-full ${validationErrors.pais_origen ? 'border-red-500' : ''}`}
+                    {...register('pais_origen')}
+                    className={`mt-1 block w-full ${errors.pais_origen ? 'border-red-500' : ''}`}
                     placeholder="País de origen de la marca"
                 />
-                {validationErrors.pais_origen && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.pais_origen}</p>
+                {errors.pais_origen && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.pais_origen.message}</p>
                 )}
             </div>
-            {marcaId && (
+            {isEditing && (
                 <div>
                     <label htmlFor="estado" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado</label>
                     <Select
                         id="estado"
-                        value={estado}
-                        onChange={handleEstadoChange}
+                        {...register('estado')}
                         options={[
                             { value: EstadoEnum.Activo, label: 'Activo' },
                             { value: EstadoEnum.Inactivo, label: 'Inactivo' },
@@ -203,10 +168,10 @@ const MarcaForm: React.FC<MarcaFormProps> = ({ marcaId, onSuccess, onCancel }) =
                     />
                 </div>
             )}
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-3 pt-4">
                 <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>Cancelar</Button>
                 <Button type="submit" variant="primary" disabled={loading}>
-                    {loading ? <LoadingSpinner size="small" /> : (marcaId ? 'Actualizar Marca' : 'Crear Marca')}
+                    {loading ? <LoadingSpinner size="sm" /> : (isEditing ? 'Actualizar Marca' : 'Crear Marca')}
                 </Button>
             </div>
         </form>

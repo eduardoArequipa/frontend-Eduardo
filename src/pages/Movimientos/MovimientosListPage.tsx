@@ -174,7 +174,6 @@ const MovimientosListPage: React.FC = () => {
 
             {/* Modal para CREAR Nuevo Movimiento */}
             <Modal isOpen={isAddModalOpen} onClose={handleCloseAddModal} title="Registrar Nuevo Movimiento" widthClass="max-w-xl" showCancelButton={false} showConfirmButton={false}>
-                {/* <MovimientoForm onSuccess={handleAddSuccess} onCancel={handleCloseAddModal} availableProductos={availableProductosFilter} /> */}
                 <MovimientoForm onSuccess={handleAddSuccess} onCancel={handleCloseAddModal} availableProductos={availableProductosFilter} />
             </Modal>
         </div>

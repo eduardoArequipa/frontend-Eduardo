@@ -58,7 +58,7 @@ export const updateMenusForRole = async (roleId: number, menuIds: number[]): Pro
  * @param rolData Los datos del rol a crear.
  * @returns Una promesa que resuelve en el IRolInDB creado.
  */
-export const createRol = async (rolData: IRolCreate): Promise<IRolInDB> => {
+export const createRol = async (rolData: IRolCreate) => {
     const response = await axiosInstance.post('/roles/', rolData);
     return response.data;
 };

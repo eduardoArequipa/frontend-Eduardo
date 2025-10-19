@@ -1,26 +1,48 @@
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { getCategoriaById, createCategoria, updateCategoria } from '../../services/categoriaService';
-import { CategoriaCreate, CategoriaUpdate } from '../../types/categoria';
+import { CategoriaUpdate } from '../../types/categoria';
 import { useCatalogs } from '../../context/CatalogContext';
+import { useNotification } from '../../context/NotificationContext'; // Importar hook
 import Input from '../Common/Input';
 import Button from '../Common/Button';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import ErrorMessage from '../Common/ErrorMessage';
 
+// 1. Definir el esquema de validación con Zod
+const categoriaSchema = z.object({
+  nombre_categoria: z.string()
+    .trim()
+    .min(1, { message: 'El nombre de la categoría es requerido.' })
+    .min(3, { message: 'El nombre debe tener al menos 3 caracteres.' })
+    .max(20, { message: 'El nombre no puede tener más de 20 caracteres.' }),
+});
+
+// Extraer el tipo del esquema para usarlo en el formulario
+type CategoriaFormData = z.infer<typeof categoriaSchema>;
+
 interface CategoriaFormProps {
     categoriaId?: number;
-    onSuccess: (categoria?: any) => void; // Cambiar para recibir la categoría creada/editada
+    onSuccess: (categoria?: any) => void;
     onCancel: () => void;
 }
 
 const CategoriaForm: React.FC<CategoriaFormProps> = ({ categoriaId, onSuccess, onCancel }) => {
     const isEditing = Boolean(categoriaId);
-    const { register, handleSubmit, setValue, formState: { errors } } = useForm<CategoriaCreate>();
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
+    const { register, handleSubmit, setValue, formState: { errors } } = useForm<CategoriaFormData>({
+        resolver: zodResolver(categoriaSchema),
+        defaultValues: {
+            nombre_categoria: ''
+        }
+    });
+
+    const [loading, setLoading] = useState(false);
+    const [serverError, setServerError] = useState<string | null>(null); // Renombrado para claridad
     const { notifyCategoriaCreated } = useCatalogs();
+    const { addNotification } = useNotification(); // <-- Usar el hook de notificación
 
     useEffect(() => {
         if (isEditing && categoriaId) {
@@ -29,55 +51,59 @@ const CategoriaForm: React.FC<CategoriaFormProps> = ({ categoriaId, onSuccess, o
                 .then(data => {
                     setValue('nombre_categoria', data.nombre_categoria);
                 })
-                .catch(err => setError(err.response?.data?.detail || 'Error al cargar la categoría'))
+                .catch(err => setServerError(err.response?.data?.detail || 'Error al cargar la categoría'))
                 .finally(() => setLoading(false));
         }
     }, [categoriaId, isEditing, setValue]);
 
-    const onSubmit = async (data: CategoriaCreate) => {
+    const onSubmit = async (data: CategoriaFormData) => {
         setLoading(true);
-        setError(null);
+        setServerError(null);
         try {
             if (isEditing && categoriaId) {
                 const categoriaActualizada = await updateCategoria(categoriaId, data as CategoriaUpdate);
-                alert('Categoría actualizada con éxito');
-                onSuccess(categoriaActualizada); // Pasar la categoría actualizada
+                addNotification('Categoría actualizada con éxito', 'success'); // <-- Notificación de éxito
+                onSuccess(categoriaActualizada);
             } else {
                 const nuevaCategoria = await createCategoria(data);
-                alert('Categoría creada con éxito');
+                addNotification('Categoría creada con éxito', 'success'); // <-- Notificación de éxito
                 
-                // 🚀 OPTIMIZACIÓN: Notificar a otros módulos sin recargar todo
                 console.log('📋 Nueva categoría creada, notificando a cache:', nuevaCategoria.nombre_categoria);
                 notifyCategoriaCreated(nuevaCategoria);
                 
-                onSuccess(nuevaCategoria); // Pasar la nueva categoría
+                onSuccess(nuevaCategoria);
             }
         } catch (err: any) {
-            setError(err.response?.data?.detail || 'Error al guardar la categoría');
+            const errorMessage = err.response?.data?.detail || 'Error al guardar la categoría';
+            addNotification(errorMessage, 'error'); // <-- Notificación de error
+            setServerError(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
     if (loading && isEditing) return <LoadingSpinner />;
-    if (error) return <ErrorMessage message={error} />;
-
+    
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <div className="mb-6">
-                <label htmlFor="nombre_categoria" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
+        <form onSubmit={handleSubmit(onSubmit)} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
+            {/* Mostrar error general del servidor */}
+            {serverError && <ErrorMessage message={serverError} />}
+
+            <div className="mb-2">
+                <label htmlFor="nombre_categoria" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre de la Categoría</label>
                 <Input 
                     id="nombre_categoria" 
                     type="text" 
-                    {...register('nombre_categoria', { required: 'El nombre es requerido' })} 
+                    {...register('nombre_categoria')} 
                     className={errors.nombre_categoria ? 'border-red-500' : ''}
+                    placeholder="Ej: Gaseosas"
                 />
-                {errors.nombre_categoria && <span className="text-red-500 text-xs">{errors.nombre_categoria.message}</span>}
+                {errors.nombre_categoria && <span className="text-red-500 text-xs mt-1">{errors.nombre_categoria.message}</span>}
             </div>
-            <div className="flex justify-end space-x-4">
+            <div className="flex justify-end space-x-4 pt-4">
                 <Button type="button" onClick={onCancel} variant="secondary">Cancelar</Button>
                 <Button type="submit" disabled={loading} variant="primary">
-                    {loading ? <LoadingSpinner /> : (isEditing ? 'Actualizar' : 'Crear')}
+                    {loading ? <LoadingSpinner size="sm" /> : (isEditing ? 'Actualizar' : 'Crear Categoría')}
                 </Button>
             </div>
         </form>
