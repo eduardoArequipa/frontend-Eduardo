@@ -2,7 +2,7 @@
 import React from 'react';
 
 interface ErrorMessageProps {
-  message: string;
+  message?: string;
   onClose?: () => void; // onClose es opcional
 }
 

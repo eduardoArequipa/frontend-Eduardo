@@ -242,6 +242,7 @@ const PerfilForm: React.FC<PerfilFormProps> = ({ usuario, onSuccess, onCancel })
                             })}
                             placeholder="Dejar vacío para no cambiar"
                             className={errors.contraseña ? 'border-red-500' : ''}
+                            autoComplete="new-password"
                         />
                         {errors.contraseña && <span className="text-red-500 text-xs">{errors.contraseña.message}</span>}
                     </div>
@@ -258,6 +259,7 @@ const PerfilForm: React.FC<PerfilFormProps> = ({ usuario, onSuccess, onCancel })
                             })}
                             placeholder="Confirmar nueva contraseña"
                             className={errors.confirmar_contraseña ? 'border-red-500' : ''}
+                            autoComplete="new-password"
                         />
                         {errors.confirmar_contraseña && <span className="text-red-500 text-xs">{errors.confirmar_contraseña.message}</span>}
                     </div>

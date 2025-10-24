@@ -20,7 +20,10 @@ const rolSchema = z.object({
     .trim()
     .min(1, { message: 'El nombre del rol es requerido.' })
     .min(3, { message: 'El nombre debe tener al menos 3 caracteres.' })
-    .max(50, { message: 'El nombre no puede exceder 50 caracteres.' }),
+    .max(50, { message: 'El nombre no puede exceder 50 caracteres.' })
+    .regex(/^\S+$/, 'El nombre del rol no puede contener espacios.')
+
+    ,
   descripcion: z.string()
     .max(500, { message: 'La descripción no puede exceder 500 caracteres.' })
     .optional()

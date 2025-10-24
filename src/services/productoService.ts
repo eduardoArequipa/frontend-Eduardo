@@ -100,3 +100,15 @@ export const calcularPrecioSugerido = async (request: PrecioSugeridoRequest): Pr
         throw error;
     }
 };
+
+export const checkFieldUniqueness = async (field_name: 'codigo' | 'nombre', value: string, producto_id?: number): Promise<{ is_unique: boolean }> => {
+    const params: { field_name: string; value: string; producto_id?: number } = {
+        field_name,
+        value,
+    };
+    if (producto_id !== undefined) {
+        params.producto_id = producto_id;
+    }
+    const response = await axiosInstance.get('/productos/check-field', { params });
+    return response.data;
+};

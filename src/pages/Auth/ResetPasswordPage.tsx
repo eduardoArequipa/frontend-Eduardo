@@ -100,17 +100,8 @@ import { resetPassword } from '../../services/authService';
                         <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
                             Nueva Contraseña
                         </label>
-                        <Input
-                            id="newPassword"
-                            type="password"
-                            placeholder="Al menos 6 caracteres"
-                            value={newPassword}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)}
-                            required
-                            minLength={6}
-                            className="w-full"
-                            disabled={loading}
-                        />
+              <Input id="password" label="Nueva Contraseña" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required placeholder="Ingrese su nueva contraseña" autoComplete="new-password" />
+              <Input id="confirm_password" label="Confirmar Contraseña" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required placeholder="Confirme su nueva contraseña" autoComplete="new-password" />
                     </div>
                     <div>
                         <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-gray-700 mb-1">

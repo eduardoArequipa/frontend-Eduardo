@@ -279,8 +279,8 @@ const ComprasFormPage: React.FC = () => {
         setIsSubmitting(false);
         return;
       }
-      if (isNaN(precio) || precio < 0) {
-        addNotification(`El precio para ${producto.nombre} debe ser un número no negativo.`, 'warning');
+      if (isNaN(precio) || precio <= 0) {
+        addNotification(`El precio para ${producto.nombre} debe ser un número positivo.`, 'warning');
         setIsSubmitting(false);
         return;
       }
@@ -553,7 +553,7 @@ const ComprasFormPage: React.FC = () => {
                           type="number"
                           value={detalle.precio_unitario}
                           onChange={(e) => handleDetalleChange(index, "precio_unitario", e.target.value)}
-                          min="0"
+                          min="0.01"
                           step="0.01"
                         />
                       </div>

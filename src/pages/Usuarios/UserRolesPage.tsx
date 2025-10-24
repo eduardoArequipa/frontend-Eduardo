@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getUserById, assignRoleToUser, removeRoleFromUser } from '../../services/userService';
 import { getRoles } from '../../services/rolService';
+import { useAuth } from '../../hooks/useAuth'; // Importar useAuth
 
 // Tipos
 import { IUsuarioInDB } from '../../types/usuario';
@@ -29,6 +30,8 @@ const UserRolesPage: React.FC = () => {
 
     const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
     const [updateRolesError, setUpdateRolesError] = useState<string | null>(null);
+
+    const { user: currentUser } = useAuth(); // Obtener el usuario actual
 
     useEffect(() => {
         if (isNaN(usuarioId)) {
@@ -73,6 +76,13 @@ const UserRolesPage: React.FC = () => {
 
     const handleRemoveRole = async (rolId: number) => {
         if (!usuario || isUpdatingRoles) return;
+        
+        // Prevenir que un usuario se remueva sus propios roles
+        if (currentUser && usuario.usuario_id === currentUser.usuario_id) {
+            setUpdateRolesError("No puedes remover tus propios roles para prevenir el auto-bloqueo.");
+            return;
+        }
+
         setIsUpdatingRoles(true);
         setUpdateRolesError(null);
         try {
@@ -168,7 +178,12 @@ const UserRolesPage: React.FC = () => {
                                 {userRoles.map(rol => (
                                     <li key={rol.rol_id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded">
                                         <span className="text-gray-800 dark:text-gray-200">{rol.nombre_rol}</span>
-                                        <Button onClick={() => handleRemoveRole(rol.rol_id)} variant="danger" size="sm" disabled={isUpdatingRoles || !usuario.persona}>Remover</Button>
+                                        <Button 
+                                            onClick={() => handleRemoveRole(rol.rol_id)} 
+                                            variant="danger" 
+                                            size="sm" 
+                                            disabled={isUpdatingRoles || !usuario.persona || (currentUser ? usuario.usuario_id === currentUser.usuario_id : false)}
+                                        >Remover</Button>
                                     </li>
                                 ))}
                             </ul>

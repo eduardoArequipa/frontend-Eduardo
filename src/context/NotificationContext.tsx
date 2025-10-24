@@ -18,9 +18,10 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const notificationCounter = React.useRef(0); // Contador para asegurar IDs únicos
 
     const addNotification = useCallback((message: string, type: NotificationType) => {
-        const id = Date.now();
+        const id = Date.now() + notificationCounter.current++; // Combinar timestamp con contador
         setNotifications(prev => [...prev, { id, message, type }]);
         
         // Auto-remove notification after 5 seconds

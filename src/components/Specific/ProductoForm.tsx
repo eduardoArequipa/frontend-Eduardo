@@ -1,7 +1,9 @@
 // src/components/Specific/ProductoForm.tsx
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { getProductoById, createProducto, updateProducto, createConversion, updateConversion, deleteConversion } from "../../services/productoService";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { getProductoById, createProducto, updateProducto, createConversion, updateConversion, deleteConversion, checkFieldUniqueness } from "../../services/productoService";
 import { uploadImage } from "../../services/uploadService";
 import { ProductoCreate, ProductoUpdate, Conversion, ConversionCreate, Producto } from "../../types/producto";
 import { TipoMargenEnum } from "../../types/enums";
@@ -33,6 +35,65 @@ type FormData = Omit<ProductoCreate, 'imagen_ruta'> & {
 
 type LocalConversion = Omit<Conversion, 'producto_id'> & { tempId?: number };
 
+// --- Esquema de Validación con Zod (Función Fábrica) ---
+const createProductoSchema = (currentProductoId?: number) => {
+  return z.object({
+    codigo: z.string()
+      .trim()
+      .min(13, "Debe contenr  13 caracteres numericos sin espacios.")
+      .regex(/^\S+$/, "El código no puede contener espacios."),
+
+    nombre: z.string()
+      .trim()
+      .min(1, "El nombre es requerido."),
+
+    precio_compra: z.string()
+      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "El precio de compra debe ser un número positivo."),
+    precio_venta: z.string()
+      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "El precio de venta debe ser un número positivo."),
+    stock: z.string()
+      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "El stock debe ser un número positivo."),
+    stock_minimo: z.coerce.number()
+      .min(0, "El stock mínimo no puede ser negativo."),
+    categoria_id: z.coerce.number()
+      .min(1, "Debe seleccionar una categoría."),
+    unidad_inventario_id: z.coerce.number()
+      .min(1, "Debe seleccionar una unidad de inventario."),
+    marca_id: z.coerce.number()
+      .min(1, "Debe seleccionar una marca."),
+    tipo_margen: z.nativeEnum(TipoMargenEnum),
+    margen_valor: z.string()
+      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "El valor del margen debe ser un número positivo."),
+    precio_manual_activo: z.boolean(),
+  }).superRefine(async (data, ctx) => {
+    // Validaciones asíncronas de unicidad
+
+    // Validar unicidad de código
+    if (data.codigo) {
+      const isUnique = await checkFieldUniqueness('codigo', data.codigo, currentProductoId);
+      if (!isUnique) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Este código ya está en uso.",
+          path: ['codigo']
+        });
+      }
+    }
+
+    // Validar unicidad de nombre
+    if (data.nombre) {
+      const isUnique = await checkFieldUniqueness('nombre', data.nombre, currentProductoId);
+      if (!isUnique) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Este nombre ya está en uso.",
+          path: ['nombre']
+        });
+      }
+    }
+  });
+};
+
 const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCancel }) => {
   const { theme } = useTheme();
   const { addNotification } = useNotification();
@@ -46,13 +107,31 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
   } = useCatalogs();
 
   const isEditing = !!productoId;
+
   const {
     register,
     handleSubmit,
     setValue,
     watch,
     formState: { errors },
-  } = useForm<FormData>({ mode: "onBlur" });
+  } = useForm<FormData>({
+    resolver: zodResolver(createProductoSchema(productoId)),
+    mode: "onBlur",
+    defaultValues: {
+      codigo: "",
+      nombre: "",
+      precio_compra: "0.00",
+      precio_venta: "0.00",
+      stock: "0.00",
+      stock_minimo: 0,
+      categoria_id: undefined,
+      unidad_inventario_id: undefined,
+      marca_id: undefined,
+      tipo_margen: TipoMargenEnum.Porcentaje,
+      margen_valor: "30.00",
+      precio_manual_activo: false,
+    },
+  });
 
   const unidadInventarioId = watch('unidad_inventario_id');
   const selectedUnidadInventario = availableUnidadesMedida.find(u => u.unidad_id === unidadInventarioId);
@@ -81,7 +160,6 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
 
   // ⚡ CARGA OPTIMIZADA - Asegurar que categorías y marcas estén cargadas para el ProductoForm
   useEffect(() => {
-    console.log("📝 ProductoForm: Asegurando que categorías y marcas estén cargadas");
     ensureCategorias();
     ensureMarcas();
   }, [ensureCategorias, ensureMarcas]);
@@ -113,7 +191,6 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
               : null
           );
         } catch (err) {
-          console.error("Error loading producto for edit:", err);
           setError("No se pudo cargar el producto para editar.");
         } finally {
           setLoading(false);
@@ -167,7 +244,6 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
         await updateProducto(productoId, dataToSend as ProductoUpdate);
         
         // 🔄 INVALIDAR CONVERSIONES - Las presentaciones pueden haber cambiado
-        console.log("🔄 Producto actualizado, refrescando conversiones...");
         await invalidateConversiones();
         
         const productoActualizado = await getProductoById(productoId);
@@ -175,10 +251,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
         await onSuccess(productoActualizado);
       } else {
         const newProduct = await createProducto(dataToSend as ProductoCreate);
-        console.log(`📦 Producto creado: ${newProduct.nombre} (ID: ${newProduct.producto_id})`);
-        console.log(`🔧 Estado conversions actual:`, conversions);
-        console.log(`🔧 Conversiones a crear (${conversions.length}):`, conversions);
-        
+
         for (const conv of conversions) {
           const conversionData: ConversionCreate = {
             nombre_presentacion: conv.nombre_presentacion,
@@ -187,7 +260,6 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
             es_para_venta: conv.es_para_venta,
             descripcion_detallada: conv.descripcion_detallada,
           };
-          console.log(`🔧 Creando conversión: ${conv.nombre_presentacion}`, conversionData);
           try {
             const createdConversion = await createConversion(newProduct.producto_id, conversionData);
             console.log(`✅ Conversión creada exitosamente:`, createdConversion);
@@ -197,8 +269,6 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           }
         }
         
-        // 🔄 INVALIDAR CONVERSIONES - Se crearon nuevas presentaciones
-        console.log("🔄 Producto creado con conversiones, refrescando cache...");
         await invalidateConversiones();
         
         addNotification("Producto y sus presentaciones creados con éxito!", 'success');
@@ -239,7 +309,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           <Input
             id="codigo"
             type="text"
-            {...register("codigo", { required: "El código es requerido" })}
+            {...register("codigo")}
             className={`mt-1 block w-full ${errors.codigo ? 'border-red-500' : 'border-gray-400'}`}
           />
           {errors.codigo && <span className="text-red-500 text-xs">{errors.codigo.message}</span>}
@@ -250,7 +320,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           <Input
             id="nombre"
             type="text"
-            {...register("nombre", { required: "El nombre es requerido" })}
+            {...register("nombre")}
             className={`mt-1 block w-full ${errors.nombre ? 'border-red-500' : 'border-gray-400'}`}
           />
           {errors.nombre && <span className="text-red-500 text-xs">{errors.nombre.message}</span>}
@@ -275,25 +345,19 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           {/* Campos ocultos para validación de react-hook-form */}
           <input
             type="hidden"
-            {...register("precio_compra", {
-              required: "El precio de compra es requerido"
-            })}
+            {...register("precio_compra")}
           />
           <input
             type="hidden"
-            {...register("precio_venta", {
-              required: "El precio de venta es requerido"
-            })}
+            {...register("precio_venta")}
           />
           <input
             type="hidden"
-            {...register("tipo_margen", { required: true })}
+            {...register("tipo_margen")}
           />
           <input
             type="hidden"
-            {...register("margen_valor", { 
-              required: true
-            })}
+            {...register("margen_valor")}
           />
           <input
             type="hidden"
@@ -331,11 +395,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
                 id="stock_minimo"
                 type="number"
                 step="1"
-                {...register("stock_minimo", {
-                  required: "El stock mínimo es requerido",
-                  valueAsNumber: true,
-                  min: { value: 0, message: "El stock no puede ser negativo" }
-                })}
+                {...register("stock_minimo")}
                 className={`mt-1 block w-full ${errors.stock_minimo ? 'border-red-500' : 'border-gray-400'}`}
               />
               {errors.stock_minimo && <span className="text-red-500 text-xs">{errors.stock_minimo.message}</span>}
@@ -351,19 +411,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
                 type="text"
                 placeholder="0.00"
                 readOnly={true}
-                {...register("stock", {
-                  required: "El stock actual es requerido",
-                  pattern: {
-                    value: /^\d+(\.\d{1,2})?$/,
-                    message: "Ingrese un número válido (ej: 10.50)"
-                  },
-                  validate: {
-                    positive: (value) => {
-                      const num = parseFloat(value || "0");
-                      return num >= 0 || "El stock no puede ser negativo";
-                    }
-                  }
-                })}
+                {...register("stock")}
                 className={`mt-1 block w-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed ${errors.stock ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
               />
               <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -395,7 +443,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           <label htmlFor="categoria_id" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Categoría</label>
           <Select
             id="categoria_id"
-            {...register("categoria_id", { required: "Debe seleccionar una categoría", valueAsNumber: true })}
+            {...register("categoria_id")}
             className={`mt-1 block w-full ${errors.categoria_id ? 'border-red-500' : 'border-gray-400'}`}
           >
             <option value="">-- Seleccionar Categoría --</option>
@@ -412,7 +460,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           <label htmlFor="unidad_inventario_id" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Unidad de Inventario</label>
           <Select
             id="unidad_inventario_id"
-            {...register("unidad_inventario_id", { required: "Debe seleccionar una unidad", valueAsNumber: true })}
+            {...register("unidad_inventario_id")}
             className={`mt-1 block w-full ${errors.unidad_inventario_id ? 'border-red-500' : 'border-gray-400'}`}
           >
             <option value="">-- Seleccionar Unidad --</option>
@@ -429,7 +477,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
           <label htmlFor="marca_id" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Marca</label>
           <Select
             id="marca_id"
-            {...register("marca_id", { required: "Debe seleccionar una marca", valueAsNumber: true })}
+            {...register("marca_id")}
             className={`mt-1 block w-full ${errors.marca_id ? 'border-red-500' : 'border-gray-400'}`}
           >
             <option value="">-- Seleccionar Marca --</option>
@@ -486,12 +534,10 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
               setConversions([...conversions, result]);
             } : 
             async (conversion) => {
-              console.log('📝 Agregando conversión en modo creación:', conversion);
-              console.log('📝 Conversiones actuales antes:', conversions);
+
               const newConversion = { ...conversion, id: 0, tempId: Date.now() };
               setConversions(prev => {
                 const updated = [...prev, newConversion as LocalConversion];
-                console.log('📝 Conversiones actuales después:', updated);
                 return updated;
               });
             }

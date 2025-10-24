@@ -17,7 +17,7 @@ const LowStockNotification: React.FC = () => {
     if (loadingLowStock) {
         return (
             <div className="fixed top-4 right-4 bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-md shadow-lg z-50 flex items-center space-x-2">
-                <LoadingSpinner size="small" />
+                <LoadingSpinner size="sm" />
                 <span>Verificando stock...</span>
             </div>
         );
