@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { getMarcas, deleteMarca, activateMarca } from '../../services/marcaService';
 import { Marca, MarcaPagination } from '../../types/marca';
 import { EstadoEnum } from '../../types/enums';
-// Ya no necesitamos useCatalogs aquí
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
@@ -46,7 +45,6 @@ const MarcasListPage: React.FC = () => {
         confirmVariant: 'danger',
     });
 
-    // Ya no necesitamos invalidateMarcas porque MarcaForm notifica directamente
 
     const fetchMarcas = async () => {
         setLoading(true);
@@ -76,7 +74,7 @@ const MarcasListPage: React.FC = () => {
 
     const handleFilterValueChange = (setter: React.Dispatch<any>) => (value: any) => {
         setter(value);
-        setCurrentPage(1); // Resetear a la primera página cuando cambian los filtros
+        setCurrentPage(1); 
     };
 
     const handleCloseConfirmationModal = () => {
@@ -124,8 +122,7 @@ const MarcasListPage: React.FC = () => {
     const handleCloseAddModal = () => setIsAddModalOpen(false);
     const handleAddSuccess = () => {
         handleCloseAddModal();
-        fetchMarcas(); // Solo recargar la lista local para paginación
-        // No necesitamos invalidar porque MarcaForm ya notifica al cache global
+        fetchMarcas();
     };
 
     const handleOpenEditModal = (marca: Marca) => {
@@ -193,7 +190,7 @@ const MarcasListPage: React.FC = () => {
                     <Select id="estadoFilter" value={estadoFilter} onChange={(e) => handleFilterValueChange(setEstadoFilter)(e.target.value as EstadoEnum | '')} options={[{ value: '', label: 'Todos los estados' }, { value: EstadoEnum.Activo, label: 'Activo' }, { value: EstadoEnum.Inactivo, label: 'Inactivo' }]} />
                 </div>
                 <div className="flex-grow md:flex-none flex justify-end">
-                    <Button onClick={handleOpenAddModal} variant="success">Crear Nueva Marca</Button>
+                    <Button onClick={handleOpenAddModal} variant="success">Registrar Nueva Marca</Button>
                 </div>
             </div>
 

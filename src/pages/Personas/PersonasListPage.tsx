@@ -239,7 +239,7 @@ const PersonasListPage: React.FC = () => {
                         onClick={() => navigate('/personas/new')}
                         className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow"
                     >
-                        Crear Nueva Persona
+                        Registrar Nueva Persona
                     </Button>
                 </div>
             </div>

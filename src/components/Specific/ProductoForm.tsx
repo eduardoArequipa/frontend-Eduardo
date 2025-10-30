@@ -40,7 +40,7 @@ const createProductoSchema = (currentProductoId?: number) => {
   return z.object({
     codigo: z.string()
       .trim()
-      .min(13, "Debe contenr  13 caracteres numericos sin espacios.")
+      .min(12, "Debe contenr  13 caracteres numericos sin espacios.")
       .regex(/^\S+$/, "El código no puede contener espacios."),
 
     nombre: z.string()

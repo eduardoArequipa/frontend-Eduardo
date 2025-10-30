@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import AsyncSelect from 'react-select/async';
 import { createMovimiento } from '../../services/movimientoService';
+import { searchProductSuggestions } from '../../services/productService';
 import { TipoMovimientoEnum } from '../../types/movimiento';
-import { Producto } from '../../types/producto';
 import { useNotification } from '../../context/NotificationContext';
 import { useTheme } from '../../context/ThemeContext';
 import Input from '../Common/Input';
@@ -32,10 +33,9 @@ type MovimientoFormData = z.infer<typeof movimientoSchema>;
 interface MovimientoFormProps {
     onSuccess: () => void;
     onCancel: () => void;
-    availableProductos: Producto[];
 }
 
-const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel, availableProductos }) => {
+const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel }) => {
     const { theme } = useTheme();
     const { addNotification } = useNotification();
     const { handleSubmit, control, reset, formState: { errors } } = useForm<MovimientoFormData>({
@@ -48,13 +48,19 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel, av
     const [loading, setLoading] = useState(false);
     const [serverError, setServerError] = useState<string | null>(null);
 
-    // 2. Options Array Correction
     const tipoMovimientoOptions: Array<{ value: TipoMovimientoEnum; label: string }> = [
         { value: 'merma', label: 'Merma (Producto Roto/Dañado)' },
         { value: 'ajuste_positivo', label: 'Ajuste Positivo (Corrección)' },
         { value: 'ajuste_negativo', label: 'Ajuste Negativo (Corrección)' },
         { value: 'uso_interno', label: 'Uso Interno (Consumo Propio)' },
     ];
+
+    const loadProductOptions = (inputValue: string, callback: (options: any) => void) => {
+        setTimeout(async () => {
+            const options = await searchProductSuggestions(inputValue);
+            callback(options);
+        }, 500); // Debounce para no hacer peticiones en cada tecleo
+    };
 
     const onSubmit = async (data: MovimientoFormData) => {
         setLoading(true);
@@ -83,14 +89,22 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel, av
                     name="producto_id"
                     control={control}
                     render={({ field }) => (
-                        <Select
+                        <AsyncSelect
                             id="producto_id"
-                            {...field}
-                            options={[
-                                { value: '', label: 'Seleccione un producto' },
-                                ...availableProductos.map(p => ({ value: p.producto_id, label: `${p.nombre} (${p.codigo}) - Stock: ${p.stock}` }))
-                            ]}
-                            className={errors.producto_id ? 'border-red-500' : ''}
+                            cacheOptions
+                            defaultOptions
+                            loadOptions={loadProductOptions}
+                            placeholder="Buscar y seleccionar un producto..."
+                            onChange={(option: any) => field.onChange(option?.value)}
+                            noOptionsMessage={({ inputValue }) => inputValue ? 'No se encontraron productos' : 'Escribe para buscar'}
+                            loadingMessage={() => 'Buscando...'}
+                            styles={{
+                                control: (base) => ({ ...base, backgroundColor: theme === 'dark' ? '#374151' : 'white', borderColor: errors.producto_id ? '#EF4444' : '#6B7280' }),
+                                input: (base) => ({ ...base, color: theme === 'dark' ? 'white' : 'black' }),
+                                singleValue: (base) => ({ ...base, color: theme === 'dark' ? 'white' : 'black' }),
+                                menu: (base) => ({ ...base, backgroundColor: theme === 'dark' ? '#374151' : 'white' }),
+                                option: (base, { isFocused }) => ({ ...base, backgroundColor: isFocused ? (theme === 'dark' ? '#4B5563' : '#E5E7EB') : (theme === 'dark' ? '#374151' : 'white'), color: theme === 'dark' ? 'white' : 'black' }),
+                            }}
                         />
                     )}
                 />

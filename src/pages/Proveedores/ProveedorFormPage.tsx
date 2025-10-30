@@ -393,7 +393,7 @@ const ProveedoresFormPage: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">{isEditing ? `Editar Proveedor (ID: ${proveedorId})` : 'Crear Nuevo Proveedor'}</h1>
+            <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">{isEditing ? `Editar Proveedor (ID: ${proveedorId})` : 'Registrar Nuevo Proveedor'}</h1>
 
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -449,7 +449,7 @@ const ProveedoresFormPage: React.FC = () => {
                                   </div>
                                    <div>
                                       <label htmlFor="persona_ci" className="block text-sm font-medium text-gray-700 dark:text-gray-300">CI</label>
-                                      <Input id="persona_ci" name="ci" type="text" value={personaFormData.ci || ''} onChange={handlePersonaInputChange} error={fieldErrors.ci} />
+                                      <Input id="persona_ci" name="ci" type="text" required value={personaFormData.ci || ''} onChange={handlePersonaInputChange} error={fieldErrors.ci} />
                                   </div>
                                                                   <div>
                                                                      <label htmlFor="persona_genero" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Género</label>
@@ -518,7 +518,7 @@ const ProveedoresFormPage: React.FC = () => {
                 <div className="md:col-span-2 flex justify-end space-x-4">
                     <Button type="button" variant="secondary" onClick={() => navigate('/proveedores')}>Cancelar</Button>
                     <Button type="submit" disabled={loading || loadingAssociationData || (!isEditing && proveedorType === '') || (!isEditing && proveedorType === 'persona' && personaFormData === null) || (!isEditing && proveedorType === 'empresa' && empresaFormData === null)} variant="primary">
-                        {loading ? <LoadingSpinner /> : (isEditing ? 'Actualizar Proveedor' : 'Crear Proveedor')}
+                        {loading ? <LoadingSpinner /> : (isEditing ? 'Actualizar Proveedor' : 'Registrar Proveedor')}
                     </Button>
                 </div>
             </form>

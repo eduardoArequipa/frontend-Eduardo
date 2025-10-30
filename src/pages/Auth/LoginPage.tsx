@@ -29,7 +29,7 @@ const LoginPage: React.FC = () => {
     // Redirige si ya está autenticado - usando useEffect
     useEffect(() => {
         if (isAuthenticated) {
-            navigate('/dashboard'); // O a la ruta principal de la app
+            navigate('/home'); // O a la ruta principal de la app
         }
     }, [isAuthenticated, navigate]);
 

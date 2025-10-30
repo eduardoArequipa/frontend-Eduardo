@@ -113,6 +113,18 @@ export interface ProductoPagination {
     total: number;
 }
 
+// Corresponde a ProductoNested en el backend, usado para sugerencias de búsqueda
+export interface ProductoNested {
+    producto_id: number;
+    codigo: string;
+    nombre: string;
+    precio_venta: string;
+    imagen_ruta?: string | null;
+    stock: string;
+    unidad_inventario: UnidadMedidaNested;
+}
+
+
 // Interfaces para cálculo de precios sugeridos
 export interface PrecioSugeridoRequest {
     precio_compra: string; // String para precisión decimal

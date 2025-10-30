@@ -30,8 +30,6 @@ const MovimientosListPage: React.FC = () => {
 
     const [availableProductosFilter, setAvailableProductosFilter] = useState<Producto[]>([]);
     const [loadingFilterData, setLoadingFilterData] = useState(true);
-
-    // Estados para el modal de creación
     const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
 
     const fetchMovimientos = async () => {
@@ -84,8 +82,6 @@ const MovimientosListPage: React.FC = () => {
         setter(value);
         setCurrentPage(1);
     };
-
-    // --- Handlers para el Modal de CREACIÓN ---
     const handleOpenAddModal = () => setIsAddModalOpen(true);
     const handleCloseAddModal = () => setIsAddModalOpen(false);
     const handleAddSuccess = () => {
@@ -174,7 +170,7 @@ const MovimientosListPage: React.FC = () => {
 
             {/* Modal para CREAR Nuevo Movimiento */}
             <Modal isOpen={isAddModalOpen} onClose={handleCloseAddModal} title="Registrar Nuevo Movimiento" widthClass="max-w-xl" showCancelButton={false} showConfirmButton={false}>
-                <MovimientoForm onSuccess={handleAddSuccess} onCancel={handleCloseAddModal} availableProductos={availableProductosFilter} />
+                <MovimientoForm onSuccess={handleAddSuccess} onCancel={handleCloseAddModal} />
             </Modal>
         </div>
     );

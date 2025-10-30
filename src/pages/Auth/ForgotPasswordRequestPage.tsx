@@ -1,9 +1,8 @@
-// src/pages/Auth/ForgotPasswordRequestPage.tsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import Input from '../../components/Common/Input'; // Asume que tienes un componente Input
-import Button from '../../components/Common/Button'; // Asume que tienes un componente Button
-import LoadingSpinner from '../../components/Common/LoadingSpinner'; // Asume que tienes un LoadingSpinner
+import Input from '../../components/Common/Input'; 
+import Button from '../../components/Common/Button'; 
+import LoadingSpinner from '../../components/Common/LoadingSpinner'; 
 import { requestPasswordReset } from '../../services/authService';
 
  const ForgotPasswordRequestPage: React.FC = () => {
@@ -24,9 +23,8 @@ import { requestPasswordReset } from '../../services/authService';
             setUsernameOrEmail(''); // Limpiar el campo después de la solicitud
         } catch (err: any) {
             console.error("Error al solicitar recuperación:", err);
-            // Mostrar un mensaje genérico por seguridad, como lo hace el backend
             setError(err.response?.data?.detail || "Ha ocurrido un error. Inténtalo de nuevo más tarde.");
-            setMessage(null); // Asegúrate de que no haya un mensaje de éxito si hay error
+            setMessage(null); 
         } finally {
             setLoading(false);
         }

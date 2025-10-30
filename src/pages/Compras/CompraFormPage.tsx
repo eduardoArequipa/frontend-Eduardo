@@ -31,10 +31,10 @@ export interface CarritoItemCompra {
 }
 
 const toLocalISOString = (date: Date): string => {
-  const timezoneOffset = date.getTimezoneOffset() * 60000; // in milliseconds
+  const timezoneOffset = date.getTimezoneOffset() * 60000;
   const localDate = new Date(date.getTime() - timezoneOffset);
   return localDate.toISOString().slice(0, 16);
-}; 
+};
 
 const ComprasFormPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
@@ -43,12 +43,12 @@ const ComprasFormPage: React.FC = () => {
   const compraId = id ? parseInt(id, 10) : null;
 
   // Get data from contexts
-  const { proveedores, isLoading: isLoadingProveedores ,refetchProveedores} = useCompraContext();
-  const { 
-    productos, 
-    conversiones: allConversions, 
-    isLoading: isLoadingCatalogs, 
-    ensureProductos, 
+  const { proveedores, isLoading: isLoadingProveedores, refetchProveedores } = useCompraContext();
+  const {
+    productos,
+    conversiones: allConversions,
+    isLoading: isLoadingCatalogs,
+    ensureProductos,
     ensureConversiones,
     invalidateConversiones,
     notifyProductoCreated
@@ -65,6 +65,9 @@ const ComprasFormPage: React.FC = () => {
   const [pageError, setPageError] = useState<string | null>(null);
 
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState<boolean>(false);
+  // ✅ NUEVO: Modal para agregar múltiples presentaciones del mismo producto
+  const [isMultiPresentacionModalOpen, setIsMultiPresentacionModalOpen] = useState(false);
+  const [selectedProductoForModal, setSelectedProductoForModal] = useState<Producto | null>(null);
 
   const { websocketStatus, lastScannedProduct, lastScannedType } = useScannerWebSocket();
 
@@ -81,18 +84,18 @@ const ComprasFormPage: React.FC = () => {
       p.codigo.toLowerCase().includes(productoSearchTerm.toLowerCase())
     );
   }, [productos, productoSearchTerm]);
-    useEffect(() => {
-        refetchProveedores();
-        ensureProductos();
-        ensureConversiones();
-    }, [refetchProveedores, ensureProductos, ensureConversiones]);
+
+  useEffect(() => {
+    refetchProveedores();
+    ensureProductos();
+    ensureConversiones();
+  }, [refetchProveedores, ensureProductos, ensureConversiones]);
 
   useEffect(() => {
     setDetallesCompra(prevDetalles => {
       return prevDetalles.map(detalle => {
         const producto = productosMap.get(Number(detalle.producto_id));
         if (!producto) {
-          // El producto no está en el catálogo actualizado, se mantiene el detalle existente
           return detalle;
         }
 
@@ -147,62 +150,28 @@ const ComprasFormPage: React.FC = () => {
     }
   }, [isEditing, compraId, addNotification]);
 
-  const addOrUpdateProductInCart = useCallback((productoId: number) => {
-    setDetallesCompra(prevDetalles => {
-      const producto = productosMap.get(productoId);
-      if (!producto) {
-        addNotification("Producto no encontrado en catálogo actualizado.", "error");
-        return prevDetalles;
-      }
+  // ✅ CAMBIO: Nueva función que SIEMPRE abre modal para múltiples presentaciones
+  const handleAgregarProductoClick = (producto: Producto) => {
+    setSelectedProductoForModal(producto);
+    setIsMultiPresentacionModalOpen(true);
+  };
 
-      const existingItemIndex = prevDetalles.findIndex(item => item.producto_id === productoId);
-      if (existingItemIndex > -1) {
-        const updatedDetalles = [...prevDetalles];
-        const existingItem = updatedDetalles[existingItemIndex];
-        updatedDetalles[existingItemIndex] = {
-          ...existingItem,
-          cantidad: (Number(existingItem.cantidad) || 0) + 1
-        };
-        return updatedDetalles;
-      } else {
-        const purchaseConversions = allConversions.filter(
-          c => c.producto_id === productoId && c.es_para_compra
-        );
+  // ✅ CAMBIO: Callback cuando se confirma agregar en el modal
+  const handleConfirmAgregarPresentaciones = (detallesNuevos: DetalleCompraCreate[]) => {
+    setDetallesCompra(prev => [...prev, ...detallesNuevos]);
+    setIsMultiPresentacionModalOpen(false);
+    setSelectedProductoForModal(null);
+  };
 
-        let defaultPresentationName: string | undefined;
-        let initialPricePerPresentation = parseFloat(String(producto.precio_compra)) || 0;
-
-        if (purchaseConversions.length > 0) {
-          defaultPresentationName = purchaseConversions[0].nombre_presentacion;
-        }
-
-        if (defaultPresentationName) {
-          const selectedConversion = purchaseConversions.find(
-            c => c.nombre_presentacion === defaultPresentationName
-          );
-          if (selectedConversion) {
-            const precioBase = parseFloat(String(producto.precio_compra)) || 0;
-            initialPricePerPresentation = precioBase * selectedConversion.unidades_por_presentacion;
-          }
-        }
-
-        return [
-          ...prevDetalles,
-          {
-            producto_id: productoId,
-            cantidad: 1,
-            precio_unitario: initialPricePerPresentation,
-            presentacion_compra: defaultPresentationName || ""
-          }
-        ];
-      }
-    });
-  }, [productosMap, allConversions, addNotification]);
+  // ✅ Para cuando viene del scanner (se abre modal directamente)
   useEffect(() => {
     if (lastScannedProduct && lastScannedType === 'purchase_scan') {
-      addOrUpdateProductInCart(lastScannedProduct.producto_id);
+      const producto = productosMap.get(lastScannedProduct.producto_id);
+      if (producto) {
+        handleAgregarProductoClick(producto);
+      }
     }
-  }, [lastScannedProduct, lastScannedType, addOrUpdateProductInCart]);
+  }, [lastScannedProduct, lastScannedType, productosMap]);
 
   const removeDetalle = (indexToRemove: number) => {
     setDetallesCompra(prev => prev.filter((_, index) => index !== indexToRemove));
@@ -212,6 +181,7 @@ const ComprasFormPage: React.FC = () => {
     setDetallesCompra(prevDetalles => {
       const newDetalles = [...prevDetalles];
       const currentDetalle = newDetalles[index];
+      
       if (field === "presentacion_compra") {
         const producto = productosMap.get(Number(currentDetalle.producto_id));
         const purchaseConversions = allConversions.filter(
@@ -219,10 +189,12 @@ const ComprasFormPage: React.FC = () => {
         );
         const selectedConversion = purchaseConversions.find(c => c.nombre_presentacion === value);
         let newPrecioUnitario = currentDetalle.precio_unitario;
+        
         if (selectedConversion && producto) {
           const precioBase = parseFloat(String(producto.precio_compra)) || 0;
           newPrecioUnitario = precioBase * Number(selectedConversion.unidades_por_presentacion);
         }
+        
         newDetalles[index] = {
           ...currentDetalle,
           presentacion_compra: value as string,
@@ -271,9 +243,7 @@ const ComprasFormPage: React.FC = () => {
         setIsSubmitting(false);
         return;
       }
-      
-      // ✅ CAMBIO: Ya no validamos que sea obligatorio seleccionar presentación
-      // Si no selecciona presentación, se usa la unidad base por defecto
+
       if (isNaN(cant) || cant <= 0) {
         addNotification(`La cantidad para ${producto.nombre} debe ser un número positivo.`, 'warning');
         setIsSubmitting(false);
@@ -308,7 +278,6 @@ const ComprasFormPage: React.FC = () => {
         await createCompra(purchaseData as CompraCreate);
         addNotification("Compra creada exitosamente!", 'success');
       }
-      // Los productos ya se actualizaron automáticamente con el stock
       setTimeout(() => navigate("/compras"), 1500);
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || err.message || "Ocurrió un error al guardar la compra.";
@@ -324,16 +293,12 @@ const ComprasFormPage: React.FC = () => {
   const handleProductFormSuccess = async (newProduct: Producto) => {
     try {
       notifyProductoCreated(newProduct);
-      
       await invalidateConversiones();
-      
-      // Agregar el producto recién creado al carrito
-      addOrUpdateProductInCart(newProduct.producto_id);
-      addNotification("Producto creado y añadido al carrito exitosamente!", "success");
+      handleAgregarProductoClick(newProduct);
+      addNotification("Producto creado exitosamente!", "success");
     } catch (error) {
       addNotification('Error al actualizar los datos del catálogo.', 'error');
     } finally {
-      // 3. Cierra el modal solo después de que todo el proceso ha finalizado.
       handleCloseAddProductModal();
     }
   };
@@ -465,7 +430,7 @@ const ComprasFormPage: React.FC = () => {
                           </div>
                           <Button
                             type="button"
-                            onClick={() => addOrUpdateProductInCart(producto.producto_id)}
+                            onClick={() => handleAgregarProductoClick(producto)}
                             variant="success"
                             size="sm"
                           >
@@ -498,7 +463,6 @@ const ComprasFormPage: React.FC = () => {
                   const productoConversiones = allConversions.filter(
                     (c: Conversion) => c.producto_id === producto?.producto_id && c.es_para_compra
                   );
-                  
 
                   const selectedConversion = productoConversiones.find(c => c.nombre_presentacion === detalle.presentacion_compra);
                   const unidadDisplay = selectedConversion
@@ -526,11 +490,12 @@ const ComprasFormPage: React.FC = () => {
                             value={detalle.presentacion_compra || ''}
                             onChange={(e) => handleDetalleChange(index, "presentacion_compra", e.target.value)}
                             options={[
-                           //   { value: '', label: 'Unidad base' },
-                              ...productoConversiones.map(conv => ({
-                                value: conv.nombre_presentacion,
-                                label: conv.nombre_presentacion
-                              }))
+                              ...allConversions
+                                .filter(c => c.producto_id === producto.producto_id && c.es_para_compra)
+                                .map(conv => ({
+                                  value: conv.nombre_presentacion,
+                                  label: conv.nombre_presentacion
+                                }))
                             ]}
                           />
                         </div>
@@ -602,7 +567,203 @@ const ComprasFormPage: React.FC = () => {
           onCancel={handleCloseAddProductModal}
         />
       </Modal>
+
+      {/* ✅ NUEVO: Modal para agregar múltiples presentaciones del mismo producto */}
+      <MultiPresentacionModal
+        isOpen={isMultiPresentacionModalOpen}
+        onClose={() => {
+          setIsMultiPresentacionModalOpen(false);
+          setSelectedProductoForModal(null);
+        }}
+        producto={selectedProductoForModal}
+        allConversions={allConversions}
+        onConfirm={handleConfirmAgregarPresentaciones}
+      />
     </div>
+  );
+};
+
+// ✅ NUEVO COMPONENTE: Modal para agregar múltiples presentaciones
+interface MultiPresentacionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  producto: Producto | null;
+  allConversions: Conversion[];
+  onConfirm: (detalles: DetalleCompraCreate[]) => void;
+}
+
+const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
+  isOpen,
+  onClose,
+  producto,
+  allConversions,
+  onConfirm
+}) => {
+  const [presentaciones, setPresentaciones] = useState<Array<{
+    presentacion: string;
+    cantidad: number;
+    precio: number;
+  }>>([]);
+
+  useEffect(() => {
+    if (isOpen && producto) {
+      // Inicializar con una presentación vacía
+      setPresentaciones([{
+        presentacion: '',
+        cantidad: 1,
+        precio: parseFloat(String(producto.precio_compra)) || 0
+      }]);
+    }
+  }, [isOpen, producto]);
+
+  const productConversions = producto
+    ? allConversions.filter(c => c.producto_id === producto.producto_id && c.es_para_compra)
+    : [];
+
+  const addPresentacion = () => {
+    setPresentaciones([...presentaciones, {
+      presentacion: '',
+      cantidad: 1,
+      precio: parseFloat(String(producto?.precio_compra)) || 0
+    }]);
+  };
+
+  const removePresentacion = (index: number) => {
+    setPresentaciones(presentaciones.filter((_, i) => i !== index));
+  };
+
+  const updatePresentacion = (index: number, field: string, value: string | number) => {
+    const updated = [...presentaciones];
+    if (field === 'presentacion') {
+      const selectedConversion = productConversions.find(c => c.nombre_presentacion === value);
+      updated[index] = {
+        ...updated[index],
+        presentacion: value as string,
+        precio: selectedConversion
+          ? (parseFloat(String(producto?.precio_compra)) || 0) * selectedConversion.unidades_por_presentacion
+          : updated[index].precio
+      };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    setPresentaciones(updated);
+  };
+
+  const handleConfirm = () => {
+    const validPresentaciones = presentaciones.filter(p => p.presentacion && p.cantidad > 0 && p.precio > 0);
+    
+    if (validPresentaciones.length === 0) {
+      alert('Por favor, agrega al menos una presentación con cantidad y precio válidos.');
+      return;
+    }
+
+    const detalles: DetalleCompraCreate[] = validPresentaciones.map(p => ({
+      producto_id: producto!.producto_id,
+      cantidad: p.cantidad,
+      precio_unitario: p.precio,
+      presentacion_compra: p.presentacion
+    }));
+
+    onConfirm(detalles);
+  };
+
+  if (!isOpen || !producto) return null;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Agregar Presentaciones - ${producto.nombre}`}
+      widthClass="max-w-2xl"
+    >
+      <div className="space-y-4">
+        <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-md">
+          <p className="text-sm text-blue-800 dark:text-blue-100">
+            📌 Puedes agregar múltiples presentaciones del mismo producto en una sola compra.
+          </p>
+        </div>
+
+        <div className="space-y-3 max-h-[400px] overflow-y-auto">
+          {presentaciones.map((pres, index) => (
+            <div key={index} className="flex gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-800">
+              <div className="flex-1">
+                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Presentación</label>
+                <Select
+                  value={pres.presentacion}
+                  onChange={(e) => updatePresentacion(index, 'presentacion', e.target.value)}
+                  options={[
+                    { value: '', label: 'Seleccionar presentación...' },
+                    ...productConversions.map(conv => ({
+                      value: conv.nombre_presentacion,
+                      label: conv.nombre_presentacion
+                    }))
+                  ]}
+                  required
+                />
+              </div>
+
+              <div className="w-24">
+                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Cantidad</label>
+                <Input
+                  type="number"
+                  value={pres.cantidad}
+                  onChange={(e) => updatePresentacion(index, 'cantidad', Number(e.target.value))}
+                  min="1"
+                  required
+                />
+              </div>
+
+              <div className="w-28">
+                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Precio (Bs.)</label>
+                <Input
+                  type="number"
+                  value={pres.precio}
+                  onChange={(e) => updatePresentacion(index, 'precio', Number(e.target.value))}
+                  min="0.01"
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              <Button
+                type="button"
+                onClick={() => removePresentacion(index)}
+                variant="danger"
+                className="p-2 self-end"
+              >
+                X
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <Button
+          type="button"
+          onClick={addPresentacion}
+          variant="success"
+          className="w-full"
+        >
+          + Agregar otra presentación
+        </Button>
+
+        <div className="flex gap-2 justify-end mt-6">
+          <Button
+            type="button"
+            onClick={onClose}
+            variant="secondary"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleConfirm}
+            variant="primary"
+          >
+            Confirmar y Agregar
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 };
 

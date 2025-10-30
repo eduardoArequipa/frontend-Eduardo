@@ -231,7 +231,7 @@ const ProveedoresListPage: React.FC = () => {
                  </div>
                  <div className="flex-grow md:flex-none flex justify-end">
                      <Link to="/proveedores/new">
-                         <Button variant="success">Crear Nuevo Proveedor</Button>
+                         <Button variant="success">Registrar Nuevo Proveedor</Button>
                      </Link>
                  </div>
             </div>

@@ -5,7 +5,6 @@ import React, { ButtonHTMLAttributes } from 'react';
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'info' | 'menuItem';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
-// Define la interfaz de props para tu componente Button.
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;

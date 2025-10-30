@@ -158,7 +158,7 @@ const VentasListPage: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Listado de Ventas</h1>
                 <Button onClick={handleCreateNewSale} variant="success">
-                    Crear Nueva Venta
+                    Registrar Nueva Venta
                 </Button>
             </div>
 
