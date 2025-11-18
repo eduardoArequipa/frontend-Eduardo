@@ -1,5 +1,5 @@
 import axiosInstance from '../api/axiosInstance';
-import { ProductoNested } from '../types/producto';
+import { Producto, ProductoNested } from '../types/producto';
 
 // Define un tipo para las opciones que react-select usa
 export interface ProductOptionType {
@@ -27,5 +27,15 @@ export const searchProductSuggestions = async (
   } catch (error) {
     console.error('Error fetching product suggestions:', error);
     return []; // Devuelve un array vacío en caso de error
+  }
+};
+
+export const getProductoById = async (id: number): Promise<Producto> => {
+  try {
+    const response = await axiosInstance.get<Producto>(`/productos/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching product with id ${id}:`, error);
+    throw error;
   }
 };

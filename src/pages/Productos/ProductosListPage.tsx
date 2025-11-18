@@ -132,9 +132,8 @@ const ProductosListPage: React.FC = () => {
     const handleCloseAddModal = () => setIsAddModalOpen(false);
     const handleAddSuccess = async (producto: Producto) => {
         handleCloseAddModal();
-        addNotification('Producto creado con éxito.', 'success');
+       // addNotification('Producto creado con éxito.', 'success');
         
-        // 🚀 OPTIMIZACIÓN: Notificar a otros módulos Y actualizar lista local
         notifyProductoCreated(producto);
         await fetchProductos(); // Solo recarga la lista local para paginación
     };
@@ -149,7 +148,7 @@ const ProductosListPage: React.FC = () => {
     };
     const handleEditSuccess = async (producto: Producto) => {
         handleCloseEditModal();
-        addNotification('Producto actualizado con éxito.', 'success');
+      //  addNotification('Producto actualizado con éxito.', 'success');
         
         // 🚀 OPTIMIZACIÓN: Notificar a otros módulos Y actualizar lista local
         notifyProductoUpdated(producto);
@@ -171,7 +170,7 @@ const ProductosListPage: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Gestión de Productos</h1>
                 <Button onClick={handleOpenAddModal} variant="success" className="mt-4 md:mt-0">
-                    Registrar Producto
+                    Registrar Nuevo Producto
                 </Button>
             </div>
 

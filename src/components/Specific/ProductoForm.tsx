@@ -376,8 +376,8 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
         <>
           <input type="hidden" {...register("precio_compra")} />
           <input type="hidden" {...register("precio_venta")} />
-          <input type="hidden" {...register("stock", { valueAsNumber: true })} />
-          <input type="hidden" {...register("stock_minimo", { valueAsNumber: true })} />
+          <input type="hidden" {...register("stock")} />
+          <input type="hidden" {...register("stock_minimo")} />
           <input type="hidden" {...register("tipo_margen")} />
           <input type="hidden" {...register("margen_valor")} />
           <input type="hidden" {...register("precio_manual_activo")} />
@@ -426,13 +426,13 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
         {!isEditing && (
           <div className="md:col-span-2">
             <MargenConfigForm
-              precio_compra="0.00"
+              precio_compra={watch('precio_compra') || '0.00'}
               tipo_margen={watch('tipo_margen') || TipoMargenEnum.Porcentaje}
               margen_valor={watch('margen_valor') || '30.00'}
-              precio_manual_activo={false}
-              precio_venta="0.00"
+              precio_manual_activo={watch('precio_manual_activo') || false}
+              precio_venta={watch('precio_venta') || '0.00'}
               onChange={(field, value) => setValue(field as keyof FormData, value)}
-              onPrecioVentaChange={() => {}} // No-op en modo creación
+              onPrecioVentaChange={(precio) => setValue('precio_venta', precio)}
               disabled={loading}
               isCreationMode={true}
             />
@@ -558,7 +558,7 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
       <div className="md:col-span-2 flex justify-end space-x-4 mt-6">
         <Button type="button" onClick={onCancel} variant="secondary">Cancelar</Button>
         <Button type="submit" disabled={loading} variant="primary">
-          {loading ? <LoadingSpinner /> : isEditing ? "Actualizar Producto" : "Crear Producto"}
+          {loading ? <LoadingSpinner /> : isEditing ? "Actualizar Producto" : "Registrar Producto"}
         </Button>
       </div>
     </form>

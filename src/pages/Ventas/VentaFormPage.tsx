@@ -458,7 +458,7 @@ const globalIsLoading = isLoadingVenta || isLoadingCatalogs || isSubmitting || i
                                 onChange={(e) => setSolicitarFactura(e.target.checked)}
                             />
                             <span className="ml-3 text-md font-medium text-gray-700 dark:text-gray-200">
-                                Solicitar Factura Electrónica
+                                Requiere Factura Electrónica
                             </span>
                         </label>
                     </div>

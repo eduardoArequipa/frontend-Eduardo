@@ -297,7 +297,6 @@ const VentasListPage: React.FC = () => {
                 onConfirm={handleConfirmAnularVenta}
                 title="Confirmar Anulación de Venta"
                 confirmButtonText="Sí, Anular Venta"
-                cancelButtonText="Cancelar"
                 showConfirmButton={true}
                 confirmButtonVariant="danger"
                 isConfirmButtonDisabled={isLoading}

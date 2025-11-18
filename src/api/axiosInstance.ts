@@ -29,10 +29,14 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response && error.response.status === 401) {
+        // Añadimos una condición para que no actúe en la página de login
+        const originalRequest = error.config;
+        if (error.response && error.response.status === 401 && originalRequest.url !== '/auth/login') {
             console.error("Authentication error (401). Redirecting to login.");
             // Limpia el token y redirige. Asegúrate de que esta lógica no cause bucles.
             localStorage.removeItem('accessToken');
+            // Opcional: redirigir al usuario
+            // window.location.href = '/login';
         }
         return Promise.reject(error);
     }

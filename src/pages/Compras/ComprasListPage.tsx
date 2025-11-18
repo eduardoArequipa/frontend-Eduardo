@@ -177,7 +177,7 @@ const ComprasListPage: React.FC = () => {
         const isPendiente = compra.estado === EstadoCompraEnum.pendiente;
 
         return [
-            { label: 'Ver', onClick: () => handleViewModal(compra), isVisible: true, buttonVariant: 'menuItem', colorClass: 'text-blue-700 dark:text-blue-400' },
+            { label: 'Ver Detalle', onClick: () => handleViewModal(compra), isVisible: true, buttonVariant: 'menuItem', colorClass: 'text-blue-700 dark:text-blue-400' },
             { label: 'Editar', onClick: () => handleEditCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem' },
             { label: 'Completar', onClick: () => handleCompletarCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem', colorClass: 'text-green-700 dark:text-green-400' },
             { label: 'Anular', onClick: () => handleAnularCompraClick(compra), isVisible: !isAnulada, buttonVariant: 'menuItem', colorClass: 'text-red-700 dark:text-red-400' },
@@ -334,11 +334,11 @@ const ComprasListPage: React.FC = () => {
                 onConfirm={handleConfirmAnularCompra}
                 title="Confirmar Anulación de Compra"
                 confirmButtonText="Sí, Anular Compra"
-                cancelButtonText="Cancelar"
                 showConfirmButton={true}
                 confirmButtonVariant="danger"
                 isConfirmButtonDisabled={loading}
                 isCancelButtonDisabled={loading}
+                showCancelButton={true}
             >
                 {selectedCompra && (
                     <div>

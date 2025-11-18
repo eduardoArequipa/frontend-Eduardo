@@ -12,9 +12,11 @@
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
     "@hookform/resolvers": "^5.0.1",
+    "@types/decimal.js": "^0.0.32",
     "@types/jwt-decode": "^2.2.1",
     "antd": "^5.26.6",
     "clsx": "^2.1.1",
+    "decimal.js": "^10.6.0",
     "jwt-decode": "^4.0.0",
     "localforage": "^1.10.0",
     "lucide-react": "^0.516.0",

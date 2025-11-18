@@ -388,7 +388,7 @@ const UsuariosListPage: React.FC = () => {
                         <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">Selecciona una opción:</p>
                         <div className="flex flex-col space-y-4">
                             <Button onClick={handleCreateWithExistingPerson} variant="primary">Con Persona Existente</Button>
-                            <Button onClick={handleCreateNewPersonAndUser} variant="success">Crear Nueva Persona y Usuario</Button>
+                            <Button onClick={handleCreateNewPersonAndUser} variant="success">Crear Nueva Persona con Usuario</Button>
                         </div>
                         <div className="mt-6 text-center">
                             <Button onClick={handleCloseCreateOptions} variant="secondary">Cerrar</Button>

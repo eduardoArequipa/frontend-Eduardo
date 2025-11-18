@@ -103,7 +103,7 @@ const CategoriaForm: React.FC<CategoriaFormProps> = ({ categoriaId, onSuccess, o
             <div className="flex justify-end space-x-4 pt-4">
                 <Button type="button" onClick={onCancel} variant="secondary">Cancelar</Button>
                 <Button type="submit" disabled={loading} variant="primary">
-                    {loading ? <LoadingSpinner size="sm" /> : (isEditing ? 'Actualizar' : 'Crear Categoría')}
+                    {loading ? <LoadingSpinner size="sm" /> : (isEditing ? 'Actualizar' : 'Registrar Categoría')}
                 </Button>
             </div>
         </form>

@@ -198,9 +198,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
 
         } catch (err: any) {
-            const errorMessage = err.response?.data?.detail || 'Error al iniciar sesión.';
+            console.log('Login error object:', err); // <-- AÑADIDO PARA DEPURACIÓN
+            // Extrae el mensaje de error específico del backend o usa uno genérico
+            const errorMessage = err.response?.data?.detail || 'Error al iniciar sesión. Verifique sus credenciales.';
             setError(errorMessage);
-            logout();
+            // No llames a logout() aquí para que el mensaje de error pueda mostrarse en la página de login
         } finally {
             setLoading(false);
         }

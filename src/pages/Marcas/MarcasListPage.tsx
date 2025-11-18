@@ -246,6 +246,7 @@ const MarcasListPage: React.FC = () => {
                 confirmButtonVariant={modalState.confirmVariant}
                 showConfirmButton={true}
                 isConfirmButtonDisabled={loading}
+
             >
                 <div>{modalState.message}</div>
             </Modal>

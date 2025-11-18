@@ -12,6 +12,7 @@ import ErrorMessage from '../../components/Common/ErrorMessage';
 import Modal from '../../components/Common/Modal';
 import MovimientoForm from '../../components/Specific/MovimientoForm';
 import { useTheme } from '../../context/ThemeContext';
+import { formatStockBreakdown } from '../../utils/stockBreakdown';
 import { formatearCantidad } from '../../utils/numberFormat';
 
 const MovimientosListPage: React.FC = () => {
@@ -94,13 +95,49 @@ const MovimientosListPage: React.FC = () => {
         type TableCellProps = { row: { original: RowData; }; };
 
         return [
-            { Header: 'ID Movimiento', accessor: 'movimiento_id' },
             { Header: 'Producto', accessor: 'producto.nombre', Cell: ({ row }: TableCellProps) => row.original.producto?.nombre || 'N/A' },
             { Header: 'Tipo', accessor: 'tipo_movimiento' },
-            { Header: 'Cantidad', Cell: ({ row }: TableCellProps) => formatearCantidad(row.original.cantidad) },
+            { Header: 'Cantidad', Cell: ({ row }: TableCellProps) => {
+                const total = formatearCantidad(row.original.cantidad);
+                const detalles = row.original.detalles;
+
+                if (!detalles || detalles.length === 0) {
+                    return total;
+                }
+
+                const desglose = detalles.map(d => {
+                    const cantidad = formatearCantidad(d.cantidad);
+                    const nombre = d.conversion ? d.conversion.nombre_presentacion : row.original.producto.unidad_inventario.abreviatura;
+                    return `${cantidad} ${nombre}`;
+                }).join(', ');
+
+                return `${total} (${desglose})`;
+            } },
             { Header: 'Motivo', accessor: 'motivo' },
-            { Header: 'Stock Anterior', accessor: 'stock_anterior' },
-            { Header: 'Stock Nuevo', accessor: 'stock_nuevo' },
+            { 
+                Header: 'Stock Anterior', 
+                accessor: 'stock_anterior',
+                Cell: ({ row }: TableCellProps) => {
+                    const formattedStock = formatStockBreakdown(row.original.stock_anterior, row.original.producto);
+                    return (
+                        <span title={`Total: ${formatearCantidad(row.original.stock_anterior)}`}>
+                            {formattedStock}
+                        </span>
+                    );
+                }
+            },
+            { 
+                Header: 'Stock Nuevo', 
+                accessor: 'stock_nuevo',
+                Cell: ({ row }: TableCellProps) => {
+                    const formattedStock = formatStockBreakdown(row.original.stock_nuevo, row.original.producto);
+                    return (
+                        <span title={`Total: ${formatearCantidad(row.original.stock_nuevo)}`}>
+                            {formattedStock}
+                        </span>
+                    );
+                }
+            },
             { Header: 'Usuario', accessor: 'usuario.nombre_usuario', Cell: ({ row }: TableCellProps) => row.original.usuario?.nombre_usuario || 'N/A' },
             { Header: 'Fecha', accessor: 'fecha_movimiento', Cell: ({ row }: TableCellProps) => new Date(row.original.fecha_movimiento).toLocaleString('es-BO', {
                 year: 'numeric',
@@ -139,6 +176,8 @@ const MovimientosListPage: React.FC = () => {
                              { value: 'ajuste_positivo', label: 'Ajuste Positivo' },
                              { value: 'ajuste_negativo', label: 'Ajuste Negativo' },
                              { value: 'uso_interno', label: 'Uso Interno' },
+                            { value: 'devolucion', label: 'devolucion' },
+
                          ]}
                      />
                  </div>

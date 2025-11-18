@@ -577,7 +577,8 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
       {formSubmitError && <ErrorMessage message={formSubmitError} />}
       <div className="flex justify-end space-x-4 mt-6">
         {showCancelButton && onCancel && <Button type="button" onClick={onCancel} variant="secondary">Cancelar</Button>}
-        <Button type="submit" disabled={loading || !isValid} variant="primary">
+      {/*poner para que pueda ser guardado aun si falta datos disabled={loading }*/}
+        <Button type="submit" disabled={loading || !isValid } variant="primary">
           {loading ? <LoadingSpinner /> : (isEditing ? 'Actualizar Persona' : 'Guardar Persona')}
         </Button>
       </div>

@@ -1,6 +1,6 @@
 // src/pages/Auth/LoginPage.tsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 import Input from '../../components/Common/Input';
@@ -15,9 +15,9 @@ const LoginPage: React.FC = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const { login, loading, error, isAuthenticated } = useAuth();
+    const { login, loading, error,/* isAuthenticated */} = useAuth();
     const { theme } = useTheme(); // Obtener el tema actual
-    const navigate = useNavigate();
+  //  const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,12 +26,12 @@ const LoginPage: React.FC = () => {
         }
     };
 
-    // Redirige si ya está autenticado - usando useEffect
-    useEffect(() => {
-        if (isAuthenticated) {
-            navigate('/home'); // O a la ruta principal de la app
-        }
-    }, [isAuthenticated, navigate]);
+    // // Redirige si ya está autenticado - usando useEffect
+    // useEffect(() => {
+    //     if (isAuthenticated) {
+    //         navigate('/home'); // O a la ruta principal de la app
+    //     }
+    // }, [isAuthenticated, navigate]);
 
     return (
         <div className={`min-h-screen flex ${theme}`}>
@@ -102,7 +102,11 @@ const LoginPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {error && <p className="text-red-500 text-sm text-center font-medium">{error}</p>}
+                        {error && (
+                            <p className="text-red-500 text-sm text-center font-medium">
+                                {typeof error === 'string' ? error : 'Ocurrió un error inesperado'}
+                            </p>
+                        )}
 
                         <div>
                             <Button

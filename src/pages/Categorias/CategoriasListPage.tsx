@@ -205,7 +205,7 @@ const CategoriasListPage: React.FC = () => {
                     />
                  </div>
                  <div className="flex-grow md:flex-none flex justify-end">
-                     <Button onClick={() => handleOpenModal()} variant="success">Crear Nueva Categoría</Button>
+                     <Button onClick={() => handleOpenModal()} variant="success">Registrar Nueva Categoría</Button>
                  </div>
             </div>
 
@@ -232,7 +232,7 @@ const CategoriasListPage: React.FC = () => {
             <Modal 
                 isOpen={isModalOpen} 
                 onClose={handleCloseModal} 
-                title={editingCategoria ? 'Editar Categoría' : 'Crear Nueva Categoría'}
+                title={editingCategoria ? 'Editar Categoría' : 'Registrar Nueva Categoría'}
                 showCancelButton={false} // <-- AÑADIDO
             >
                 <CategoriaForm 
@@ -251,6 +251,7 @@ const CategoriasListPage: React.FC = () => {
                 confirmButtonVariant={modalState.confirmVariant}
                 showConfirmButton={true}
                 isConfirmButtonDisabled={loading}
+
             >
                 <div>{modalState.message}</div>
             </Modal>

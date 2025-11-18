@@ -44,7 +44,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuButtonClick }) => {
                         <FiMenu className="h-6 w-6" />
                     </button>
                     <Link to="/dashboard" className="text-xl font-bold hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                        SICDE
+                        Sistema Integral Comercial Don Eduardo
                     </Link>
                 </div>
 

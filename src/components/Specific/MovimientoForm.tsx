@@ -4,8 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import AsyncSelect from 'react-select/async';
 import { createMovimiento } from '../../services/movimientoService';
-import { searchProductSuggestions } from '../../services/productService';
+import { searchProductSuggestions, getProductoById } from '../../services/productService';
 import { TipoMovimientoEnum } from '../../types/movimiento';
+import { Producto } from '../../types/producto';
 import { useNotification } from '../../context/NotificationContext';
 import { useTheme } from '../../context/ThemeContext';
 import Input from '../Common/Input';
@@ -14,17 +15,18 @@ import Select from '../Common/Select';
 import ErrorMessage from '../Common/ErrorMessage';
 import LoadingSpinner from '../Common/LoadingSpinner';
 
-// 1. Zod Schema Correction
-const movimientoValues = ['merma', 'ajuste_positivo', 'ajuste_negativo', 'uso_interno'] as const;
+const movimientoValues = ['merma', 'ajuste_positivo', 'ajuste_negativo', 'uso_interno','devolucion'] as const;
 
 const movimientoSchema = z.object({
   producto_id: z.coerce.number({ required_error: 'Debe seleccionar un producto.' })
     .min(1, { message: 'Debe seleccionar un producto.' }),
-  tipo_movimiento: z.enum(movimientoValues, {
-    required_error: "Debe seleccionar un tipo de movimiento.",
-  }),
-  cantidad: z.coerce.number({ required_error: 'La cantidad es obligatoria.', invalid_type_error: 'La cantidad debe ser un número.' })
-    .positive({ message: 'La cantidad debe ser mayor a 0.' }),
+
+  tipo_movimiento: z.string({ required_error: "Debe seleccionar un tipo de movimiento." })
+    .min(1, { message: "Debe seleccionar un tipo de movimiento." })
+    .refine(val => movimientoValues.includes(val as any), {
+      message: "Debe seleccionar un tipo de movimiento.",
+    }),
+  
   motivo: z.string().max(255, { message: 'El motivo no puede exceder los 255 caracteres.' }).optional().or(z.literal('')),
 });
 
@@ -38,7 +40,7 @@ interface MovimientoFormProps {
 const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel }) => {
     const { theme } = useTheme();
     const { addNotification } = useNotification();
-    const { handleSubmit, control, reset, formState: { errors } } = useForm<MovimientoFormData>({
+    const { handleSubmit, control, reset, setValue, formState: { errors } } = useForm<MovimientoFormData>({
         resolver: zodResolver(movimientoSchema),
         defaultValues: {
             motivo: '',
@@ -47,28 +49,77 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel }) 
     
     const [loading, setLoading] = useState(false);
     const [serverError, setServerError] = useState<string | null>(null);
+    const [selectedProduct, setSelectedProduct] = useState<Producto | null>(null);
+    const [selectedProductOption, setSelectedProductOption] = useState<any | null>(null);
+    const [quantities, setQuantities] = useState<{ [key: string]: string }>({});
 
     const tipoMovimientoOptions: Array<{ value: TipoMovimientoEnum; label: string }> = [
         { value: 'merma', label: 'Merma (Producto Roto/Dañado)' },
         { value: 'ajuste_positivo', label: 'Ajuste Positivo (Corrección)' },
         { value: 'ajuste_negativo', label: 'Ajuste Negativo (Corrección)' },
         { value: 'uso_interno', label: 'Uso Interno (Consumo Propio)' },
+        { value: 'devolucion', label: ' Devolución (Cliente)' },
+
     ];
 
     const loadProductOptions = (inputValue: string, callback: (options: any) => void) => {
         setTimeout(async () => {
             const options = await searchProductSuggestions(inputValue);
             callback(options);
-        }, 500); // Debounce para no hacer peticiones en cada tecleo
+        }, 300);
+    };
+
+    const handleProductChange = async (option: any) => {
+        setSelectedProductOption(option);
+        const productId = option?.value;
+        setValue('producto_id', productId, { shouldValidate: true });
+
+        if (productId) {
+            try {
+                const productDetails = await getProductoById(productId);
+                setSelectedProduct(productDetails);
+                setQuantities({});
+            } catch (error) {
+                addNotification('Error al cargar los detalles del producto.', 'error');
+                setSelectedProduct(null);
+            }
+        } else {
+            setSelectedProduct(null);
+            setQuantities({});
+        }
+    };
+
+    const handleQuantityChange = (key: string, value: string) => {
+        setQuantities(prev => ({ ...prev, [key]: value }));
     };
 
     const onSubmit = async (data: MovimientoFormData) => {
-        setLoading(true);
         setServerError(null);
+
+        const items = Object.entries(quantities)
+            .map(([key, value]) => {
+                const cantidad = parseFloat(value);
+                if (!value || isNaN(cantidad) || cantidad <= 0) return null;
+
+                const conversion_id = key.startsWith('conv_') ? parseInt(key.split('_')[1], 10) : null;
+                return { cantidad, conversion_id };
+            })
+            .filter(Boolean);
+
+        if (items.length === 0) {
+            setServerError("Debe ingresar al menos una cantidad válida mayor a cero.");
+            return;
+        }
+
+        setLoading(true);
         try {
-            await createMovimiento(data);
+            const payload = { ...data, items };
+            await createMovimiento(payload as any);
             addNotification("Movimiento registrado con éxito!", 'success');
             reset();
+            setSelectedProduct(null);
+            setSelectedProductOption(null);
+            setQuantities({});
             onSuccess();
         } catch (err: any) {
             const errorMsg = err.response?.data?.detail || "Error al registrar el movimiento.";
@@ -91,11 +142,12 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel }) 
                     render={({ field }) => (
                         <AsyncSelect
                             id="producto_id"
+                            value={selectedProductOption}
                             cacheOptions
-                            defaultOptions
                             loadOptions={loadProductOptions}
                             placeholder="Buscar y seleccionar un producto..."
-                            onChange={(option: any) => field.onChange(option?.value)}
+                            onChange={handleProductChange}
+                            onBlur={field.onBlur}
                             noOptionsMessage={({ inputValue }) => inputValue ? 'No se encontraron productos' : 'Escribe para buscar'}
                             loadingMessage={() => 'Buscando...'}
                             styles={{
@@ -110,6 +162,38 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel }) 
                 />
                 {errors.producto_id && <p className="mt-1 text-sm text-red-600">{errors.producto_id.message}</p>}
             </div>
+
+            {selectedProduct && (
+                <div className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} p-4 rounded-lg space-y-3`}>
+                    <h3 className="text-lg font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}">Cantidades por Presentación</h3>
+                    
+                    <div>
+                        <label htmlFor="qty-base" className="text-sm font-medium">{selectedProduct.unidad_inventario.nombre_unidad} ({selectedProduct.unidad_inventario.abreviatura})</label>
+                        <Input 
+                            id="qty-base"
+                            type="number"
+                            step={selectedProduct.unidad_inventario.nombre_unidad.toLowerCase() === 'unidad' ? '1' : 'any'}
+                            value={quantities['base'] || ''}
+                            onChange={(e) => handleQuantityChange('base', e.target.value)}
+                            placeholder={`Cantidad en ${selectedProduct.unidad_inventario.nombre_unidad}`}
+                        />
+                    </div>
+
+                    {selectedProduct.conversiones.map(conv => (
+                        <div key={conv.id}>
+                            <label htmlFor={`qty-conv-${conv.id}`} className="text-sm font-medium">{conv.nombre_presentacion} ({conv.unidades_por_presentacion} {selectedProduct.unidad_inventario.abreviatura})</label>
+                            <Input 
+                                id={`qty-conv-${conv.id}`}
+                                type="number"
+                                step="1"
+                                value={quantities[`conv_${conv.id}`] || ''}
+                                onChange={(e) => handleQuantityChange(`conv_${conv.id}`, e.target.value)}
+                                placeholder={`Cantidad en ${conv.nombre_presentacion}`}
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div>
                 <label htmlFor="tipo_movimiento" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Tipo de Movimiento *</label>
@@ -132,24 +216,6 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel }) 
             </div>
 
             <div>
-                <label htmlFor="cantidad" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Cantidad *</label>
-                <Controller
-                    name="cantidad"
-                    control={control}
-                    render={({ field }) => (
-                        <Input
-                            id="cantidad"
-                            type="number"
-                            step="any"
-                            {...field}
-                            className={errors.cantidad ? 'border-red-500' : ''}
-                        />
-                    )}
-                />
-                {errors.cantidad && <p className="mt-1 text-sm text-red-600">{errors.cantidad.message}</p>}
-            </div>
-
-            <div>
                 <label htmlFor="motivo" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} block text-sm font-medium`}>Motivo</label>
                 <Controller
                     name="motivo"
@@ -159,7 +225,7 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel }) 
                             id="motivo"
                             type="text"
                             {...field}
-                            value={field.value || ''} // Ensure value is not null
+                            value={field.value || ''}
                             placeholder="Ej: Corrección de conteo anual"
                             className={errors.motivo ? 'border-red-500' : ''}
                         />

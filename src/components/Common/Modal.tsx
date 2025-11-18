@@ -28,11 +28,12 @@ const Modal: React.FC<ModalProps> = ({
   showConfirmButton = false,
   onConfirm,
   confirmButtonText = 'Confirmar',
-  confirmButtonVariant = 'primary', // 2. Añadir a la desestructuración con valor por defecto
-  showCancelButton = false,
-  cancelButtonText = 'Cancelar',
+  confirmButtonVariant = 'primary', 
+  showCancelButton = true,
+  cancelButtonText = 'No, Cancelar',
   isConfirmButtonDisabled = false,
   isCancelButtonDisabled = false,
+  
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
