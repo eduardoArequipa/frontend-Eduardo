@@ -17,6 +17,8 @@ import useScannerWebSocket from '../../hooks/useScannerWebSocket';
 import { useCompraContext } from "../../context/CompraContext";
 import { useCatalogs } from "../../context/CatalogContext";
 import { useNotification } from "../../context/NotificationContext";
+import { useLowStock } from "../../context/LowStockContext";
+import { formatStockDisplay } from "../../utils/formatUtils"; // ✅ Importado
 
 export interface CarritoItemCompra {
   producto_id: number;
@@ -54,6 +56,7 @@ const ComprasFormPage: React.FC = () => {
     notifyProductoCreated
   } = useCatalogs();
   const { addNotification } = useNotification();
+  const { lowStockProducts, loadingLowStock } = useLowStock();
 
   // Form state
   const [proveedorId, setProveedorId] = useState<number | "">("");
@@ -68,6 +71,7 @@ const ComprasFormPage: React.FC = () => {
   // ✅ NUEVO: Modal para agregar múltiples presentaciones del mismo producto
   const [isMultiPresentacionModalOpen, setIsMultiPresentacionModalOpen] = useState(false);
   const [selectedProductoForModal, setSelectedProductoForModal] = useState<Producto | null>(null);
+  const [showLowStockView, setShowLowStockView] = useState(false);
 
   const { websocketStatus, lastScannedProduct, lastScannedType } = useScannerWebSocket();
 
@@ -84,6 +88,15 @@ const ComprasFormPage: React.FC = () => {
       p.codigo.toLowerCase().includes(productoSearchTerm.toLowerCase())
     );
   }, [productos, productoSearchTerm]);
+
+  const productsToList = useMemo(() => {
+    if (showLowStockView) {
+      return lowStockProducts
+        .map(lowStockProd => productosMap.get(lowStockProd.producto_id))
+        .filter((p): p is Producto => !!p);
+    }
+    return filteredProducts;
+  }, [showLowStockView, lowStockProducts, filteredProducts, productosMap]);
 
   useEffect(() => {
     refetchProveedores();
@@ -187,17 +200,24 @@ const ComprasFormPage: React.FC = () => {
         const purchaseConversions = allConversions.filter(
           (c: Conversion) => c.producto_id === producto?.producto_id && c.es_para_compra
         );
-        const selectedConversion = purchaseConversions.find(c => c.nombre_presentacion === value);
+        const selectedValue = value as string; // Convertir a string para comparación
+        const selectedConversion = purchaseConversions.find(c => c.nombre_presentacion === selectedValue);
         let newPrecioUnitario = currentDetalle.precio_unitario;
         
-        if (selectedConversion && producto) {
+        if (producto) { // Asegurarse de que el producto existe
           const precioBase = parseFloat(String(producto.precio_compra)) || 0;
-          newPrecioUnitario = precioBase * Number(selectedConversion.unidades_por_presentacion);
+          if (selectedConversion) {
+            // Es una presentación de conversión
+            newPrecioUnitario = precioBase * Number(selectedConversion.unidades_por_presentacion);
+          } else if (selectedValue === producto.unidad_inventario.nombre_unidad || selectedValue === "") {
+            // Es la unidad base (o la cadena vacía que la representa)
+            newPrecioUnitario = precioBase;
+          }
         }
         
         newDetalles[index] = {
           ...currentDetalle,
-          presentacion_compra: value as string,
+          presentacion_compra: selectedValue,
           precio_unitario: newPrecioUnitario
         };
       } else {
@@ -400,8 +420,22 @@ const ComprasFormPage: React.FC = () => {
               <div>
                 <div className="flex items-center gap-4 mb-2">
                   <label htmlFor="search-product" className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex-grow">
-                    Buscar en Lista
+                    {showLowStockView ? "Mostrando productos con bajo stock" : "Buscar en Lista"}
                   </label>
+                  {lowStockProducts.length > 0 && (
+                    <Button
+                      type="button"
+                      onClick={() => setShowLowStockView(!showLowStockView)}
+                      variant={showLowStockView ? "primary" : "warning"}
+                      size="sm"
+                      disabled={loadingLowStock}
+                    >
+                      {loadingLowStock ? 'Cargando...' : 
+                          showLowStockView ? 'Ver Todos los Productos' : 
+                          `Ver ${lowStockProducts.length} Productos con Bajo Stock ⚠️`
+                      }
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     onClick={handleOpenAddProductModal}
@@ -412,21 +446,28 @@ const ComprasFormPage: React.FC = () => {
                     {isLoadingCatalogs ? 'Cargando...' : '+ Nuevo Producto'}
                   </Button>
                 </div>
-                <Input
-                  id="search-product"
-                  type="text"
-                  placeholder="Filtrar por nombre o código..."
-                  value={productoSearchTerm}
-                  onChange={(e) => setProductoSearchTerm(e.target.value)}
-                />
+                {!showLowStockView && (
+                  <Input
+                    id="search-product"
+                    type="text"
+                    placeholder="Filtrar por nombre o código..."
+                    value={productoSearchTerm}
+                    onChange={(e) => setProductoSearchTerm(e.target.value)}
+                  />
+                )}
                 <div className="mt-2 max-h-[300px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md">
-                  {filteredProducts.length > 0 ? (
+                  {productsToList.length > 0 ? (
                     <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {filteredProducts.map(producto => (
+                      {productsToList.map(producto => (
                         <li key={producto.producto_id} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
                           <div>
                             <p className="font-semibold text-gray-900 dark:text-gray-100">{producto.nombre}</p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Cód: {producto.codigo}</p>
+                            {showLowStockView && (
+                                <p className="text-xs mt-1">
+                                    Stock: <span className="font-bold text-red-600">{formatStockDisplay(Number(producto.stock), producto.conversiones || [], producto.unidad_inventario?.nombre_unidad || 'Unidad')}</span> / Mín: <span className="font-bold">{formatStockDisplay(Number(producto.stock_minimo), producto.conversiones || [], producto.unidad_inventario?.nombre_unidad || 'Unidad')}</span>
+                                </p>
+                            )}
                           </div>
                           <Button
                             type="button"
@@ -440,7 +481,9 @@ const ComprasFormPage: React.FC = () => {
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-center text-gray-500 dark:text-gray-400 p-4">No se encontraron productos.</p>
+                    <p className="text-center text-gray-500 dark:text-gray-400 p-4">
+                      {showLowStockView ? "No hay productos con bajo stock." : "No se encontraron productos."}
+                    </p>
                   )}
                 </div>
               </div>
@@ -490,6 +533,7 @@ const ComprasFormPage: React.FC = () => {
                             value={detalle.presentacion_compra || ''}
                             onChange={(e) => handleDetalleChange(index, "presentacion_compra", e.target.value)}
                             options={[
+                              { value: '', label: `${producto.unidad_inventario.nombre_unidad} (Base)` }, // ✅ Añadida la unidad base
                               ...allConversions
                                 .filter(c => c.producto_id === producto.producto_id && c.es_para_compra)
                                 .map(conv => ({
@@ -616,9 +660,26 @@ const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
     }
   }, [isOpen, producto]);
 
-  const productConversions = producto
-    ? allConversions.filter(c => c.producto_id === producto.producto_id && c.es_para_compra)
-    : [];
+  // ✅ MODIFICADO: Crear una lista de opciones que incluye la unidad base
+  const presentacionOptions = useMemo(() => {
+    if (!producto) return [];
+    
+    const productConversions = allConversions.filter(c => c.producto_id === producto.producto_id && c.es_para_compra);
+    
+    // La unidad base siempre es una opción
+    const unidadBaseOption = {
+      value: producto.unidad_inventario.nombre_unidad,
+      label: `${producto.unidad_inventario.nombre_unidad} (Base)`
+    };
+
+    const conversionOptions = productConversions.map(conv => ({
+      value: conv.nombre_presentacion,
+      label: conv.nombre_presentacion
+    }));
+
+    return [unidadBaseOption, ...conversionOptions];
+  }, [producto, allConversions]);
+
 
   const addPresentacion = () => {
     setPresentaciones([...presentaciones, {
@@ -632,16 +693,29 @@ const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
     setPresentaciones(presentaciones.filter((_, i) => i !== index));
   };
 
+  // ✅ MODIFICADO: La lógica de actualización de precio ahora considera la unidad base
   const updatePresentacion = (index: number, field: string, value: string | number) => {
     const updated = [...presentaciones];
     if (field === 'presentacion') {
-      const selectedConversion = productConversions.find(c => c.nombre_presentacion === value);
+      const selectedValue = value as string;
+      const productConversions = allConversions.filter(c => c.producto_id === producto?.producto_id && c.es_para_compra);
+      const selectedConversion = productConversions.find(c => c.nombre_presentacion === selectedValue);
+      
+      let newPrice = updated[index].precio;
+      const basePrice = parseFloat(String(producto?.precio_compra)) || 0;
+
+      if (selectedConversion) {
+        // Es una presentación de conversión
+        newPrice = basePrice * selectedConversion.unidades_por_presentacion;
+      } else if (selectedValue === producto?.unidad_inventario.nombre_unidad) {
+        // Es la unidad base
+        newPrice = basePrice;
+      }
+
       updated[index] = {
         ...updated[index],
-        presentacion: value as string,
-        precio: selectedConversion
-          ? (parseFloat(String(producto?.precio_compra)) || 0) * selectedConversion.unidades_por_presentacion
-          : updated[index].precio
+        presentacion: selectedValue,
+        precio: newPrice
       };
     } else {
       updated[index] = { ...updated[index], [field]: value };
@@ -661,7 +735,8 @@ const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
       producto_id: producto!.producto_id,
       cantidad: p.cantidad,
       precio_unitario: p.precio,
-      presentacion_compra: p.presentacion
+      // Si la presentación es la unidad base, guardamos un string vacío, si no, el nombre de la presentación
+      presentacion_compra: p.presentacion === producto?.unidad_inventario.nombre_unidad ? "" : p.presentacion
     }));
 
     onConfirm(detalles);
@@ -693,10 +768,7 @@ const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
                   onChange={(e) => updatePresentacion(index, 'presentacion', e.target.value)}
                   options={[
                     { value: '', label: 'Seleccionar presentación...' },
-                    ...productConversions.map(conv => ({
-                      value: conv.nombre_presentacion,
-                      label: conv.nombre_presentacion
-                    }))
+                    ...presentacionOptions
                   ]}
                   required
                 />

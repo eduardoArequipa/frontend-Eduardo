@@ -4,6 +4,7 @@ import { Producto, ProductoPagination } from '../../types/producto';
 import { EstadoEnum } from '../../types/enums';
 import { useCatalogs } from '../../context/CatalogContext';
 import { useNotification } from '../../context/NotificationContext'; // 1. Importar hook de notificación
+import { useLowStock } from '../../context/LowStockContext';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
@@ -45,6 +46,7 @@ const ProductosListPage: React.FC = () => {
         ensureMarcas
     } = useCatalogs();
     const { addNotification } = useNotification(); // 2. Instanciar hook
+    const { fetchLowStockProducts } = useLowStock();
 
     const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
@@ -152,6 +154,7 @@ const ProductosListPage: React.FC = () => {
         
         // 🚀 OPTIMIZACIÓN: Notificar a otros módulos Y actualizar lista local
         notifyProductoUpdated(producto);
+        await fetchLowStockProducts();
         await fetchProductos(); // Solo recarga la lista local para paginación
     };
 
