@@ -56,7 +56,7 @@ const ComprasFormPage: React.FC = () => {
     notifyProductoCreated
   } = useCatalogs();
   const { addNotification } = useNotification();
-  const { lowStockProducts, loadingLowStock } = useLowStock();
+  const { lowStockProducts, loadingLowStock, fetchLowStockProducts } = useLowStock();
 
   // Form state
   const [proveedorId, setProveedorId] = useState<number | "">("");
@@ -127,7 +127,7 @@ const ComprasFormPage: React.FC = () => {
               `La presentación "${detalle.presentacion_compra}" de ${producto.nombre} fue eliminada. Se ha limpiado.`,
               'warning'
             );
-            return { ...detalle, presentacion_compra: "" };
+            return { ...detalle, presentacion_compra: producto.unidad_inventario.nombre_unidad };
           }
         }
 
@@ -149,7 +149,7 @@ const ComprasFormPage: React.FC = () => {
             producto_id: d.producto.producto_id,
             cantidad: d.cantidad,
             precio_unitario: d.precio_unitario,
-            presentacion_compra: d.presentacion_compra || "",
+            presentacion_compra: d.presentacion_compra || d.producto.unidad_inventario.nombre_unidad,
           }));
           setDetallesCompra(loadedDetalles);
         } catch (err: any) {
@@ -209,8 +209,8 @@ const ComprasFormPage: React.FC = () => {
           if (selectedConversion) {
             // Es una presentación de conversión
             newPrecioUnitario = precioBase * Number(selectedConversion.unidades_por_presentacion);
-          } else if (selectedValue === producto.unidad_inventario.nombre_unidad || selectedValue === "") {
-            // Es la unidad base (o la cadena vacía que la representa)
+          } else if (selectedValue === producto.unidad_inventario.nombre_unidad) {
+            // Es la unidad base
             newPrecioUnitario = precioBase;
           }
         }
@@ -298,6 +298,9 @@ const ComprasFormPage: React.FC = () => {
         await createCompra(purchaseData as CompraCreate);
         addNotification("Compra creada exitosamente!", 'success');
       }
+      // ✅ Actualizar la lista de productos con bajo stock
+      await fetchLowStockProducts();
+      
       setTimeout(() => navigate("/compras"), 1500);
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || err.message || "Ocurrió un error al guardar la compra.";
@@ -511,6 +514,11 @@ const ComprasFormPage: React.FC = () => {
                   const unidadDisplay = selectedConversion
                     ? selectedConversion.nombre_presentacion
                     : (producto?.unidad_inventario?.nombre_unidad || "Unidad");
+                  
+                  // ✅ Determinar si es fraccionable
+                  const esFraccionable = selectedConversion 
+                    ? false // Las presentaciones (cajas, etc.) se asumen enteras
+                    : (producto?.unidad_inventario?.es_fraccionable ?? true); // La unidad base depende de su configuración
 
                   return (
                     <div
@@ -533,7 +541,7 @@ const ComprasFormPage: React.FC = () => {
                             value={detalle.presentacion_compra || ''}
                             onChange={(e) => handleDetalleChange(index, "presentacion_compra", e.target.value)}
                             options={[
-                              { value: '', label: `${producto.unidad_inventario.nombre_unidad} (Base)` }, // ✅ Añadida la unidad base
+                              { value: producto.unidad_inventario.nombre_unidad, label: `${producto.unidad_inventario.nombre_unidad} (Base)` }, // ✅ Añadida la unidad base
                               ...allConversions
                                 .filter(c => c.producto_id === producto.producto_id && c.es_para_compra)
                                 .map(conv => ({
@@ -553,7 +561,8 @@ const ComprasFormPage: React.FC = () => {
                           type="number"
                           value={detalle.cantidad}
                           onChange={(e) => handleDetalleChange(index, "cantidad", e.target.value)}
-                          min="1"
+                          min={esFraccionable ? "0.01" : "1"}
+                          step={esFraccionable ? "0.01" : "1"}
                         />
                       </div>
                       <div className="w-28">
@@ -653,7 +662,7 @@ const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
     if (isOpen && producto) {
       // Inicializar con una presentación vacía
       setPresentaciones([{
-        presentacion: '',
+        presentacion: producto.unidad_inventario.nombre_unidad,
         cantidad: 1,
         precio: parseFloat(String(producto.precio_compra)) || 0
       }]);
@@ -683,7 +692,7 @@ const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
 
   const addPresentacion = () => {
     setPresentaciones([...presentaciones, {
-      presentacion: '',
+      presentacion: producto?.unidad_inventario.nombre_unidad || '',
       cantidad: 1,
       precio: parseFloat(String(producto?.precio_compra)) || 0
     }]);
@@ -736,7 +745,7 @@ const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
       cantidad: p.cantidad,
       precio_unitario: p.precio,
       // Si la presentación es la unidad base, guardamos un string vacío, si no, el nombre de la presentación
-      presentacion_compra: p.presentacion === producto?.unidad_inventario.nombre_unidad ? "" : p.presentacion
+      presentacion_compra: p.presentacion
     }));
 
     onConfirm(detalles);
@@ -780,7 +789,19 @@ const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
                   type="number"
                   value={pres.cantidad}
                   onChange={(e) => updatePresentacion(index, 'cantidad', Number(e.target.value))}
-                  min="1"
+                  min={
+                    // Determinar si es fraccionable en el modal
+                    (() => {
+                      const isBase = pres.presentacion === producto.unidad_inventario.nombre_unidad;
+                      return isBase && producto.unidad_inventario.es_fraccionable ? "0.01" : "1";
+                    })() === "0.01" ? "0.01" : "1"
+                  }
+                  step={
+                    (() => {
+                      const isBase = pres.presentacion === producto.unidad_inventario.nombre_unidad;
+                      return isBase && producto.unidad_inventario.es_fraccionable ? "0.01" : "1";
+                    })()
+                  }
                   required
                 />
               </div>

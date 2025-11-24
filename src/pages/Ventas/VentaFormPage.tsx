@@ -101,7 +101,7 @@ const VentasFormPage: React.FC = () => {
 
             // Inicializar cantidades en 0 para todas las presentaciones
             const cantidadesPorPresentacion: { [key: string]: number } = {
-                'Unidad': 1 // Por defecto, agregar 1 unidad
+                [producto.unidad_inventario.nombre_unidad]: 1 // Por defecto, agregar 1 unidad base
             };
             
             // Agregar las demás presentaciones en 0
@@ -193,7 +193,7 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
                     };
 
                     // Calcular total en unidad base para validar stock
-                    let totalEnUnidadBase = updatedCantidades['Unidad'];
+                    let totalEnUnidadBase = updatedCantidades[item.unidad_base] || 0;
                     item.conversiones.forEach(conversion => {
                         const cantidadPresentacion = updatedCantidades[conversion.nombre_presentacion] || 0;
                         totalEnUnidadBase += cantidadPresentacion * Number(conversion.unidades_por_presentacion);
@@ -223,7 +223,7 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
             let totalItem = 0;
             
             // Sumar precio de unidades
-            const cantidadUnidades = item.cantidades_por_presentacion['Unidad'] || 0;
+            const cantidadUnidades = item.cantidades_por_presentacion[item.unidad_base] || 0;
             totalItem += cantidadUnidades * item.precio_venta_unitario;
             
             // Sumar precio de otras presentaciones
@@ -251,8 +251,8 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
                 if (cantidad > 0) {
                     let precioUnitario = item.precio_venta_unitario;
                     
-                    // Si no es 'Unidad', calcular precio según conversión
-                    if (presentacion !== 'Unidad') {
+                    // Si no es la unidad base, calcular precio según conversión
+                    if (presentacion !== item.unidad_base) {
                         const conversion = item.conversiones.find(c => c.nombre_presentacion === presentacion);
                         if (conversion) {
                             precioUnitario = item.precio_venta_unitario * Number(conversion.unidades_por_presentacion);
@@ -287,7 +287,7 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
         let subtotal = 0;
         
         // Sumar precio de unidades
-        const cantidadUnidades = item.cantidades_por_presentacion['Unidad'] || 0;
+        const cantidadUnidades = item.cantidades_por_presentacion[item.unidad_base] || 0;
         subtotal += cantidadUnidades * item.precio_venta_unitario;
         
         // Sumar precio de otras presentaciones
@@ -314,8 +314,8 @@ const handleProductFormSuccess = async (producto: Producto): Promise<void> => {
                             </span>
                             <Input
                                 type="number"
-                                value={row.original.cantidades_por_presentacion['Unidad'] || 0}
-                                onChange={(e) => updateCartItemQuantity(row.original.producto_id, 'Unidad', parsearCantidad(e.target.value, row.original.unidad_base_fraccionable))}
+                                value={row.original.cantidades_por_presentacion[row.original.unidad_base] || 0}
+                                onChange={(e) => updateCartItemQuantity(row.original.producto_id, row.original.unidad_base, parsearCantidad(e.target.value, row.original.unidad_base_fraccionable))}
                                 className="w-20 text-right"
                                 min="0"
                                 step={row.original.unidad_base_fraccionable ? "0.01" : "1"}

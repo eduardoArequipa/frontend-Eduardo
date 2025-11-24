@@ -1,6 +1,8 @@
 // src/components/Specific/PerfilForm.tsx
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { updateUser } from '../../services/userService';
 import { uploadImage } from '../../services/uploadService';
 import { IUsuarioReadAudit, IUsuarioUpdate } from '../../types/usuario';
@@ -19,19 +21,61 @@ interface PerfilFormProps {
     onCancel: () => void;
 }
 
-interface FormData {
-    nombre_usuario: string;
-    contraseña: string;
-    confirmar_contraseña: string;
-    // Datos de persona
-    nombre: string;
-    apellido_paterno: string;
-    apellido_materno: string;
-    ci: string;
-    email: string;
-    telefono: string;
-    direccion: string;
-}
+
+
+// --- Esquema de Validación con Zod ---
+const perfilSchema = z.object({
+    nombre_usuario: z.string()
+        .min(3, "El nombre de usuario debe tener al menos 3 caracteres.")
+        .regex(/^\S+$/, "El nombre de usuario no puede contener espacios.")
+        .nonempty("El nombre de usuario es requerido."),
+    
+    contraseña: z.string().optional(),
+    confirmar_contraseña: z.string().optional(),
+    
+    // Campos informativos (no se validan estrictamente aquí porque son readonly o vienen del backend)
+    nombre: z.string().optional(),
+    apellido_paterno: z.string().optional(),
+    apellido_materno: z.string().optional(),
+    ci: z.string().optional(),
+    email: z.string().optional(),
+    telefono: z.string().optional(),
+    direccion: z.string().optional(),
+})
+.superRefine(({ contraseña, confirmar_contraseña }, ctx) => {
+    if (contraseña && contraseña.trim().length > 0) {
+        if (contraseña.length < 8) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['contraseña'],
+                message: 'La contraseña debe tener al menos 8 caracteres.'
+            });
+        }
+        if (/\s/.test(contraseña)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['contraseña'],
+                message: 'La contraseña no puede contener espacios.'
+            });
+        }
+        if (!/[!@#$%^&*(),.?":{}|<>]/.test(contraseña)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['contraseña'],
+                message: 'La contraseña debe contener al menos un carácter especial.'
+            });
+        }
+        if (contraseña !== confirmar_contraseña) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['confirmar_contraseña'],
+                message: 'Las contraseñas no coinciden.'
+            });
+        }
+    }
+});
+
+type PerfilFormData = z.infer<typeof perfilSchema>;
 
 const PerfilForm: React.FC<PerfilFormProps> = ({ usuario, onSuccess, onCancel }) => {
     const { addNotification } = useNotification();
@@ -44,12 +88,14 @@ const PerfilForm: React.FC<PerfilFormProps> = ({ usuario, onSuccess, onCancel })
     const {
         register,
         handleSubmit,
-        watch,
+        setError: setFormError, // Renombrar para evitar conflicto con el estado local setError
         formState: { errors },
         reset
-    } = useForm<FormData>({ mode: "onBlur" });
+    } = useForm<PerfilFormData>({ 
+        resolver: zodResolver(perfilSchema),
+        mode: "onChange" 
+    });
 
-    const watchPassword = watch('contraseña');
 
     useEffect(() => {
         // Inicializar formulario con datos del usuario
@@ -85,17 +131,13 @@ const PerfilForm: React.FC<PerfilFormProps> = ({ usuario, onSuccess, onCancel })
         if (fileInput) fileInput.value = "";
     };
 
-    const onSubmit = async (formData: FormData) => {
+    const onSubmit = async (formData: PerfilFormData) => {
         setLoading(true);
         setError(null);
 
         try {
-            // Validar contraseñas si se están cambiando
-            if (formData.contraseña && formData.contraseña !== formData.confirmar_contraseña) {
-                setError('Las contraseñas no coinciden');
-                setLoading(false);
-                return;
-            }
+            // La validación de contraseñas ya la hace Zod
+            // Si llegamos aquí, los datos son válidos según el esquema
 
             // Subir imagen si hay una nueva
             let finalImagenRuta: string | null = null;
@@ -129,10 +171,21 @@ const PerfilForm: React.FC<PerfilFormProps> = ({ usuario, onSuccess, onCancel })
             // Actualizar usuario
             const updatedUser = await updateUser(usuario.usuario_id, updateData);
 
-            addNotification('Perfil actualizado con éxito', 'success');
+        //    addNotification('Perfil actualizado con éxito', 'success');
             await onSuccess(updatedUser);
 
         } catch (err: any) {
+            // Manejo específico para nombre de usuario duplicado
+            if (err.response?.status === 409 || (err.response?.data?.detail && err.response.data.detail.includes("Ya existe un usuario"))) {
+                setFormError('nombre_usuario', { 
+                    type: 'manual', 
+                    message: 'Este nombre de usuario ya está en uso.' 
+                });
+                // No mostramos notificación global para este error específico de validación
+                setLoading(false);
+                return;
+            }
+
             let errorMessage = "Ocurrió un error al actualizar el perfil.";
             if (err.response && err.response.data) {
                 if (typeof err.response.data.detail === "string") {
@@ -168,10 +221,7 @@ const PerfilForm: React.FC<PerfilFormProps> = ({ usuario, onSuccess, onCancel })
                         <Input
                             id="nombre_usuario"
                             type="text"
-                            {...register("nombre_usuario", {
-                                required: "El nombre de usuario es requerido",
-                                minLength: { value: 3, message: "Mínimo 3 caracteres" }
-                            })}
+                            {...register("nombre_usuario")}
                             className={errors.nombre_usuario ? 'border-red-500' : ''}
                         />
                         {errors.nombre_usuario && <span className="text-red-500 text-xs">{errors.nombre_usuario.message}</span>}
@@ -237,9 +287,7 @@ const PerfilForm: React.FC<PerfilFormProps> = ({ usuario, onSuccess, onCancel })
                         <Input
                             id="contraseña"
                             type="password"
-                            {...register("contraseña", {
-                                minLength: watchPassword ? { value: 6, message: "Mínimo 6 caracteres" } : undefined
-                            })}
+                            {...register("contraseña")}
                             placeholder="Dejar vacío para no cambiar"
                             className={errors.contraseña ? 'border-red-500' : ''}
                             autoComplete="new-password"
@@ -254,9 +302,7 @@ const PerfilForm: React.FC<PerfilFormProps> = ({ usuario, onSuccess, onCancel })
                         <Input
                             id="confirmar_contraseña"
                             type="password"
-                            {...register("confirmar_contraseña", {
-                                validate: watchPassword ? (value) => value === watchPassword || "Las contraseñas no coinciden" : undefined
-                            })}
+                            {...register("confirmar_contraseña")}
                             placeholder="Confirmar nueva contraseña"
                             className={errors.confirmar_contraseña ? 'border-red-500' : ''}
                             autoComplete="new-password"

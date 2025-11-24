@@ -45,7 +45,7 @@ const DetalleVentaModal: React.FC<DetalleVentaModalProps> = ({ venta, isOpen, on
       Cell: ({ row }: any) => (
         <div className="text-center">
           <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
-            {row.original.presentacion_venta || 'Unidad'}
+            {row.original.presentacion_venta|| 'Unidad'}
           </span>
         </div>
       )

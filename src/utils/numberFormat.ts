@@ -18,8 +18,8 @@ export const formatearCantidad = (cantidad: number | string): string => {
         return num.toString();
     }
 
-    // Si tiene decimales, mostrar hasta 3 decimales y quitar ceros al final
-    return num.toFixed(3).replace(/\.?0+$/, '');
+    // Si tiene decimales, mostrar hasta 2 decimales y quitar ceros al final
+    return num.toFixed(2).replace(/\.?0+$/, '');
 };
 
 /**
