@@ -140,7 +140,7 @@ const DashboardPage = () => {
 
   return (
     <div className="p-4 md:p-8 space-y-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-center gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Dashboard Interactivo</h1>
         {(filters.category || filters.supplier || filters.startDate || filters.endDate) && (
           <div className="text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full">
@@ -159,15 +159,14 @@ const DashboardPage = () => {
       />
 
       {/* KPIs */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div id="kpi-section" className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {data.kpi_cards.map((card) => (
           <KpiCard key={card.title} title={card.title} value={card.value} icon={getIconForKpi(card.title)} />
         ))}
-        <KpiCard title="Valor Total del Inventario" value={`Bs. ${data.total_inventory_value.toFixed(2)}`} icon="stock" />
       </div>
 
       {/* Gráfico de Ventas con selector y comparación */}
-      <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+      <div id="sales-chart-section" className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
         <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
           <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200">Rendimiento de Ventas Interactivo</h2>
           <div className="flex flex-wrap items-center gap-4">
@@ -199,11 +198,13 @@ const DashboardPage = () => {
           data={getSalesData()}
           onBarClick={handleSalesBarClick}
           showComparison={filters.compareWithPrevious || false}
+          period={salesPeriod}
+          showExportButton={true}
         />
       </div>
 
       {/* Gráficos de Productos y Categorías */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+      <div id="products-categories-section" className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
           <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-2">Top 5 Productos Más Vendidos</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -212,6 +213,7 @@ const DashboardPage = () => {
           <TopProductsChart
             data={data.top_selling_products}
             onBarClick={handleProductClick}
+            showExportButton={true}
           />
         </div>
         <div className="lg:col-span-2 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
@@ -222,19 +224,20 @@ const DashboardPage = () => {
           <CategoryChart
             data={data.inventory_by_category}
             onCategoryClick={handleCategoryClick}
+            showExportButton={true}
           />
         </div>
       </div>
 
       {/* Estadísticas de Compras y Stock Bajo */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+      <div id="purchases-stock-section" className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
           <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Estadísticas de Compras Mejoradas</h2>
-          <PurchasesStats data={data.purchase_stats} />
+          <PurchasesStats data={data.purchase_stats} showExportButton={true} />
         </div>
         <div className="lg:col-span-2 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
           <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Productos con Bajo Stock</h2>
-          <LowStockTable products={data.low_stock_products} />
+          <LowStockTable products={data.low_stock_products} showExportButton={true} />
         </div>
       </div>
 

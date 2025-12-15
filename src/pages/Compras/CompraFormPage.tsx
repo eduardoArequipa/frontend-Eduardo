@@ -732,9 +732,52 @@ const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
     setPresentaciones(updated);
   };
 
+  // ✅ NUEVO: Función para calcular equivalencias automáticamente
+  const calcularEquivalencias = (presentacionSeleccionada: string, cantidad: number): string => {
+    if (!producto || cantidad <= 0 || !presentacionSeleccionada) return '';
+
+    // Obtener todas las presentaciones de compra
+    const productConversions = allConversions.filter(c => c.producto_id === producto.producto_id && c.es_para_compra);
+
+    // Calcular unidades base
+    let unidadesBase: number;
+    if (presentacionSeleccionada === producto.unidad_inventario.nombre_unidad) {
+      // Es la unidad base
+      unidadesBase = cantidad;
+    } else {
+      // Es una conversión
+      const conversion = productConversions.find(c => c.nombre_presentacion === presentacionSeleccionada);
+      if (!conversion) return '';
+      unidadesBase = cantidad * Number(conversion.unidades_por_presentacion);
+    }
+
+    // Calcular equivalencias para todas las presentaciones
+    const equivalencias: string[] = [];
+
+    // Agregar unidad base si no es la seleccionada
+    if (presentacionSeleccionada !== producto.unidad_inventario.nombre_unidad) {
+      equivalencias.push(`${unidadesBase.toFixed(2)} ${producto.unidad_inventario.nombre_unidad}`);
+    }
+
+    // Agregar otras presentaciones
+    productConversions.forEach(conv => {
+      if (conv.nombre_presentacion !== presentacionSeleccionada) {
+        const cantidadEnPresentacion = unidadesBase / Number(conv.unidades_por_presentacion);
+        if (cantidadEnPresentacion >= 0.01) { // Solo mostrar si es significativo
+          const cantidadFormateada = Number.isInteger(cantidadEnPresentacion)
+            ? cantidadEnPresentacion.toString()
+            : cantidadEnPresentacion.toFixed(2);
+          equivalencias.push(`${cantidadFormateada} ${conv.nombre_presentacion}`);
+        }
+      }
+    });
+
+    return equivalencias.length > 0 ? `= ${equivalencias.join(' = ')}` : '';
+  };
+
   const handleConfirm = () => {
     const validPresentaciones = presentaciones.filter(p => p.presentacion && p.cantidad > 0 && p.precio > 0);
-    
+
     if (validPresentaciones.length === 0) {
       alert('Por favor, agrega al menos una presentación con cantidad y precio válidos.');
       return;
@@ -768,66 +811,82 @@ const MultiPresentacionModal: React.FC<MultiPresentacionModalProps> = ({
         </div>
 
         <div className="space-y-3 max-h-[400px] overflow-y-auto">
-          {presentaciones.map((pres, index) => (
-            <div key={index} className="flex gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-800">
-              <div className="flex-1">
-                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Presentación</label>
-                <Select
-                  value={pres.presentacion}
-                  onChange={(e) => updatePresentacion(index, 'presentacion', e.target.value)}
-                  options={[
-                    { value: '', label: 'Seleccionar presentación...' },
-                    ...presentacionOptions
-                  ]}
-                  required
-                />
-              </div>
+          {presentaciones.map((pres, index) => {
+            // ✅ NUEVO: Calcular equivalencias para mostrar
+            const equivalencias = calcularEquivalencias(pres.presentacion, pres.cantidad);
 
-              <div className="w-24">
-                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Cantidad</label>
-                <Input
-                  type="number"
-                  value={pres.cantidad}
-                  onChange={(e) => updatePresentacion(index, 'cantidad', Number(e.target.value))}
-                  min={
-                    // Determinar si es fraccionable en el modal
-                    (() => {
-                      const isBase = pres.presentacion === producto.unidad_inventario.nombre_unidad;
-                      return isBase && producto.unidad_inventario.es_fraccionable ? "0.01" : "1";
-                    })() === "0.01" ? "0.01" : "1"
-                  }
-                  step={
-                    (() => {
-                      const isBase = pres.presentacion === producto.unidad_inventario.nombre_unidad;
-                      return isBase && producto.unidad_inventario.es_fraccionable ? "0.01" : "1";
-                    })()
-                  }
-                  required
-                />
-              </div>
+            return (
+              <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-800">
+                <div className="flex gap-2 p-3">
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Presentación</label>
+                    <Select
+                      value={pres.presentacion}
+                      onChange={(e) => updatePresentacion(index, 'presentacion', e.target.value)}
+                      options={[
+                        { value: '', label: 'Seleccionar presentación...' },
+                        ...presentacionOptions
+                      ]}
+                      required
+                    />
+                  </div>
 
-              <div className="w-28">
-                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Precio (Bs.)</label>
-                <Input
-                  type="number"
-                  value={pres.precio}
-                  onChange={(e) => updatePresentacion(index, 'precio', Number(e.target.value))}
-                  min="0.01"
-                  step="0.01"
-                  required
-                />
-              </div>
+                  <div className="w-24">
+                    <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Cantidad</label>
+                    <Input
+                      type="number"
+                      value={pres.cantidad}
+                      onChange={(e) => updatePresentacion(index, 'cantidad', Number(e.target.value))}
+                      min={
+                        // Determinar si es fraccionable en el modal
+                        (() => {
+                          const isBase = pres.presentacion === producto.unidad_inventario.nombre_unidad;
+                          return isBase && producto.unidad_inventario.es_fraccionable ? "0.01" : "1";
+                        })() === "0.01" ? "0.01" : "1"
+                      }
+                      step={
+                        (() => {
+                          const isBase = pres.presentacion === producto.unidad_inventario.nombre_unidad;
+                          return isBase && producto.unidad_inventario.es_fraccionable ? "0.01" : "1";
+                        })()
+                      }
+                      required
+                    />
+                  </div>
 
-              <Button
-                type="button"
-                onClick={() => removePresentacion(index)}
-                variant="danger"
-                className="p-2 self-end"
-              >
-                X
-              </Button>
-            </div>
-          ))}
+                  <div className="w-28">
+                    <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Precio (Bs.)</label>
+                    <Input
+                      type="number"
+                      value={pres.precio}
+                      onChange={(e) => updatePresentacion(index, 'precio', Number(e.target.value))}
+                      min="0.01"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={() => removePresentacion(index)}
+                    variant="danger"
+                    className="p-2 self-end"
+                  >
+                    X
+                  </Button>
+                </div>
+
+                {/* ✅ NUEVO: Mostrar equivalencias automáticas */}
+                {equivalencias && (
+                  <div className="px-3 pb-3">
+                    <div className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-2 rounded-md text-sm font-medium">
+                      📊 {pres.cantidad} {pres.presentacion} {equivalencias}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <Button

@@ -145,11 +145,11 @@ const VentasListPage: React.FC = () => {
             isVisible: venta.estado === EstadoVentaEnum.activa,
             colorClass: 'text-red-700 dark:text-red-400'
         },
-        { 
-            label: 'Descargar Factura', 
-            onClick: () => handleDescargarFactura(venta.factura_electronica!.factura_id), 
-            isVisible: !!(venta.factura_electronica && venta.factura_electronica.estado === 'VALIDADA'), 
-            colorClass: 'text-blue-700 dark:text-blue-400' 
+        {
+            label: venta.factura_electronica?.estado === 'ANULADA' ? 'Descargar Factura (ANULADA)' : 'Descargar Factura',
+            onClick: () => handleDescargarFactura(venta.factura_electronica!.factura_id),
+            isVisible: !!(venta.factura_electronica && (venta.factura_electronica.estado === 'VALIDADA' || venta.factura_electronica.estado === 'ANULADA')),
+            colorClass: venta.factura_electronica?.estado === 'ANULADA' ? 'text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-400'
         }
     ];
 
@@ -236,11 +236,25 @@ const VentasListPage: React.FC = () => {
                             
                             // Información de factura electrónica
                             if (venta.factura_electronica) {
+                                // Determinar color según estado de factura
+                                const facturaColor = venta.factura_electronica.estado === 'ANULADA'
+                                    ? 'text-red-600 dark:text-red-400 font-bold'
+                                    : venta.factura_electronica.estado === 'VALIDADA'
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : 'text-yellow-600 dark:text-yellow-400';
+
+                                const iconColor = venta.factura_electronica.estado === 'ANULADA'
+                                    ? 'text-red-500'
+                                    : venta.factura_electronica.estado === 'VALIDADA'
+                                    ? 'text-green-500'
+                                    : 'text-yellow-500';
+
                                 items.push({
                                     label: 'Factura',
                                     value: venta.factura_electronica.estado,
+                                    valueClassName: facturaColor,
                                     icon: (
-                                        <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className={`w-4 h-4 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
                                     )

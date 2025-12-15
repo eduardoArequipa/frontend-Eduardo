@@ -205,6 +205,7 @@ interface TransactionCardProps extends React.HTMLAttributes<HTMLDivElement> {
     label: string;
     value: string | number;
     icon?: React.ReactNode;
+    valueClassName?: string;
   }>;
   actions?: React.ReactNode;
   children?: React.ReactNode;
@@ -315,7 +316,7 @@ const TransactionCard = React.forwardRef<HTMLDivElement, TransactionCardProps>(
                     {item.icon}
                     <span className="text-gray-600 dark:text-gray-400">{item.label}</span>
                   </div>
-                  <span className="text-gray-800 dark:text-gray-200 font-medium">{item.value}</span>
+                  <span className={item.valueClassName || "text-gray-800 dark:text-gray-200 font-medium"}>{item.value}</span>
                 </div>
               ))}
             </div>

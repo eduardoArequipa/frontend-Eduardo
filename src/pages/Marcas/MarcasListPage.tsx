@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { getMarcas, deleteMarca, activateMarca } from '../../services/marcaService';
+import { getMarcas, deleteMarca, activateMarca, getMarcaById } from '../../services/marcaService';
 import { Marca, MarcaPagination } from '../../types/marca';
 import { EstadoEnum } from '../../types/enums';
 import Table from '../../components/Common/Table';
@@ -12,6 +12,7 @@ import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDr
 import Modal from '../../components/Common/Modal';
 import MarcaForm from '../../components/Specific/MarcaForm';
 import { useNotification } from '../../context/NotificationContext';
+import { useCatalogs } from '../../context/CatalogContext';
 
 const MarcasListPage: React.FC = () => {
     const [marcas, setMarcas] = useState<Marca[]>([]);
@@ -28,6 +29,7 @@ const MarcasListPage: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [editingMarca, setEditingMarca] = useState<Marca | null>(null);
     const { addNotification } = useNotification();
+    const { notifyMarcaUpdated } = useCatalogs();
 
     const [modalState, setModalState] = useState<{
         isOpen: boolean;
@@ -36,6 +38,7 @@ const MarcasListPage: React.FC = () => {
         message: React.ReactNode;
         confirmText: string;
         confirmVariant: 'danger' | 'success';
+        marcaId?: number;
     }>({
         isOpen: false,
         action: null,
@@ -43,6 +46,7 @@ const MarcasListPage: React.FC = () => {
         message: null,
         confirmText: '',
         confirmVariant: 'danger',
+        marcaId: undefined,
     });
 
 
@@ -78,14 +82,22 @@ const MarcasListPage: React.FC = () => {
     };
 
     const handleCloseConfirmationModal = () => {
-        setModalState({ isOpen: false, action: null, title: '', message: null, confirmText: '', confirmVariant: 'danger' });
+        setModalState({ isOpen: false, action: null, title: '', message: null, confirmText: '', confirmVariant: 'danger', marcaId: undefined });
     };
 
     const handleConfirmAction = async () => {
-        if (modalState.action) {
+        if (modalState.action && modalState.marcaId) {
             try {
                 await modalState.action();
                 addNotification('Acción completada con éxito', 'success');
+
+                // Obtener la marca actualizada y notificar al contexto global
+                const marcaActualizada = await getMarcaById(modalState.marcaId);
+                notifyMarcaUpdated({
+                    marca_id: marcaActualizada.marca_id,
+                    nombre_marca: marcaActualizada.nombre_marca,
+                    estado: marcaActualizada.estado
+                });
             } catch (err: any) {
                 const errorMessage = err.response?.data?.detail || 'Ocurrió un error al realizar la acción.';
                 addNotification(errorMessage, 'error');
@@ -104,6 +116,7 @@ const MarcasListPage: React.FC = () => {
             confirmText: 'Sí, Desactivar',
             confirmVariant: 'danger',
             action: () => deleteMarca(id),
+            marcaId: id,
         });
     };
 
@@ -115,6 +128,7 @@ const MarcasListPage: React.FC = () => {
             confirmText: 'Sí, Activar',
             confirmVariant: 'success',
             action: () => activateMarca(id),
+            marcaId: id,
         });
     };
 

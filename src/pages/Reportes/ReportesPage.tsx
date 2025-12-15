@@ -68,6 +68,7 @@ import {
 import { EstadoEnum } from '../../types/enums';
 import { useTheme } from '../../context/ThemeContext';
 
+
 const { Title, Text } = Typography;
 
 const ReportesPage: React.FC = () => {
@@ -177,8 +178,16 @@ const ReportesPage: React.FC = () => {
           case 'año': await generarReporteComprasAño(); break;
         }
       }
+      notification.success({
+        message: 'Reporte Generado',
+        description: `El reporte de ${tipo} se ha descargado correctamente.`
+      });
     } catch (error) {
       console.error("Error en reporte rápido:", error);
+      notification.error({
+        message: 'Error al Generar Reporte',
+        description: `No se pudo generar el reporte de ${tipo}. ${error instanceof Error ? error.message : 'Error desconocido'}`
+      });
     } finally {
       setLoading(false);
     }
@@ -236,8 +245,24 @@ const ReportesPage: React.FC = () => {
           setDatosProductos(datos);
         }
       }
+
+      if (formato === 'pdf') {
+        notification.success({
+          message: 'Reporte Generado',
+          description: `El reporte de ${tipoReporte} se ha descargado correctamente.`
+        });
+      } else {
+        notification.success({
+          message: 'Datos Cargados',
+          description: `Los datos del reporte se han cargado correctamente.`
+        });
+      }
     } catch (error) {
       console.error("Error en reporte personalizado:", error);
+      notification.error({
+        message: 'Error al Generar Reporte',
+        description: `No se pudo generar el reporte de ${tipoReporte}. ${error instanceof Error ? error.message : 'Error desconocido'}`
+      });
     } finally {
       setLoading(false);
     }
@@ -279,33 +304,33 @@ const ReportesPage: React.FC = () => {
     >
       <Space wrap>
         <Tooltip title={`Reporte de ${tipoReporte} del día actual`}>
-          <Button 
+          <Button
             onClick={() => handleReporteRapido(tipoReporte, 'dia')}
             disabled={loading}
             variant="secondary"
             size="sm"
           >
-            📅 Hoy
+            Hoy
           </Button>
         </Tooltip>
         <Tooltip title={`Reporte de ${tipoReporte} del mes actual`}>
-          <Button 
+          <Button
             onClick={() => handleReporteRapido(tipoReporte, 'mes')}
             disabled={loading}
             variant="secondary"
             size="sm"
           >
-            📅 Este Mes
+            Este Mes
           </Button>
         </Tooltip>
         <Tooltip title={`Reporte de ${tipoReporte} del año actual`}>
-          <Button 
+          <Button
             onClick={() => handleReporteRapido(tipoReporte, 'año')}
             disabled={loading}
             variant="secondary"
             size="sm"
           >
-            📅 Este Año
+            Este Año
           </Button>
         </Tooltip>
       </Space>
@@ -334,6 +359,9 @@ const ReportesPage: React.FC = () => {
             <>
               <Text strong className={themeStyles.text}>Rango de fechas:</Text>
               <DatePicker.RangePicker 
+              placeholder={
+               ['Fecha Desde', 'Fecha Hasta']
+              }
                 style={{ width: '100%', marginTop: 8 }} 
                 onChange={setFechasVentas}
                 value={fechasVentas}
@@ -554,10 +582,9 @@ const ReportesPage: React.FC = () => {
         >
           <Row gutter={16}>
             <Col span={8}>
-              <Statistic 
+              <Statistic
                 title={<span className={themeStyles.secondaryText}>Total Ventas</span>}
-                value={datosVentas.resumen.total_ventas} 
-              //  prefix="S/ " 
+                value={datosVentas.resumen.total_ventas}
                 precision={2}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
@@ -570,12 +597,38 @@ const ReportesPage: React.FC = () => {
               />
             </Col>
             <Col span={8}>
-              <Statistic 
+              <Statistic
                 title={<span className={themeStyles.secondaryText}>Promedio por Venta</span>}
-                value={datosVentas.resumen.promedio_venta} 
-               // prefix="S/ " 
+                value={datosVentas.resumen.promedio_venta}
                 precision={2}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
+              />
+            </Col>
+          </Row>
+          <Row gutter={16} style={{ marginTop: 16 }}>
+            <Col span={8}>
+              <Statistic
+                title={<span className={themeStyles.secondaryText}>Utilidad Total</span>}
+                value={datosVentas.resumen.utilidad_total || 0}
+                precision={2}
+                valueStyle={{ color: '#52c41a' }}
+              />
+            </Col>
+            <Col span={8}>
+              <Statistic
+                title={<span className={themeStyles.secondaryText}>Margen Promedio</span>}
+                value={datosVentas.resumen.margen_promedio || 0}
+                precision={2}
+                suffix="%"
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Col>
+            <Col span={8}>
+              <Statistic
+                title={<span className={themeStyles.secondaryText}>Total Costos</span>}
+                value={datosVentas.resumen.total_costos || 0}
+                precision={2}
+                valueStyle={{ color: '#ff4d4f' }}
               />
             </Col>
           </Row>
@@ -602,26 +655,24 @@ const ReportesPage: React.FC = () => {
         >
           <Row gutter={16}>
             <Col span={8}>
-              <Statistic 
+              <Statistic
                 title={<span className={themeStyles.secondaryText}>Total Compras</span>}
-                value={datosCompras.resumen.total_compras} 
-              //  prefix="S/ " 
+                value={datosCompras.resumen.total_compras}
                 precision={2}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
             </Col>
             <Col span={8}>
-              <Statistic 
+              <Statistic
                 title={<span className={themeStyles.secondaryText}>Cantidad de Compras</span>}
                 value={datosCompras.resumen.cantidad_compras}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
             </Col>
             <Col span={8}>
-              <Statistic 
+              <Statistic
                 title={<span className={themeStyles.secondaryText}>Promedio por Compra</span>}
-                value={datosCompras.resumen.promedio_compra} 
-                //prefix="S/ " 
+                value={datosCompras.resumen.promedio_compra}
                 precision={2}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
@@ -650,33 +701,57 @@ const ReportesPage: React.FC = () => {
         >
           <Row gutter={16}>
             <Col span={6}>
-              <Statistic 
+              <Statistic
                 title={<span className={themeStyles.secondaryText}>Total Productos</span>}
                 value={datosProductos.resumen.total_productos}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
             </Col>
             <Col span={6}>
-              <Statistic 
+              <Statistic
                 title={<span className={themeStyles.secondaryText}>Con Stock</span>}
                 value={datosProductos.resumen.productos_con_stock}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
             </Col>
             <Col span={6}>
-              <Statistic 
+              <Statistic
                 title={<span className={themeStyles.secondaryText}>Sin Stock</span>}
                 value={datosProductos.resumen.productos_sin_stock}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
               />
             </Col>
             <Col span={6}>
-              <Statistic 
-                title={<span className={themeStyles.secondaryText}>Valor Inventario</span>}
-                value={datosProductos.resumen.valor_inventario} 
-               // prefix="S/ " 
+              <Statistic
+                title={<span className={themeStyles.secondaryText}>Stock Bajo</span>}
+                value={datosProductos.resumen.productos_stock_bajo}
+                valueStyle={{ color: '#ff4d4f' }}
+              />
+            </Col>
+          </Row>
+          <Row gutter={16} style={{ marginTop: 16 }}>
+            <Col span={8}>
+              <Statistic
+                title={<span className={themeStyles.secondaryText}>Valor Inventario (Costo)</span>}
+                value={datosProductos.resumen.valor_inventario}
                 precision={2}
                 valueStyle={{ color: theme === 'dark' ? '#f9fafb' : '#111827' }}
+              />
+            </Col>
+            <Col span={8}>
+              <Statistic
+                title={<span className={themeStyles.secondaryText}>Valor Inventario (Venta)</span>}
+                value={datosProductos.resumen.valor_inventario_venta || 0}
+                precision={2}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Col>
+            <Col span={8}>
+              <Statistic
+                title={<span className={themeStyles.secondaryText}>Utilidad Potencial</span>}
+                value={datosProductos.resumen.utilidad_potencial || 0}
+                precision={2}
+                valueStyle={{ color: '#52c41a' }}
               />
             </Col>
           </Row>
@@ -759,20 +834,20 @@ const ReportesPage: React.FC = () => {
                         onClick={() => handleGenerarReportePersonalizado('pdf')}
                         disabled={loading}
                       >
-                        📄 Generar PDF
+                        Generar PDF
                       </Button>
                       <Button
                         variant="info"
                         onClick={() => handleGenerarReportePersonalizado('json')}
                         disabled={loading}
                       >
-                        📊 Ver Datos
+                        Ver Datos
                       </Button>
-                      <Button 
+                      <Button
                         variant="secondary"
                         onClick={limpiarFiltros}
                       >
-                        🗑️ Limpiar Filtros
+                        Limpiar Filtros
                       </Button>
                     </Space>
                   </Card>
@@ -797,20 +872,20 @@ const ReportesPage: React.FC = () => {
                         onClick={() => handleGenerarReportePersonalizado('pdf')}
                         disabled={loading}
                       >
-                        📄 Generar PDF
+                        Generar PDF
                       </Button>
                       <Button
                         variant="info"
                         onClick={() => handleGenerarReportePersonalizado('json')}
                         disabled={loading}
                       >
-                        📊 Ver Datos
+                        Ver Datos
                       </Button>
-                      <Button 
+                      <Button
                         variant="secondary"
                         onClick={limpiarFiltros}
                       >
-                        🗑️ Limpiar Filtros
+                        Limpiar Filtros
                       </Button>
                     </Space>
                   </Card>
@@ -834,20 +909,20 @@ const ReportesPage: React.FC = () => {
                         onClick={() => handleGenerarReportePersonalizado('pdf')}
                         disabled={loading}
                       >
-                        📄 Generar PDF
+                        Generar PDF
                       </Button>
                       <Button
                         variant="info"
                         onClick={() => handleGenerarReportePersonalizado('json')}
                         disabled={loading}
                       >
-                        📊 Ver Datos
+                        Ver Datos
                       </Button>
-                      <Button 
+                      <Button
                         variant="secondary"
                         onClick={limpiarFiltros}
                       >
-                        🗑️ Limpiar Filtros
+                        Limpiar Filtros
                       </Button>
                     </Space>
                   </Card>

@@ -13,7 +13,7 @@ export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
   filters,
   onFiltersChange,
   availableCategories,
-  availableSuppliers,
+  //availableSuppliers,
   onReset
 }) => {
   const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
@@ -89,7 +89,7 @@ export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
           </select>
         </div>
 
-        {/* Filtro por proveedor */}
+        {/* Filtro por proveedor 
         <div className="flex flex-col">
           <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
             Proveedor
@@ -105,7 +105,7 @@ export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
             ))}
           </select>
         </div>
-
+*/}
         {/* Comparar con período anterior */}
         <div className="flex items-center">
           <input

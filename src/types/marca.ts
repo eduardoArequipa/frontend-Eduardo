@@ -26,6 +26,7 @@ export interface Marca {
 export interface MarcaNested {
     marca_id: number;
     nombre_marca: string;
+    estado: EstadoEnum;
 }
 
 export interface MarcaPagination {

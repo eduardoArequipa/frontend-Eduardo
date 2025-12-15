@@ -134,7 +134,15 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
   });
 
   const unidadInventarioId = watch('unidad_inventario_id');
-  const selectedUnidadInventario = availableUnidadesMedida.find(u => u.unidad_id === unidadInventarioId);
+  const selectedUnidadInventario = availableUnidadesMedida.find(u => u.unidad_id === Number(unidadInventarioId));
+
+  // 🔍 DEBUG: Ver qué valor tiene
+  console.log('🔍 DEBUG ConversionesManager:', {
+    unidadInventarioId,
+    selectedUnidadInventario,
+    nombre_unidad: selectedUnidadInventario?.nombre_unidad,
+    availableUnidadesMedida
+  });
 
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
@@ -447,11 +455,13 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
             className={`mt-1 block w-full ${errors.categoria_id ? 'border-red-500' : 'border-gray-400'}`}
           >
             <option value="">-- Seleccionar Categoría --</option>
-            {availableCategorias.map((categoria) => (
-              <option key={categoria.categoria_id} value={categoria.categoria_id}>
-                {categoria.nombre_categoria}
-              </option>
-            ))}
+            {availableCategorias
+              .filter(categoria => categoria.estado === 'activo')
+              .map((categoria) => (
+                <option key={categoria.categoria_id} value={categoria.categoria_id}>
+                  {categoria.nombre_categoria}
+                </option>
+              ))}
           </Select>
           {errors.categoria_id && <span className="text-red-500 text-xs">{errors.categoria_id.message}</span>}
         </div>
@@ -481,11 +491,13 @@ const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onSuccess, onCa
             className={`mt-1 block w-full ${errors.marca_id ? 'border-red-500' : 'border-gray-400'}`}
           >
             <option value="">-- Seleccionar Marca --</option>
-            {availableMarcas.map((marca) => (
-              <option key={marca.marca_id} value={marca.marca_id}>
-                {marca.nombre_marca}
-              </option>
-            ))}
+            {availableMarcas
+              .filter(marca => marca.estado === 'activo')
+              .map((marca) => (
+                <option key={marca.marca_id} value={marca.marca_id}>
+                  {marca.nombre_marca}
+                </option>
+              ))}
           </Select>
           {errors.marca_id && <span className="text-red-500 text-xs">{errors.marca_id.message}</span>}
         </div>

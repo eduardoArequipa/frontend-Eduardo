@@ -58,8 +58,7 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel }) 
         { value: 'ajuste_positivo', label: 'Ajuste Positivo (Corrección)' },
         { value: 'ajuste_negativo', label: 'Ajuste Negativo (Corrección)' },
         { value: 'uso_interno', label: 'Uso Interno (Consumo Propio)' },
-        { value: 'devolucion', label: ' Devolución (Cliente)' },
-
+        { value: 'devolucion', label: 'Devolución (Cliente)' },
     ];
 
     const loadProductOptions = (inputValue: string, callback: (options: any) => void) => {
@@ -165,7 +164,7 @@ const MovimientoForm: React.FC<MovimientoFormProps> = ({ onSuccess, onCancel }) 
 
             {selectedProduct && (
                 <div className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} p-4 rounded-lg space-y-3`}>
-                    <h3 className="text-lg font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}">Cantidades por Presentación</h3>
+                    <h3 className={`text-lg font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Cantidades por Presentación</h3>
                     
                     <div>
                         <label htmlFor="qty-base" className="text-sm font-medium">{selectedProduct.unidad_inventario.nombre_unidad} ({selectedProduct.unidad_inventario.abreviatura})</label>

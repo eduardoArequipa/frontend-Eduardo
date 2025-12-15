@@ -47,6 +47,7 @@ const ComprasListPage: React.FC = () => {
     const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isAnularModalOpen, setIsAnularModalOpen] = useState(false); // Nuevo estado para el modal de anulación
+    const [isCompletarModalOpen, setIsCompletarModalOpen] = useState(false); // Nuevo estado para el modal de completar
 
     const { addNotification } = useNotification(); // Hook para notificaciones
 
@@ -147,16 +148,32 @@ const ComprasListPage: React.FC = () => {
         }
     };
 
-     const handleCompletarCompra = async (id: number) => {
-         if (window.confirm(`¿Estás seguro de marcar la compra #${id} como completada?`)) {
-             try {
-                 const updatedCompra = await completarCompra(id);
-                 setCompras(compras.map(c => c.compra_id === id ? updatedCompra : c));
-                 alert(`Compra #${id} marcada como completada!`);
+    const handleCompletarCompraClick = (compra: Compra) => {
+        setSelectedCompra(compra);
+        setIsCompletarModalOpen(true);
+    };
 
-             } catch (err: any) {
-                 alert(`Error al marcar la compra #${id} como completada: ${err.response?.data?.detail || err.message}`);
-            }
+    const handleConfirmCompletarCompra = async () => {
+        if (!selectedCompra) return;
+
+        const compraId = selectedCompra.compra_id;
+
+        try {
+            const updatedCompra = await completarCompra(compraId);
+
+            setCompras(compras.map(c => c.compra_id === compraId ? updatedCompra : c));
+
+            addNotification(`Compra #${compraId} completada con éxito. El stock ha sido actualizado.`, 'success');
+
+            // Fetch data again to ensure consistency
+            fetchCompras();
+
+        } catch (err: any) {
+            const errorMessage = err.response?.data?.detail || `Error al completar la compra #${compraId}`;
+            addNotification(errorMessage, 'error');
+        } finally {
+            setIsCompletarModalOpen(false);
+            setSelectedCompra(null);
         }
     };
 
@@ -179,7 +196,7 @@ const ComprasListPage: React.FC = () => {
         return [
             { label: 'Ver Detalle', onClick: () => handleViewModal(compra), isVisible: true, buttonVariant: 'menuItem', colorClass: 'text-blue-700 dark:text-blue-400' },
             { label: 'Editar', onClick: () => handleEditCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem' },
-            { label: 'Completar', onClick: () => handleCompletarCompra(compra.compra_id), isVisible: isPendiente, buttonVariant: 'menuItem', colorClass: 'text-green-700 dark:text-green-400' },
+            { label: 'Completar', onClick: () => handleCompletarCompraClick(compra), isVisible: isPendiente, buttonVariant: 'menuItem', colorClass: 'text-green-700 dark:text-green-400' },
             { label: 'Anular', onClick: () => handleAnularCompraClick(compra), isVisible: !isAnulada, buttonVariant: 'menuItem', colorClass: 'text-red-700 dark:text-red-400' },
         ];
     };
@@ -352,6 +369,35 @@ const ComprasListPage: React.FC = () => {
                         <p className="mt-4 font-semibold text-red-600 dark:text-red-400">
                             Esta acción es irreversible.
                             {selectedCompra.estado === EstadoCompraEnum.completada && ' Se repondrá el stock de los productos involucrados.'}
+                        </p>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Modal de Completar */}
+            <Modal
+                isOpen={isCompletarModalOpen}
+                onClose={() => setIsCompletarModalOpen(false)}
+                onConfirm={handleConfirmCompletarCompra}
+                title="Confirmar Completar Compra"
+                confirmButtonText="Sí, Completar Compra"
+                showConfirmButton={true}
+                confirmButtonVariant="success"
+                isConfirmButtonDisabled={loading}
+                isCancelButtonDisabled={loading}
+                showCancelButton={true}
+            >
+                {selectedCompra && (
+                    <div>
+                        <p className="text-gray-700 dark:text-gray-300">
+                            ¿Estás seguro de que quieres completar la compra <strong>#{selectedCompra.compra_id}</strong>?
+                        </p>
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            Proveedor: {selectedCompra.proveedor?.persona?.nombre || selectedCompra.proveedor?.empresa?.razon_social || 'N/A'}<br/>
+                            Total: {Number(selectedCompra.total).toFixed(2)} Bs.
+                        </p>
+                        <p className="mt-4 font-semibold text-green-600 dark:text-green-400">
+                            Al completar esta compra, el stock de los productos se actualizará automáticamente.
                         </p>
                     </div>
                 )}

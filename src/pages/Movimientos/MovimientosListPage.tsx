@@ -15,6 +15,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { formatStockBreakdown } from '../../utils/stockBreakdown';
 import { formatearCantidad } from '../../utils/numberFormat';
 
+const MAX_PRODUCTOS_FILTER = 100;
+
 const MovimientosListPage: React.FC = () => {
     const { theme } = useTheme();
     const [movimientos, setMovimientos] = useState<MovimientoResponse[]>([]);
@@ -61,7 +63,7 @@ const MovimientosListPage: React.FC = () => {
         const loadFilterData = async () => {
             setLoadingFilterData(true);
             try {
-                const productosData = await getProductos({ limit: 100 }); // Obtener todos los productos para el filtro
+                const productosData = await getProductos({ limit: MAX_PRODUCTOS_FILTER });
                 setAvailableProductosFilter(productosData.items);
             } catch (err) {
                 console.error("Error loading filter data:", err);
@@ -176,7 +178,7 @@ const MovimientosListPage: React.FC = () => {
                              { value: 'ajuste_positivo', label: 'Ajuste Positivo' },
                              { value: 'ajuste_negativo', label: 'Ajuste Negativo' },
                              { value: 'uso_interno', label: 'Uso Interno' },
-                            { value: 'devolucion', label: 'devolucion' },
+                            { value: 'devolucion', label: 'Devolución' },
 
                          ]}
                      />

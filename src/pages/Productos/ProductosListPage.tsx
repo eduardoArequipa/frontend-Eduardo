@@ -71,6 +71,7 @@ const ProductosListPage: React.FC = () => {
                  limit: itemsPerPage,
             };
             const fetchedData: ProductoPagination = await getProductos(params);
+            
             setProductos(fetchedData.items);
             setTotalProductos(fetchedData.total);
         } catch (err: any) {
@@ -199,7 +200,7 @@ const ProductosListPage: React.FC = () => {
                             id="categoriaFilter" 
                             value={categoriaFilter || ''} 
                             onChange={(e) => handleFilterValueChange(setCategoriaFilter)(e.target.value === '' ? '' : parseInt(e.target.value, 10))} 
-                            options={[{ value: '', label: 'Todas las categorías' }, ...categorias.map(c => ({ value: c.categoria_id, label: c.nombre_categoria }))]} 
+                            options={[{ value: '', label: 'Todas las categorías' }, ...categorias.filter(categorias => categorias.estado == EstadoEnum.Activo).map(c => ({ value: c.categoria_id, label: c.nombre_categoria }))]} 
                         />
                     )}
                     {!isLoadingCatalogs && marcas.length > 0 && (
@@ -207,7 +208,7 @@ const ProductosListPage: React.FC = () => {
                             id="marcaFilter" 
                             value={marcaFilter || ''} 
                             onChange={(e) => handleFilterValueChange(setMarcaFilter)(e.target.value === '' ? '' : parseInt(e.target.value, 10))} 
-                            options={[{ value: '', label: 'Todas las marcas' }, ...marcas.map(m => ({ value: m.marca_id, label: m.nombre_marca }))]} 
+                            options={[{ value: '', label: 'Todas las marcas' }, ...marcas.filter(marcas => marcas.estado == EstadoEnum.Activo).map(m => ({ value: m.marca_id, label: m.nombre_marca }))]} 
                         />
                     )}
                     {!isLoadingCatalogs && unidadesMedida.length > 0 && (

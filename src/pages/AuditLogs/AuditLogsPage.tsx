@@ -60,16 +60,26 @@ const AuditLogsPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
+      // Helper para validar IP
+      const isValidIP = (ip: string): boolean => {
+        if (!ip) return false;
+        const parts = ip.split('.');
+        return parts.length === 4 && parts.every(part => {
+          const num = parseInt(part);
+          return !isNaN(num) && num >= 0 && num <= 255;
+        });
+      };
+
       const params = {
         skip: (currentPage - 1) * itemsPerPage,
         limit: itemsPerPage,
-        search: filters.search || undefined,
+        search: filters.search.trim() || undefined,
         tabla: filters.tabla || undefined,
         accion: filters.accion || undefined,
-        usuario_id: filters.usuario_id ? parseInt(filters.usuario_id) : undefined,
+        usuario_id: filters.usuario_id && filters.usuario_id.trim() ? parseInt(filters.usuario_id) : undefined,
         fecha_desde: filters.fecha_desde || undefined,
         fecha_hasta: filters.fecha_hasta || undefined,
-        ip_address: filters.ip_address || undefined,
+        ip_address: filters.ip_address && isValidIP(filters.ip_address.trim()) ? filters.ip_address.trim() : undefined,
       };
 
       const response = await auditLogService.getAuditLogs(params);
@@ -413,12 +423,29 @@ const AuditLogsPage: React.FC = () => {
               onChange={(e) => handleFilterChange('fecha_hasta', e.target.value)}
             />
 
-            <Input
-              label="Dirección IP"
-              placeholder="192.168.1.1"
-              value={filters.ip_address}
-              onChange={(e) => handleFilterChange('ip_address', e.target.value)}
-            />
+            <div>
+              <Input
+                label="Dirección IP"
+                placeholder="192.168.1.1"
+                value={filters.ip_address}
+                onChange={(e) => handleFilterChange('ip_address', e.target.value)}
+              />
+              {filters.ip_address && (() => {
+                try {
+                  // Validar si es una IP válida
+                  const parts = filters.ip_address.split('.');
+                  if (parts.length === 4 && parts.every(part => {
+                    const num = parseInt(part);
+                    return !isNaN(num) && num >= 0 && num <= 255;
+                  })) {
+                    return null; // IP válida
+                  }
+                  return <span className="text-xs text-red-500 mt-1">IP inválida</span>;
+                } catch {
+                  return <span className="text-xs text-red-500 mt-1">IP inválida</span>;
+                }
+              })()}
+            </div>
 
             <div className="flex items-end">
               <Button
@@ -643,6 +670,7 @@ const AuditLogsPage: React.FC = () => {
       {/* Modal de Detalles del Log */}
       {showLogModal && selectedLog && (
         <Modal
+             cancelButtonText = 'Cerrar'        
           isOpen={showLogModal}
           onClose={() => setShowLogModal(false)}
           title="Detalles del Log de Auditoría"

@@ -22,6 +22,7 @@ export interface Categoria extends CategoriaBase {
 export interface CategoriaNested {
     categoria_id: number;
     nombre_categoria: string;
+    estado: EstadoEnum;
 }
 
 export interface CategoriaPagination {

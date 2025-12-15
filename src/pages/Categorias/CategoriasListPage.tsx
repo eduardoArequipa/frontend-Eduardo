@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { getCategorias, deleteCategoria, activateCategoria } from '../../services/categoriaService';
+import { getCategorias, deleteCategoria, activateCategoria, getCategoriaById } from '../../services/categoriaService';
 import { Categoria, CategoriaPagination } from '../../types/categoria';
 import { EstadoEnum } from '../../types/enums';
-// Ya no necesitamos useCatalogs aquí
 import Table from '../../components/Common/Table';
 import Button from '../../components/Common/Button';
 import Input from '../../components/Common/Input';
@@ -11,7 +10,8 @@ import Select from '../../components/Common/Select';
 import Modal from '../../components/Common/Modal';
 import CategoriaForm from '../../components/Specific/CategoriaForm';
 import ActionsDropdown, { ActionConfig } from '../../components/Common/ActionsDropdown';
-import { useNotification } from '../../context/NotificationContext'; // Importar hook
+import { useNotification } from '../../context/NotificationContext';
+import { useCatalogs } from '../../context/CatalogContext';
 
 const CategoriasListPage: React.FC = () => {
     const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -28,6 +28,7 @@ const CategoriasListPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(null);
     const { addNotification } = useNotification();
+    const { notifyCategoriaUpdated } = useCatalogs();
 
     const [modalState, setModalState] = useState<{
         isOpen: boolean;
@@ -36,6 +37,7 @@ const CategoriasListPage: React.FC = () => {
         message: React.ReactNode;
         confirmText: string;
         confirmVariant: 'danger' | 'success';
+        categoriaId?: number;
     }>({
         isOpen: false,
         action: null,
@@ -43,6 +45,7 @@ const CategoriasListPage: React.FC = () => {
         message: null,
         confirmText: '',
         confirmVariant: 'danger',
+        categoriaId: undefined,
     });
 
     // Ya no necesitamos invalidateCategorias porque CategoriaForm notifica directamente
@@ -94,14 +97,22 @@ const CategoriasListPage: React.FC = () => {
     };
 
     const handleCloseConfirmationModal = () => {
-        setModalState({ isOpen: false, action: null, title: '', message: null, confirmText: '', confirmVariant: 'danger' });
+        setModalState({ isOpen: false, action: null, title: '', message: null, confirmText: '', confirmVariant: 'danger', categoriaId: undefined });
     };
 
     const handleConfirmAction = async () => {
-        if (modalState.action) {
+        if (modalState.action && modalState.categoriaId) {
             try {
                 await modalState.action();
                 addNotification('Acción completada con éxito', 'success');
+
+                // Obtener la categoría actualizada y notificar al contexto global
+                const categoriaActualizada = await getCategoriaById(modalState.categoriaId);
+                notifyCategoriaUpdated({
+                    categoria_id: categoriaActualizada.categoria_id,
+                    nombre_categoria: categoriaActualizada.nombre_categoria,
+                    estado: categoriaActualizada.estado
+                });
             } catch (err: any) {
                 const errorMessage = err.response?.data?.detail || 'Ocurrió un error al realizar la acción.';
                 addNotification(errorMessage, 'error');
@@ -120,6 +131,7 @@ const CategoriasListPage: React.FC = () => {
             confirmText: 'Sí, Desactivar',
             confirmVariant: 'danger',
             action: () => deleteCategoria(id),
+            categoriaId: id,
         });
     };
 
@@ -131,6 +143,7 @@ const CategoriasListPage: React.FC = () => {
             confirmText: 'Sí, Activar',
             confirmVariant: 'success',
             action: () => activateCategoria(id),
+            categoriaId: id,
         });
      };
 

@@ -30,7 +30,9 @@ interface CatalogContextType {
   notifyProductoUpdated: (producto: Producto) => void;
   notifyProductoDeleted: (productoId: number) => void;
   notifyCategoriaCreated: (categoria: CategoriaNested) => void;
+  notifyCategoriaUpdated: (categoria: CategoriaNested) => void;
   notifyMarcaCreated: (marca: MarcaNested) => void;
+  notifyMarcaUpdated: (marca: MarcaNested) => void;
   // Funciones para invalidar cache específico
   invalidateConversiones: () => Promise<void>;
   // Legacy compatibility
@@ -186,9 +188,23 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
     eventBus.emit(EVENTS.CATEGORIA_CREATED, categoria);
   }, []);
 
+  const notifyCategoriaUpdated = useCallback((categoria: CategoriaNested) => {
+    setCategorias(prev => prev.map(c =>
+      c.categoria_id === categoria.categoria_id ? categoria : c
+    ));
+    eventBus.emit(EVENTS.CATEGORIA_UPDATED, categoria);
+  }, []);
+
   const notifyMarcaCreated = useCallback((marca: MarcaNested) => {
     setMarcas(prev => [...prev, marca]);
     eventBus.emit(EVENTS.MARCA_CREATED, marca);
+  }, []);
+
+  const notifyMarcaUpdated = useCallback((marca: MarcaNested) => {
+    setMarcas(prev => prev.map(m =>
+      m.marca_id === marca.marca_id ? marca : m
+    ));
+    eventBus.emit(EVENTS.MARCA_UPDATED, marca);
   }, []);
 
   // 🔄 INVALIDAR CONVERSIONES - Para cuando se modifican las presentaciones
@@ -246,7 +262,7 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleProductoUpdatedFromExternal = (producto: Producto) => {
       if (cache.productos.loaded) {
-        setProductos(prev => prev.map(p => 
+        setProductos(prev => prev.map(p =>
           p.producto_id === producto.producto_id ? producto : p
         ));
       }
@@ -258,17 +274,37 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
     };
 
+    const handleCategoriaUpdatedFromExternal = (categoria: CategoriaNested) => {
+      if (cache.categorias.loaded) {
+        setCategorias(prev => prev.map(c =>
+          c.categoria_id === categoria.categoria_id ? categoria : c
+        ));
+      }
+    };
+
+    const handleMarcaUpdatedFromExternal = (marca: MarcaNested) => {
+      if (cache.marcas.loaded) {
+        setMarcas(prev => prev.map(m =>
+          m.marca_id === marca.marca_id ? marca : m
+        ));
+      }
+    };
+
     // Suscribirse a eventos
     eventBus.on(EVENTS.PRODUCTO_CREATED, handleProductoCreatedFromExternal);
     eventBus.on(EVENTS.PRODUCTO_UPDATED, handleProductoUpdatedFromExternal);
     eventBus.on(EVENTS.CONVERSION_UPDATED, handleConversionUpdatedFromExternal);
+    eventBus.on(EVENTS.CATEGORIA_UPDATED, handleCategoriaUpdatedFromExternal);
+    eventBus.on(EVENTS.MARCA_UPDATED, handleMarcaUpdatedFromExternal);
 
     return () => {
       eventBus.off(EVENTS.PRODUCTO_CREATED, handleProductoCreatedFromExternal);
       eventBus.off(EVENTS.PRODUCTO_UPDATED, handleProductoUpdatedFromExternal);
       eventBus.off(EVENTS.CONVERSION_UPDATED, handleConversionUpdatedFromExternal);
+      eventBus.off(EVENTS.CATEGORIA_UPDATED, handleCategoriaUpdatedFromExternal);
+      eventBus.off(EVENTS.MARCA_UPDATED, handleMarcaUpdatedFromExternal);
     };
-  }, [cache.productos.loaded, cache.conversiones.loaded]);
+  }, [cache.productos.loaded, cache.conversiones.loaded, cache.categorias.loaded, cache.marcas.loaded]);
 
   const value = {
     categorias,
@@ -288,7 +324,9 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
     notifyProductoUpdated,
     notifyProductoDeleted,
     notifyCategoriaCreated,
+    notifyCategoriaUpdated,
     notifyMarcaCreated,
+    notifyMarcaUpdated,
     // Funciones de invalidación específica
     invalidateConversiones,
     // Legacy compatibility

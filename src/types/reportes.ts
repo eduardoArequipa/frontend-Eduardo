@@ -10,8 +10,13 @@ export interface ReporteVentaItem {
   producto_nombre: string;
   categoria_nombre: string;
   cantidad: number;
+  presentacion_venta?: string;
   precio_unitario: number;
+  precio_compra?: number;
   subtotal: number;
+  costo_total?: number;
+  utilidad?: number;
+  margen_porcentaje?: number;
 }
 
 export interface ReporteCompraItem {
@@ -23,6 +28,7 @@ export interface ReporteCompraItem {
   producto_nombre: string;
   categoria_nombre: string;
   cantidad: number;
+  presentacion_compra?: string;
   precio_compra: number;
   subtotal: number;
 }
@@ -46,10 +52,14 @@ export interface ReporteProductoItem {
 
 export interface ResumenVentas {
   total_ventas: number;
+  total_costos?: number;
+  utilidad_total?: number;
+  margen_promedio?: number;
   cantidad_ventas: number;
   promedio_venta: number;
   producto_mas_vendido?: string;
   categoria_mas_vendida?: string;
+  cantidad_productos_vendidos?: number;
 }
 
 export interface ResumenCompras {
@@ -66,6 +76,8 @@ export interface ResumenProductos {
   productos_sin_stock: number;
   productos_stock_bajo: number;
   valor_inventario: number;
+  valor_inventario_venta?: number;
+  utilidad_potencial?: number;
 }
 
 export interface ReporteVentasResponse {

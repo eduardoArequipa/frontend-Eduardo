@@ -9,7 +9,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Button from '../../components/Common/Button';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import { useAuth } from '../../hooks/useAuth';
-import { useTheme } from '../../context/ThemeContext';
 
 // Definir el esquema de validación con Zod
 const loginSchema = z.object({
@@ -22,7 +21,6 @@ type LoginFormInputs = z.infer<typeof loginSchema>;
 const LoginPage: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
     const { login, loading, error } = useAuth();
-    const { theme } = useTheme();
 
     const {
         register,

@@ -492,8 +492,8 @@ const globalIsLoading = isLoadingVenta || isLoadingCatalogs || isSubmitting || i
                         {ventaExitosa.factura_electronica && ventaExitosa.factura_electronica.estado === 'VALIDADA' && (
                             <div className="mt-6 text-center">
                                 <p className="text-md text-green-700 dark:text-green-400 mb-4">Factura electrónica generada exitosamente.</p>
-                                <Button 
-                                    variant="success" 
+                                <Button
+                                    variant="success"
                                     onClick={() => {
                                         if (ventaExitosa.factura_electronica?.factura_id) {
                                             descargarFacturaPdf(ventaExitosa.factura_electronica.factura_id);
@@ -505,7 +505,20 @@ const globalIsLoading = isLoadingVenta || isLoadingCatalogs || isSubmitting || i
                             </div>
                         )}
 
-                        {ventaExitosa.factura_electronica && ventaExitosa.factura_electronica.estado !== 'VALIDADA' && (
+                        {ventaExitosa.factura_electronica && ventaExitosa.factura_electronica.estado === 'ANULADA' && (
+                            <div className="mt-6 text-center p-4 bg-red-100 dark:bg-red-900 rounded-lg border-2 border-red-500">
+                                <p className="text-md text-red-800 dark:text-red-200 font-bold">
+                                    ⚠️ FACTURA ANULADA
+                                </p>
+                                <p className="text-sm text-red-700 dark:text-red-300 mt-2">
+                                    Esta factura ha sido anulada en el sistema de facturación electrónica.
+                                </p>
+                            </div>
+                        )}
+
+                        {ventaExitosa.factura_electronica &&
+                         ventaExitosa.factura_electronica.estado !== 'VALIDADA' &&
+                         ventaExitosa.factura_electronica.estado !== 'ANULADA' && (
                              <div className="mt-6 text-center p-4 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
                                 <p className="text-md text-yellow-800 dark:text-yellow-200">
                                     El estado de la factura es: <span className="font-bold">{ventaExitosa.factura_electronica.estado}</span>. No se puede descargar el PDF en este momento.

@@ -70,7 +70,7 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
     if (unidadInventarioNombre === 'Metro' && formData.rollsPerBox && formData.metersPerRoll) {
       const rolls = parseFloat(formData.rollsPerBox);
       const meters = parseFloat(formData.metersPerRoll);
-      
+
       if (!isNaN(rolls) && !isNaN(meters) && rolls > 0 && meters > 0) {
         setFormData(prev => ({
           ...prev,
@@ -107,8 +107,10 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
       newErrors.unidades_por_presentacion = 'Las unidades deben ser un número mayor a 0';
     }
 
-    if (!Number.isInteger(unidades)) {
-      newErrors.unidades_por_presentacion = 'Las unidades deben ser un número entero';
+    // Validar máximo 2 decimales (compatible con DECIMAL(10, 2) del backend)
+    const decimalParts = formData.unidades_por_presentacion.split('.');
+    if (decimalParts.length > 1 && decimalParts[1].length > 2) {
+      newErrors.unidades_por_presentacion = 'Las unidades pueden tener máximo 2 decimales';
     }
 
     if (!formData.es_para_compra && !formData.es_para_venta) {
@@ -129,8 +131,46 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
+  // ✅ NUEVO: Calcular equivalencias automáticamente
+  const calcularEquivalencias = (): string => {
+    const unidadesPorPresentacion = parseFloat(formData.unidades_por_presentacion);
+    const nombrePresentacion = formData.nombre_presentacion.trim();
+
+    if (!nombrePresentacion || !unidadesPorPresentacion || unidadesPorPresentacion <= 0 || !unidadInventarioNombre) {
+      return '';
+    }
+
+    // Calcular equivalencias con las conversiones ya existentes
+    const equivalencias: string[] = [];
+
+    // Agregar unidad base - formateado sin decimales innecesarios
+    const unidadesFormateadas = Number.isInteger(unidadesPorPresentacion)
+      ? unidadesPorPresentacion.toString()
+      : unidadesPorPresentacion.toFixed(2);
+    equivalencias.push(`${unidadesFormateadas} ${unidadInventarioNombre}`);
+
+    // Calcular equivalencias con otras presentaciones
+    localConversiones.forEach(conv => {
+      // No comparar con la conversión que estamos editando
+      if (editingId && conv.id === editingId) return;
+
+      const convUnidades = Number(conv.unidades_por_presentacion);
+      const equivalencia = unidadesPorPresentacion / convUnidades;
+
+      if (equivalencia >= 0.01) {
+        const equivalenciaFormateada = Number.isInteger(equivalencia)
+          ? equivalencia.toString()
+          : equivalencia.toFixed(2);
+        equivalencias.push(`${equivalenciaFormateada} ${conv.nombre_presentacion}`);
+      }
+    });
+
+    // ✅ CORREGIDO: Siempre mostrar si hay datos válidos (incluso si es la primera presentación)
+    return `1 ${nombrePresentacion} = ${equivalencias.join(' = ')}`;
+  };
+
   const handleSubmit = async () => {
-    
+
     if (!validateForm()) return;
 
     const conversionData: ConversionCreate = {
@@ -145,14 +185,14 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
       if (editingId) {
         await onUpdateConversion(editingId, conversionData);
         // Actualizar estado local
-        setLocalConversiones(prev => 
+        setLocalConversiones(prev =>
           prev.map(conv => conv.id === editingId ? { ...conv, ...conversionData } : conv)
         );
         addNotification('Presentación actualizada exitosamente', 'success');
       } else {
         // Siempre llamar onAddConversion para que el padre maneje el estado
         await onAddConversion(conversionData);
-        
+
         if (isCreationMode) {
           // En modo creación, también actualizar estado local para mostrar en UI
           const newConversion: ConversionLocal = {
@@ -164,7 +204,7 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
         }
         addNotification('Presentación agregada exitosamente', 'success');
       }
-      
+
       resetForm();
       setIsFormVisible(false);
     } catch (error: any) {
@@ -207,11 +247,25 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
     }
   };
 
-  const showCalculatorFields = unidadInventarioNombre === 'Metro' && 
-    (formData.nombre_presentacion.toLowerCase().includes('caja') 
-     
+  const showCalculatorFields = unidadInventarioNombre === 'Metro' &&
+    (formData.nombre_presentacion.toLowerCase().includes('caja')
+
   // || formData.nombre_presentacion.toLowerCase().includes('rollo')
    );
+
+  // ✅ NUEVO: Auto-completar descripción detallada con la misma equivalencia del badge
+  React.useEffect(() => {
+    // Solo auto-completar si no estamos en modo de calculadora de metros y no estamos editando
+    if (!showCalculatorFields && !editingId) {
+      const equivalencia = calcularEquivalencias();
+      if (equivalencia) {
+        setFormData(prev => ({
+          ...prev,
+          descripcion_detallada: equivalencia
+        }));
+      }
+    }
+  }, [formData.unidades_por_presentacion, formData.nombre_presentacion, localConversiones, showCalculatorFields, editingId]);
 
   return (
     <div className={`space-y-4 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
@@ -228,9 +282,10 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
           <Button
             type="button"
             onClick={() => setIsFormVisible(true)}
-            disabled={disabled}
+            disabled={disabled || !unidadInventarioNombre}
             variant="secondary"
             size="sm"
+            title={!unidadInventarioNombre ? "Primero selecciona una Unidad de Inventario" : ""}
           >
             + Agregar Presentación
           </Button>
@@ -252,7 +307,7 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
                       {conversion.nombre_presentacion}
                     </h4>
                     <span className="text-sm font-mono">
-                      = {conversion.unidades_por_presentacion} {unidadInventarioNombre || 'unidades'}
+                      = {conversion.unidades_por_presentacion} {unidadInventarioNombre}
                       {conversion.descripcion_detallada && (
                         <span className={`ml-2 text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
                           ({conversion.descripcion_detallada})
@@ -358,12 +413,12 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
                   </label>
                   <Input
                     type="number"
-                    min="1"
-                    step="1"
+                    min="0.01"
+                    step="0.01"
                     value={formData.unidades_por_presentacion}
                     onChange={(e) => setFormData(prev => ({ ...prev, unidades_por_presentacion: e.target.value }))}
                     disabled={disabled || showCalculatorFields}
-                    placeholder="Ej: 24"
+                    placeholder="Ej: 24 o 10.5"
                     className={errors.unidades_por_presentacion ? 'border-red-500' : ''}
                   />
                   {errors.unidades_por_presentacion && (
@@ -372,6 +427,22 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
                   {showCalculatorFields && (
                     <p className="text-xs text-gray-500 mt-1">Se calcula automáticamente</p>
                   )}
+
+                  {/* ✅ NUEVO: Mostrar equivalencias automáticas */}
+                  {(() => {
+                    const equivalencias = calcularEquivalencias();
+                    return equivalencias && (
+                      <div className="mt-2">
+                        <div className={`px-3 py-2 rounded-md text-sm font-medium ${
+                          theme === 'dark'
+                            ? 'bg-blue-900 text-blue-200'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          📊 {equivalencias}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Campos de calculadora para metros */}
@@ -502,18 +573,24 @@ const ConversionesManager: React.FC<ConversionesManagerProps> = ({
       {localConversiones.length === 0 && !isFormVisible && (
         <div className={`text-center py-8 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
           <p className="text-sm">
-            No hay presentaciones configuradas. 
-            {!disabled && (
-              <span className="block mt-2">
-                <Button
-                  type="button"
-                  onClick={() => setIsFormVisible(true)}
-                  variant="secondary"
-                  size="sm"
-                >
-                  Agregar la primera presentación
-                </Button>
-              </span>
+            {!unidadInventarioNombre ? (
+              "Primero selecciona una Unidad de Inventario para poder agregar presentaciones."
+            ) : (
+              <>
+                No hay presentaciones configuradas.
+                {!disabled && (
+                  <span className="block mt-2">
+                    <Button
+                      type="button"
+                      onClick={() => setIsFormVisible(true)}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      Agregar la primera presentación
+                    </Button>
+                  </span>
+                )}
+              </>
             )}
           </p>
         </div>

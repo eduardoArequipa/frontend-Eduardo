@@ -27,3 +27,13 @@ export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Mo
         throw error;
     }
 };
+
+export const getMovimientoById = async (movimientoId: number): Promise<MovimientoResponse> => {
+    try {
+        const response = await axiosInstance.get<MovimientoResponse>(`/movimientos/${movimientoId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching movimiento ${movimientoId}:`, error);
+        throw error;
+    }
+};

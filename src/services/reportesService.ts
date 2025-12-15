@@ -75,16 +75,24 @@ const downloadPDF = async (url: string, params: any, filename: string) => {
 
   } catch (error: any) {
     console.error(`Error al generar el reporte en PDF (${url}):`, error);
-    
+
     let errorMessage = "Ocurrió un error al generar el reporte.";
-    if (error.response && error.response.status === 404) {
-        errorMessage = "No se encontraron datos con los filtros seleccionados.";
+    let isNoDataError = false;
+
+    if (error.response) {
+      if (error.response.status === 404 || error.response.status === 400) {
+        // Usar el mensaje del backend si está disponible
+        errorMessage = error.response.data?.detail || "No se encontraron datos con los filtros seleccionados.";
+        isNoDataError = true;
+      }
     }
 
-    notification.error({
-      message: 'Error al Generar Reporte',
-      description: errorMessage,
-    });
+    // Usar alert nativo que siempre funciona
+    if (isNoDataError) {
+      alert(`📊 SIN DATOS DISPONIBLES\n\n${errorMessage}\n\nPor favor, registra ventas/compras primero para poder generar reportes.`);
+    } else {
+      alert(`❌ ERROR\n\n${errorMessage}`);
+    }
 
     throw error;
   }
@@ -107,16 +115,23 @@ const fetchReportData = async (url: string, params: any) => {
     return response.data;
   } catch (error: any) {
     console.error(`Error al obtener datos del reporte (${url}):`, error);
-    
+
     let errorMessage = "Ocurrió un error al obtener los datos del reporte.";
-    if (error.response && error.response.status === 404) {
-        errorMessage = "No se encontraron datos con los filtros seleccionados.";
+    let isNoDataError = false;
+
+    if (error.response) {
+      if (error.response.status === 404 || error.response.status === 400) {
+        errorMessage = error.response.data?.detail || "No se encontraron datos con los filtros seleccionados.";
+        isNoDataError = true;
+      }
     }
 
-    notification.error({
-      message: 'Error al Obtener Datos',
-      description: errorMessage,
-    });
+    // Usar alert nativo que siempre funciona
+    if (isNoDataError) {
+      alert(`📊 SIN DATOS DISPONIBLES\n\n${errorMessage}\n\nPor favor, registra datos primero para poder generar reportes.`);
+    } else {
+      alert(`❌ ERROR\n\n${errorMessage}`);
+    }
 
     throw error;
   }
